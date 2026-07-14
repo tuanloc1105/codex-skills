@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows PowerShell"
+  short_description: "Reliable Windows PowerShell command handling"
+  default_prompt: "Use $windows-powershell to run and troubleshoot commands safely in Windows PowerShell or PowerShell 7."
