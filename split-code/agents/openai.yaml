@@ -1,0 +1,4 @@
+interface:
+  display_name: "Split Code"
+  short_description: "Split bulky code without changing behavior"
+  default_prompt: "Use $split-code to split this file into smaller functions while preserving behavior."

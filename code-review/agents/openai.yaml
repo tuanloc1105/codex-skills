@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claude Code Review"
+  short_description: "Precision-to-recall code review workflow"
+  default_prompt: "Use $code-review to review this diff at medium effort and report only verified, actionable findings."
+
+policy:
+  allow_implicit_invocation: true

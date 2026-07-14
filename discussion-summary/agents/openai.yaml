@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discussion Summary"
+  short_description: "Save a Markdown summary of a discussion"
+  default_prompt: "Use $discussion-summary to summarize this discussion and save it as Markdown."

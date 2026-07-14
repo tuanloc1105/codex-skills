@@ -1,0 +1,4 @@
+interface:
+  display_name: "Execute Plan"
+  short_description: "Execute approved plan files"
+  default_prompt: "Use $execute-plan to implement the approved plan at /path/to/plan.md."

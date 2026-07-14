@@ -1,0 +1,4 @@
+interface:
+  display_name: "Security Review"
+  short_description: "Multi-agent attacker-minded review"
+  default_prompt: "Use $security-review to perform an attacker-minded security review of this codebase."
