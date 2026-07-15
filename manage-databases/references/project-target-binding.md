@@ -46,7 +46,7 @@ agent-db target add --id <id> --engine <engine> --environment <env> \
 
 Mỗi target thuộc đúng một project manifest. Luôn dùng ID mô tả rõ environment, ví dụ `dev-orders-ro` hoặc `prod-billing`; không dùng ID mơ hồ như `db1`. Target ID là bất biến trong CLI hiện tại; nếu cấu hình sai, dừng và sửa code/config có kiểm soát thay vì dùng target sai.
 
-Target fingerprint là SHA-256 của JSON canonical gồm toàn bộ `id`, `engine`, `environment`, connection (`host`, `port`, `database`, Oracle `service`, TLS/encrypt/trust policy, MongoDB `authSource`), ordered namespace allowlist và `expectedServerIdentity`. Nó không chứa credential ID hay timestamp. Manifest được recompute khi đọc; mismatch trả `TARGET_BINDING_TAMPERED`.
+Target fingerprint là SHA-256 của JSON canonical gồm toàn bộ `id`, `engine`, `environment`, connection (`host`, `port`, `database`, Oracle `service`, TLS/encrypt/trust policy, MongoDB `authSource`), ordered namespace allowlist, Redis `keyPrefix` và `expectedServerIdentity`. Nó không chứa credential ID hay timestamp. Manifest được recompute khi đọc; mismatch trả `TARGET_BINDING_TAMPERED`.
 
 Credential AAD, mutation plan/receipt và schema cache đều khóa theo target fingerprint. Đổi bất kỳ thành phần binding nào làm credential cũ scope-mismatch, plan/cache cũ invalid; không sửa hash thủ công để tái sử dụng.
 
@@ -63,15 +63,18 @@ agent-db target show --target <id>
 
 1. Project UUID, tên, root và `bindingRevision`.
 2. Target ID và environment, đặc biệt `prod`.
-3. Engine, host, port, database hoặc Oracle service.
-4. Target fingerprint.
-5. Trạng thái credential đúng mode.
-6. `expectedServerIdentity`; giá trị này bắt buộc trước mọi mutation.
+3. Engine, host, port, database/index hoặc Oracle service.
+4. Namespace allowlist hoặc Redis `keyPrefix` đúng phạm vi cần đọc.
+5. Target fingerprint.
+6. Trạng thái credential đúng mode.
+7. `expectedServerIdentity`; giá trị này bắt buộc trước mọi mutation.
 
 Sau khi kết nối, adapter kiểm tra database/service thực tế và server identity đã cấu hình. Mutation prepare còn kiểm tra bằng credential mutation, lưu `database`, `principal`, `serverIdentity` đã verified vào approval surface; execute yêu cầu ba giá trị này vẫn khớp. Mismatch là lỗi dừng, không phải cảnh báo.
 
-## Namespace
+## Namespace và Redis key prefix
 
 `--namespace` hiện là hard allowlist cho MongoDB collection và lọc schema MongoDB. Không dựa vào option này để giới hạn SQL schema/table; với Oracle, SQL Server và PostgreSQL, cưỡng chế phạm vi bằng grants/views của account read và câu query cụ thể.
+
+Redis bắt buộc `--key-prefix` là prefix literal tối đa 256 byte UTF-8 và không chứa ký tự glob `*`, `?`, `[`, `]` hay `\\`. Prefix được khóa trong target fingerprint; mọi key argument và kết quả `SCAN` phải nằm dưới prefix này. ACL của Redis principal vẫn phải giới hạn cùng phạm vi vì client-side check không phải security boundary.
 
 Schema cache có TTL 24 giờ và AAD gồm project ID, `bindingRevision`, target ID/fingerprint và read credential ID. Refresh cache sau khi hết hạn, đổi credential/binding, hoặc trước mutation; execute invalidates cache trước khi gửi mutation nên cả kết quả lỗi cũng cần refresh lại khi muốn đọc schema.

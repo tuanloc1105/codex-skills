@@ -58,3 +58,43 @@ test('CLI initializes a project, binds a target, and fails closed without creden
   assert.equal(read.status, 1);
   assert.equal(JSON.parse(read.stdout).error.code, 'CREDENTIAL_REQUIRED');
 });
+
+test('CLI registers a scoped Redis target and rejects mutation mode before credentials', async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), 'agent-db-cli-redis-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const cwd = path.join(temp, 'workspace');
+  await mkdir(cwd, { recursive: true });
+  const env = { AGENT_DB_HOME: path.join(temp, 'runtime') };
+
+  const initialized = await invoke(['project', 'init', '--name', 'Redis CLI Test'], { cwd, env });
+  assert.equal(initialized.status, 0, initialized.stderr || initialized.stdout);
+  const added = await invoke([
+    'target', 'add', '--id', 'cache', '--engine', 'redis', '--environment', 'test',
+    '--host', 'cache.internal', '--database', '0', '--key-prefix', 'app:',
+    '--expected-server-identity', 'cache.internal:6379',
+  ], { cwd, env });
+  assert.equal(added.status, 0, added.stderr || added.stdout);
+  const target = JSON.parse(added.stdout).data;
+  assert.equal(target.connection.port, 6379);
+  assert.equal(target.connection.tls, true);
+  assert.equal(target.keyPrefix, 'app:');
+
+  const read = await invoke([
+    'read', '--target', 'cache', '--text',
+    JSON.stringify({ operation: 'command', command: 'GET', arguments: { key: 'app:user:1' } }),
+  ], { cwd, env });
+  assert.equal(read.status, 1);
+  assert.equal(JSON.parse(read.stdout).error.code, 'CREDENTIAL_REQUIRED');
+
+  const mutation = await invoke([
+    'mutation', 'prepare', '--target', 'cache', '--text', '{}',
+  ], { cwd, env });
+  assert.equal(mutation.status, 1);
+  assert.equal(JSON.parse(mutation.stdout).error.code, 'UNSUPPORTED_OPERATION');
+
+  const mutationCredential = await invoke([
+    'credential', 'status', '--target', 'cache', '--mode', 'mutation',
+  ], { cwd, env });
+  assert.equal(mutationCredential.status, 1);
+  assert.equal(JSON.parse(mutationCredential.stdout).error.code, 'UNSUPPORTED_OPERATION');
+});

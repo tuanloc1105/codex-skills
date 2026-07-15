@@ -53,6 +53,7 @@ export function publicTarget(target) {
     ...(target.connection.encrypt === undefined ? {} : { encrypt: Boolean(target.connection.encrypt) }),
     trustServerCertificate: Boolean(target.connection.trustServerCertificate),
     ...(target.connection.authSource ? { authSource: target.connection.authSource } : {}),
+    ...(target.keyPrefix ? { keyPrefix: target.keyPrefix } : {}),
     expectedServerIdentity: target.expectedServerIdentity,
     targetFingerprint: target.targetFingerprint,
   };

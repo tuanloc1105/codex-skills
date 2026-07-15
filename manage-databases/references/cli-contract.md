@@ -14,7 +14,7 @@ Chỉ cài global khi người dùng đã cho phép thay đổi môi trường m
 npm install -g <skill-dir>/scripts/agent-db
 ```
 
-Chạy `agent-db doctor` trước để kiểm tra Node, bốn driver database, OS keyring và project hiện tại.
+Chạy `agent-db doctor` trước để kiểm tra Node, năm driver database, OS keyring và project hiện tại.
 
 ## Đầu ra
 
@@ -40,8 +40,8 @@ agent-db project list
 agent-db project show
 agent-db project bind --id <project-uuid>
 
-agent-db target add --id <id> --engine <oracle|mongodb|sqlserver|postgresql> \
-  --environment <env> --host <host> --port <port> --database <db-or-service> \
+agent-db target add --id <id> --engine <oracle|mongodb|sqlserver|postgresql|redis> \
+  --environment <env> --host <host> --port <port> --database <db-service-or-index> \
   [--expected-server-identity <value>]
 agent-db target list
 agent-db target show --target <id>
@@ -52,11 +52,12 @@ agent-db target test --target <id> [--mode <read|mutation>] [--timeout-ms <ms>]
 
 - `--service <service>` cho Oracle.
 - `--namespace <name>` lặp lại hoặc phân cách bằng dấu phẩy; hiện được cưỡng chế cho MongoDB collection.
+- `--key-prefix <literal-prefix>` bắt buộc cho Redis; đây là prefix literal, không nhận glob và tối đa 256 byte UTF-8.
 - `--tls`, `--encrypt`, `--trust-server-certificate` nhận `true|false` hoặc dạng `--no-...`.
 - `--auth-source <db>` cho MongoDB.
-- `--expected-server-identity <value>` để khóa identity của server/cluster; bắt buộc trước mọi mutation.
+- `--expected-server-identity <value>` để khóa identity của server/cluster; bắt buộc trước mọi mutation và production read theo workflow của skill.
 
-TLS mặc định bật cho Oracle, MongoDB và PostgreSQL. SQL Server mặc định `encrypt=true`; mọi engine mặc định `trust-server-certificate=false`. Oracle từ chối hoàn toàn `trust-server-certificate=true`; MongoDB adapter không cung cấp cơ chế bỏ kiểm tra certificate qua flag này. Target ID phải khớp `^[a-z0-9][a-z0-9._-]{0,63}$`.
+TLS mặc định bật cho Oracle, MongoDB, PostgreSQL và Redis. SQL Server mặc định `encrypt=true`; mọi engine mặc định `trust-server-certificate=false`. Oracle và Redis từ chối hoàn toàn `trust-server-certificate=true`; MongoDB adapter không cung cấp cơ chế bỏ kiểm tra certificate qua flag này. Target ID phải khớp `^[a-z0-9][a-z0-9._-]{0,63}$`.
 
 ## Credential và schema
 
@@ -69,7 +70,7 @@ agent-db schema refresh --target <id> [--timeout-ms <ms>]
 agent-db schema show --target <id>
 ```
 
-Mode mặc định là `read`. `credential set` yêu cầu local TTY, nhập secret hai lần, kiểm tra kết nối/identity trước khi mã hóa và lưu. Credential được khóa bằng AAD gồm cả target fingerprint. `schema refresh` luôn dùng credential read; cache schema được mã hóa, khóa theo project binding revision, target fingerprint và read credential ID, rồi hết hạn sau 24 giờ.
+Mode mặc định là `read`. `credential set` yêu cầu local TTY, nhập secret hai lần, kiểm tra kết nối/identity trước khi mã hóa và lưu. Credential được khóa bằng AAD gồm cả target fingerprint. Redis v1 chỉ hỗ trợ mode `read`; mọi thao tác credential hoặc target test ở mode `mutation` đều trả `UNSUPPORTED_OPERATION`. `schema refresh` luôn dùng credential read; cache schema được mã hóa, khóa theo project binding revision, target fingerprint và read credential ID, rồi hết hạn sau 24 giờ.
 
 ## Read
 
@@ -81,7 +82,9 @@ agent-db read --target <id> --stdin [--max-rows <n>] [--timeout-ms <ms>]
 
 Chọn đúng một trong `--file`, `--text`, `--stdin`; input UTF-8 tối đa 1 MiB. Mặc định `max-rows=100`, `timeout-ms=15000`; giới hạn hợp lệ lần lượt là `1..10000` và `1000..300000`. Payload kết quả database có budget JSON xấp xỉ 8 MiB; chuỗi/binary trên 64 KiB được tóm tắt, và `truncated` cùng `truncationReason` cho biết giới hạn dòng hay byte. Ưu tiên `--file` cho SQL/JSON dài và trên Windows để tránh lỗi quoting.
 
-`timeout-ms` được adapter áp vào connection, request, statement hoặc call tùy driver; không phải hard wall-clock cho toàn bộ lệnh nhiều pha. MongoDB `schema refresh` là ngoại lệ có deadline tổng xuyên suốt identity/collections/indexes. Khi mutation timeout hoặc lỗi sau khi đã gửi operation, xử lý `MUTATION_OUTCOME_UNKNOWN` bằng truy vấn read-only xác minh trạng thái; không tự retry.
+Với Redis, input phải là JSON operation typed `{ "operation": "command", "command": "...", "arguments": { ... } }`; không nhận raw Redis command hoặc mảng argv tùy ý. Command, argument và quy tắc scope được mô tả tại [redis.md](redis.md). `SCAN` chỉ lấy đúng một page và luôn ghép `matchSuffix` vào `keyPrefix` của target.
+
+`timeout-ms` được adapter áp vào connection, request, statement hoặc call tùy driver; không phải hard wall-clock cho toàn bộ lệnh nhiều pha. MongoDB `schema refresh` và mọi thao tác Redis là ngoại lệ có deadline tổng xuyên suốt các pha identity/command. Khi mutation timeout hoặc lỗi sau khi đã gửi operation, xử lý `MUTATION_OUTCOME_UNKNOWN` bằng truy vấn read-only xác minh trạng thái; không tự retry.
 
 ## Mutation và audit
 
@@ -96,7 +99,9 @@ agent-db mutation execute --target <id> --plan <uuid> [--timeout-ms <ms>]
 agent-db audit list [--target <id>] [--limit <n>]
 ```
 
-`mutation prepare` mặc định `--transaction auto`: PostgreSQL resolve thành `always` hoặc `never` theo statement; ba engine còn lại resolve thành `never`. `always` chỉ được hỗ trợ cho PostgreSQL. Transaction mode đã resolve nằm trong approval hash và không thể đổi lúc execute.
+Redis v1 không hỗ trợ mutation; các lệnh `mutation prepare` và `mutation execute` trên Redis dừng với `UNSUPPORTED_OPERATION` trước khi đọc credential hay tạo plan.
+
+`mutation prepare` mặc định `--transaction auto`: PostgreSQL resolve thành `always` hoặc `never` theo statement; Oracle, SQL Server và MongoDB resolve thành `never`. `always` chỉ được hỗ trợ cho PostgreSQL. Transaction mode đã resolve nằm trong approval hash và không thể đổi lúc execute.
 
 `mutation approve` là cổng người dùng: phải được chính người dùng chạy trong terminal local của đúng project. CLI hiển thị exact preview bằng terminal-safe JSON string encoding, yêu cầu phrase gắn với approval hash, rồi tạo approval receipt AES-GCM riêng. Agent không được gọi lệnh này, cấp pseudo-terminal, gọi module nội bộ hoặc tự tạo receipt. `execute` không nhận phrase/`--confirm`; nó consume one-time plan và receipt còn hạn dưới lock, kiểm hạn lại ngay trước lúc driver gửi operation, rồi chạy đúng một lần. `cancel` khóa plan, atomically rename plan ra khỏi namespace khả dụng và xóa cả plan lẫn receipt.
 
@@ -112,7 +117,7 @@ Plan và receipt dùng chung hạn 5 phút. Audit mặc định trả 50 bản g
 - `SECRET_IN_OPERATION`: không preview payload; chuyển phần secret sang workflow database-native chạy local.
 - `PLAN_NOT_FOUND`, `PLAN_EXPIRED`, `PLAN_CHANGED`, `PLAN_ALREADY_USED`, `APPROVAL_CHANGED`: prepare lại và xin approval mới.
 - `SCHEMA_CACHE_MISSING`, `SCHEMA_CACHE_EXPIRED`, `SCHEMA_CACHE_MISMATCH`: refresh bằng credential read sau khi xác minh target.
-- `INPUT_TOO_LARGE`, `INPUT_TOO_COMPLEX`, `OUTPUT_TOO_LARGE`, `NAMESPACE_NOT_ALLOWED`, `UNSUPPORTED_OPERATION`: thu nhỏ input/query/result hoặc sửa target hợp lệ; không bypass guard 1 MiB/8 MiB.
+- `INPUT_TOO_LARGE`, `INPUT_TOO_COMPLEX`, `OUTPUT_TOO_LARGE`, `NAMESPACE_NOT_ALLOWED`, `UNSUPPORTED_OPERATION`: thu nhỏ input/query/result, sửa namespace/key prefix/target hợp lệ hoặc dùng operation được hỗ trợ; không bypass guard 1 MiB/8 MiB.
 - `LOCK_TIMEOUT`, `STALE_LOCK`: không xóa lock mù quáng; kiểm tra process và trạng thái artifact trước.
 - `DATABASE_TIMEOUT`, `DATABASE_ERROR`: báo lỗi đã được redact; không in object lỗi driver thô nếu có nguy cơ chứa secret.
 - `MUTATION_OUTCOME_UNKNOWN`: operation đã có thể tới database; không retry, chỉ xác minh bằng credential read và yêu cầu plan/approval mới cho bước tiếp theo.

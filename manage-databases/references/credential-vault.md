@@ -3,7 +3,7 @@
 ## Quy tắc vận hành
 
 - Lưu credential dưới `$HOME/.agent-db`, không lưu trong repository hoặc file `.env` của project.
-- Tạo riêng credential `read` và `mutation` cho từng project-target-engine.
+- Tạo riêng credential `read` và `mutation` cho từng project-target-engine có hỗ trợ mutation; Redis v1 chỉ lưu credential `read`.
 - Nhập secret qua prompt local TTY của `credential set`; không truyền secret bằng option CLI.
 - Không yêu cầu hoặc lặp lại secret trong chat/tool output.
 - Chỉ dùng `credential reveal` khi chính người dùng cần xem lại secret trên terminal local.

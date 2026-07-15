@@ -41,6 +41,11 @@ const MONGO_MUTATION_OPTION_KEYS = new Map([
   ])],
   ['dropIndex', new Set(['comment'])],
 ]);
+const REDIS_INFO_SECTIONS = new Set([
+  'server', 'clients', 'memory', 'persistence', 'stats', 'replication', 'cpu', 'keyspace',
+  'errorstats', 'commandstats', 'latencystats',
+]);
+const REDIS_VALUE_PREVIEW_BYTES = 64 * 1024;
 
 function blankQuotedSql(sql, { preserveIdentifiers = false } = {}) {
   let output = '';
@@ -268,6 +273,283 @@ export function requireMongoMutation(input, target = undefined) {
   return operation;
 }
 
+export function parseRedisOperation(input) {
+  let operation;
+  try {
+    operation = typeof input === 'string' ? JSON.parse(input) : input;
+  } catch {
+    throw new AgentDbError('INVALID_ARGUMENT', 'Redis input must be valid JSON');
+  }
+  invariant(operation && typeof operation === 'object' && !Array.isArray(operation), 'INVALID_ARGUMENT', 'Redis input must be a JSON object');
+  const unsupported = Object.keys(operation).filter((key) => !['operation', 'command', 'arguments'].includes(key));
+  invariant(unsupported.length === 0, 'INVALID_ARGUMENT', `Unsupported Redis input field(s): ${unsupported.join(', ')}`);
+  invariant(operation.operation === 'command', 'INVALID_ARGUMENT', 'Redis input operation must be command');
+  invariant(typeof operation.command === 'string' && operation.command.trim(), 'INVALID_ARGUMENT', 'Redis input requires a command field');
+  invariant(operation.arguments && typeof operation.arguments === 'object' && !Array.isArray(operation.arguments), 'INVALID_ARGUMENT', 'Redis input arguments must be an object');
+  return {
+    operation: 'command',
+    command: operation.command.trim().toUpperCase().replace(/\s+/g, ' '),
+    arguments: operation.arguments,
+  };
+}
+
+function redisFields(argumentsValue, allowed) {
+  const unsupported = Object.keys(argumentsValue).filter((key) => !allowed.includes(key));
+  invariant(unsupported.length === 0, 'INVALID_ARGUMENT', `Unsupported Redis argument field(s): ${unsupported.join(', ')}`);
+}
+
+function redisString(argumentsValue, name, { optional = false } = {}) {
+  const value = argumentsValue[name];
+  if (optional && value === undefined) return undefined;
+  invariant(typeof value === 'string' && value.length > 0, 'INVALID_ARGUMENT', `Redis argument ${name} must be a non-empty string`);
+  return value;
+}
+
+function redisInteger(argumentsValue, name, { optional = false, min, max } = {}) {
+  const value = argumentsValue[name];
+  if (optional && value === undefined) return undefined;
+  invariant(Number.isSafeInteger(value), 'INVALID_ARGUMENT', `Redis argument ${name} must be an integer`);
+  if (min !== undefined) invariant(value >= min, 'INVALID_ARGUMENT', `Redis argument ${name} must be at least ${min}`);
+  if (max !== undefined) invariant(value <= max, 'INVALID_ARGUMENT', `Redis argument ${name} must be at most ${max}`);
+  return value;
+}
+
+function redisBoolean(argumentsValue, name, { optional = false } = {}) {
+  const value = argumentsValue[name];
+  if (optional && value === undefined) return undefined;
+  invariant(typeof value === 'boolean', 'INVALID_ARGUMENT', `Redis argument ${name} must be true or false`);
+  return value;
+}
+
+function redisStringList(argumentsValue, name, maxItems) {
+  const value = argumentsValue[name];
+  invariant(Array.isArray(value) && value.length > 0, 'INVALID_ARGUMENT', `Redis argument ${name} must be a non-empty array`);
+  invariant(value.length <= maxItems, 'INVALID_ARGUMENT', `Redis argument ${name} exceeds the ${maxItems}-item limit`);
+  invariant(value.every((item) => typeof item === 'string' && item.length > 0), 'INVALID_ARGUMENT', `Redis argument ${name} must contain non-empty strings`);
+  return value;
+}
+
+function redisCursor(argumentsValue) {
+  const cursor = redisString(argumentsValue, 'cursor');
+  invariant(/^\d+$/.test(cursor), 'INVALID_ARGUMENT', 'Redis cursor must be a non-negative decimal string');
+  return cursor;
+}
+
+function redisKey(target, value) {
+  invariant(typeof target?.keyPrefix === 'string' && target.keyPrefix, 'NAMESPACE_NOT_ALLOWED', 'Redis targets require a key prefix');
+  invariant(typeof value === 'string' && value.length > 0, 'INVALID_ARGUMENT', 'Redis key must be a non-empty string');
+  invariant(value.startsWith(target.keyPrefix), 'NAMESPACE_NOT_ALLOWED', `Redis key is outside the target prefix: ${value}`, { keyPrefix: target.keyPrefix });
+  return value;
+}
+
+function redisKeys(target, values) {
+  for (const value of values) redisKey(target, value);
+  return values;
+}
+
+function redisCount(argumentsValue, maxRows, { optional = true, max = 1000 } = {}) {
+  const value = redisInteger(argumentsValue, 'count', { optional, min: 1, max: Math.min(maxRows, max) });
+  return value ?? Math.min(maxRows, 100);
+}
+
+function redisRange(argumentsValue, maxRows) {
+  const start = redisInteger(argumentsValue, 'start', { min: 0 });
+  const stop = redisInteger(argumentsValue, 'stop', { min: start });
+  invariant(stop - start + 1 <= maxRows, 'INVALID_ARGUMENT', 'Redis range exceeds max-rows');
+  return { start, stop };
+}
+
+function redisScanArguments(command, argumentsValue, target, maxRows) {
+  const isKeyspaceScan = command === 'SCAN';
+  redisFields(argumentsValue, isKeyspaceScan
+    ? ['cursor', 'matchSuffix', 'count', 'type']
+    : ['key', 'cursor', 'match', 'count']);
+  const argv = [command];
+  if (!isKeyspaceScan) argv.push(redisKey(target, redisString(argumentsValue, 'key')));
+  argv.push(redisCursor(argumentsValue));
+  if (isKeyspaceScan) {
+    invariant(typeof target?.keyPrefix === 'string' && target.keyPrefix, 'NAMESPACE_NOT_ALLOWED', 'Redis targets require a key prefix');
+    const suffix = redisString(argumentsValue, 'matchSuffix');
+    argv.push('MATCH', `${target.keyPrefix}${suffix}`);
+  } else if (argumentsValue.match !== undefined) {
+    argv.push('MATCH', redisString(argumentsValue, 'match'));
+  }
+  argv.push('COUNT', String(redisCount(argumentsValue, maxRows)));
+  if (isKeyspaceScan && argumentsValue.type !== undefined) {
+    const type = redisString(argumentsValue, 'type').toLowerCase();
+    invariant(['string', 'list', 'set', 'zset', 'hash', 'stream'].includes(type), 'INVALID_ARGUMENT', `Unsupported Redis SCAN type: ${type}`);
+    argv.push('TYPE', type);
+  }
+  return argv;
+}
+
+function redisAccepted(operation, argv, resultKind = 'scalar', scope = 'key') {
+  return {
+    classification: 'read',
+    reason: 'Typed Redis read command accepted',
+    operation: { ...operation, argv, resultKind, scope },
+  };
+}
+
+export function classifyRedisRead(input, target, { maxRows = 100 } = {}) {
+  invariant(Number.isSafeInteger(maxRows) && maxRows >= 1 && maxRows <= 10000, 'INVALID_ARGUMENT', 'Redis maxRows must be between 1 and 10000');
+  const operation = parseRedisOperation(input);
+  const args = operation.arguments;
+  const { command } = operation;
+
+  if (['PING', 'DBSIZE', 'TIME'].includes(command)) {
+    redisFields(args, []);
+    return redisAccepted(operation, [command], 'scalar', 'server');
+  }
+  if (command === 'INFO') {
+    redisFields(args, ['section']);
+    const section = redisString(args, 'section').toLowerCase();
+    invariant(REDIS_INFO_SECTIONS.has(section), 'UNSUPPORTED_OPERATION', `Unsupported Redis INFO section: ${section}`);
+    return redisAccepted(operation, ['INFO', section], 'info', 'server');
+  }
+  if (command === 'SCAN') {
+    return redisAccepted(operation, redisScanArguments(command, args, target, maxRows), 'scan', 'keyspace');
+  }
+
+  const singleKeyCommands = new Set([
+    'TYPE', 'TTL', 'PTTL', 'EXPIRETIME', 'PEXPIRETIME', 'GET', 'STRLEN', 'HLEN', 'LLEN',
+    'SCARD', 'ZCARD', 'XLEN',
+  ]);
+  if (singleKeyCommands.has(command)) {
+    redisFields(args, ['key']);
+    const key = redisKey(target, redisString(args, 'key'));
+    return redisAccepted(operation, [command, key], command === 'GET' ? 'get' : 'scalar');
+  }
+  if (command === 'EXISTS') {
+    redisFields(args, ['keys']);
+    const keys = redisKeys(target, redisStringList(args, 'keys', maxRows));
+    return redisAccepted(operation, [command, ...keys]);
+  }
+  if (command === 'GETRANGE') {
+    redisFields(args, ['key', 'start', 'end']);
+    const key = redisKey(target, redisString(args, 'key'));
+    const start = redisInteger(args, 'start', { min: 0 });
+    const end = redisInteger(args, 'end', { min: start });
+    invariant(end - start + 1 <= REDIS_VALUE_PREVIEW_BYTES, 'INVALID_ARGUMENT', `Redis GETRANGE exceeds ${REDIS_VALUE_PREVIEW_BYTES} bytes`);
+    return redisAccepted(operation, [command, key, String(start), String(end)]);
+  }
+
+  if (['HGET', 'HEXISTS', 'HSTRLEN'].includes(command)) {
+    redisFields(args, ['key', 'field']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), redisString(args, 'field')]);
+  }
+  if (command === 'HMGET') {
+    redisFields(args, ['key', 'fields']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), ...redisStringList(args, 'fields', maxRows)], 'array');
+  }
+  if (command === 'HSCAN') {
+    return redisAccepted(operation, redisScanArguments(command, args, target, maxRows), 'hscan');
+  }
+
+  if (command === 'LINDEX') {
+    redisFields(args, ['key', 'index']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), String(redisInteger(args, 'index'))]);
+  }
+  if (command === 'LRANGE') {
+    redisFields(args, ['key', 'start', 'stop']);
+    const key = redisKey(target, redisString(args, 'key'));
+    const { start, stop } = redisRange(args, maxRows);
+    return redisAccepted(operation, [command, key, String(start), String(stop)], 'array');
+  }
+
+  if (command === 'SISMEMBER') {
+    redisFields(args, ['key', 'member']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), redisString(args, 'member')]);
+  }
+  if (command === 'SMISMEMBER') {
+    redisFields(args, ['key', 'members']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), ...redisStringList(args, 'members', maxRows)], 'array');
+  }
+  if (command === 'SSCAN') {
+    return redisAccepted(operation, redisScanArguments(command, args, target, maxRows), 'scan');
+  }
+
+  if (['ZCOUNT', 'ZLEXCOUNT'].includes(command)) {
+    redisFields(args, ['key', 'min', 'max']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), redisString(args, 'min'), redisString(args, 'max')]);
+  }
+  if (['ZSCORE', 'ZRANK', 'ZREVRANK'].includes(command)) {
+    redisFields(args, ['key', 'member']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), redisString(args, 'member')]);
+  }
+  if (command === 'ZMSCORE') {
+    redisFields(args, ['key', 'members']);
+    return redisAccepted(operation, [command, redisKey(target, redisString(args, 'key')), ...redisStringList(args, 'members', maxRows)], 'array');
+  }
+  if (command === 'ZRANGE') {
+    redisFields(args, ['key', 'start', 'stop', 'withScores']);
+    const key = redisKey(target, redisString(args, 'key'));
+    const { start, stop } = redisRange(args, maxRows);
+    const withScores = redisBoolean(args, 'withScores', { optional: true }) || false;
+    return redisAccepted(
+      operation,
+      [command, key, String(start), String(stop), ...(withScores ? ['WITHSCORES'] : [])],
+      withScores ? 'zrange-with-scores' : 'array',
+    );
+  }
+  if (command === 'ZSCAN') {
+    return redisAccepted(operation, redisScanArguments(command, args, target, maxRows), 'zscan');
+  }
+
+  if (['XRANGE', 'XREVRANGE'].includes(command)) {
+    redisFields(args, ['key', 'start', 'end', 'count']);
+    const key = redisKey(target, redisString(args, 'key'));
+    const start = redisString(args, 'start');
+    const end = redisString(args, 'end');
+    const count = redisInteger(args, 'count', { min: 1, max: maxRows });
+    const bounds = command === 'XREVRANGE' ? [end, start] : [start, end];
+    return redisAccepted(operation, [command, key, ...bounds, 'COUNT', String(count)], 'array');
+  }
+  if (command === 'XINFO STREAM') {
+    redisFields(args, ['key']);
+    return redisAccepted(operation, ['XINFO', 'STREAM', redisKey(target, redisString(args, 'key'))], 'array');
+  }
+
+  if (command === 'MEMORY USAGE') {
+    redisFields(args, ['key', 'samples']);
+    const key = redisKey(target, redisString(args, 'key'));
+    const samples = redisInteger(args, 'samples', { optional: true, min: 1, max: 64 });
+    return redisAccepted(operation, ['MEMORY', 'USAGE', key, ...(samples ? ['SAMPLES', String(samples)] : [])]);
+  }
+  if (['OBJECT ENCODING', 'OBJECT FREQ', 'OBJECT IDLETIME', 'OBJECT REFCOUNT'].includes(command)) {
+    redisFields(args, ['key']);
+    const subcommand = command.slice('OBJECT '.length);
+    return redisAccepted(operation, ['OBJECT', subcommand, redisKey(target, redisString(args, 'key'))]);
+  }
+  if (command === 'SLOWLOG LEN') {
+    redisFields(args, []);
+    return redisAccepted(operation, ['SLOWLOG', 'LEN'], 'scalar', 'server');
+  }
+  if (command === 'SLOWLOG GET') {
+    redisFields(args, ['count']);
+    const count = redisInteger(args, 'count', { min: 1, max: Math.min(maxRows, 100) });
+    return redisAccepted(operation, ['SLOWLOG', 'GET', String(count)], 'slowlog', 'server');
+  }
+
+  return {
+    classification: 'unknown',
+    reason: `Redis command ${command} is not on the read/debug allowlist`,
+    operation,
+  };
+}
+
+export function requireRedisRead(input, target, options = undefined) {
+  const result = classifyRedisRead(input, target, options);
+  if (result.classification !== 'read') {
+    throw new AgentDbError(
+      'UNSUPPORTED_OPERATION',
+      `${result.reason}; Redis v1 supports read/debug commands only`,
+      { classification: result.classification },
+    );
+  }
+  return result.operation;
+}
+
 function hasSensitiveMongoField(value) {
   const sensitive = /(?:password|passwd|(?:^|[._-])pwd(?:$|[._-])|(?:^|[._-])auth(?:entication)?(?:$|[._-])|(?:^|[._-])login(?:$|[._-])|secret|token|api[_-]?key|private[_-]?key|access[_-]?key|encryption[_-]?key|signing[_-]?key|connection[_-]?string|credential)/i;
   const credentialUri = /:\/\/[^\s/:@]+:[^\s/@]+@/;
@@ -316,7 +598,8 @@ export function resolveTransactionMode(engine, input, requested = 'auto') {
   return requiresTopLevelExecution.some((pattern) => pattern.test(visible)) ? 'never' : 'always';
 }
 
-export function requireReadOperation(engine, input, target = undefined) {
+export function requireReadOperation(engine, input, target = undefined, options = undefined) {
+  if (engine === 'redis') return requireRedisRead(input, target, options);
   const result = engine === 'mongodb' ? classifyMongoRead(input, target) : classifySqlRead(input);
   if (result.classification !== 'read') {
     throw new AgentDbError('MUTATION_CONFIRMATION_REQUIRED', result.reason, { classification: result.classification });

@@ -8,7 +8,7 @@ import test from 'node:test';
 import { promisify } from 'node:util';
 import { runtimePaths } from '../src/config/paths.js';
 import { projectPaths } from '../src/config/paths.js';
-import { discoverProjectContext, ProjectStore, resolveTrustedGit } from '../src/config/projects.js';
+import { computeTargetFingerprint, discoverProjectContext, ProjectStore, resolveTrustedGit } from '../src/config/projects.js';
 
 const execFile = promisify(execFileCallback);
 
@@ -145,6 +145,49 @@ test('Oracle TCPS cannot disable certificate verification', async (t) => {
     id: 'oracle', engine: 'oracle', environment: 'test', host: 'oracle.internal', port: 1522,
     database: 'payments', tls: true, trustServerCertificate: true,
   }), { code: 'UNSUPPORTED_OPERATION' });
+});
+
+test('Redis targets require a safe prefix, canonical database, and verified TLS', async (t) => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), 'agent-db-redis-target-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const projectRoot = path.join(temp, 'workspace');
+  await mkdir(projectRoot, { recursive: true });
+  const paths = runtimePaths({ AGENT_DB_HOME: path.join(temp, 'runtime') });
+  const store = new ProjectStore(paths);
+  const project = await store.initProject('Application', projectRoot);
+
+  for (const input of [
+    { id: 'missing-prefix', database: '0' },
+    { id: 'glob-prefix', database: '0', keyPrefix: 'app:*' },
+    { id: 'noncanonical-db', database: '01', keyPrefix: 'app:' },
+  ]) {
+    await assert.rejects(store.addTarget(project, {
+      ...input,
+      engine: 'redis', environment: 'test', host: 'cache.internal', port: 6379, tls: true,
+    }), { code: 'INVALID_ARGUMENT' });
+  }
+  await assert.rejects(store.addTarget(project, {
+    id: 'unverified-tls', engine: 'redis', environment: 'test', host: 'cache.internal', port: 6379,
+    database: '0', keyPrefix: 'app:', tls: true, trustServerCertificate: true,
+  }), { code: 'UNSUPPORTED_OPERATION' });
+
+  const target = await store.addTarget(project, {
+    id: 'cache', engine: 'redis', environment: 'test', host: 'cache.internal', port: 6379,
+    database: '0', keyPrefix: 'app:', tls: true, trustServerCertificate: false,
+  });
+  assert.equal(target.keyPrefix, 'app:');
+  const manifestPath = projectPaths(paths, project.id).manifest;
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const originalTarget = structuredClone(manifest.targets[0]);
+  manifest.targets[0].connection.trustServerCertificate = true;
+  manifest.targets[0].targetFingerprint = computeTargetFingerprint(manifest.targets[0]);
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await assert.rejects(store.target(project, 'cache'), { code: 'CONFIG_INVALID' });
+
+  manifest.targets[0] = originalTarget;
+  manifest.targets[0].keyPrefix = 'other:';
+  await writeFile(manifestPath, JSON.stringify(manifest));
+  await assert.rejects(store.target(project, 'cache'), { code: 'TARGET_BINDING_TAMPERED' });
 });
 
 test('recreating a directory at the same path does not inherit the old project binding', async (t) => {

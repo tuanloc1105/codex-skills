@@ -9,7 +9,7 @@ import { readVisibleLine, requireTty } from '../security/secret-input.js';
 import { projectPaths } from './paths.js';
 
 const execFile = promisify(execFileCallback);
-const ENGINES = new Set(['oracle', 'mongodb', 'sqlserver', 'postgresql']);
+const ENGINES = new Set(['oracle', 'mongodb', 'sqlserver', 'postgresql', 'redis']);
 
 function hash(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -51,8 +51,16 @@ export function computeTargetFingerprint(target) {
     environment: target.environment,
     connection: target.connection,
     allowedNamespaces: target.allowedNamespaces || [],
+    keyPrefix: target.keyPrefix || null,
     expectedServerIdentity: target.expectedServerIdentity || null,
   })));
+}
+
+function validateRedisKeyPrefix(value) {
+  const keyPrefix = validateDisplayText(value, 'Redis key prefix');
+  invariant(Buffer.byteLength(keyPrefix, 'utf8') <= 256, 'INVALID_ARGUMENT', 'Redis key prefix exceeds 256 UTF-8 bytes');
+  invariant(!['*', '?', '[', ']', '\\'].some((character) => keyPrefix.includes(character)), 'INVALID_ARGUMENT', 'Redis key prefix cannot contain glob metacharacters');
+  return keyPrefix;
 }
 
 function normalizePath(value) {
@@ -358,6 +366,14 @@ export class ProjectStore {
       if (target.connection?.authSource) validateDisplayText(target.connection.authSource, 'MongoDB auth source');
       if (target.expectedServerIdentity) validateDisplayText(target.expectedServerIdentity, 'expected server identity');
       for (const namespace of target.allowedNamespaces || []) validateDisplayText(namespace, 'namespace');
+      if (target.keyPrefix) validateRedisKeyPrefix(target.keyPrefix);
+      if (target.engine === 'redis') {
+        invariant(/^(?:0|[1-9]\d*)$/.test(target.connection.database), 'CONFIG_INVALID', 'Redis target database must be a canonical non-negative integer');
+        invariant(Number.isSafeInteger(Number(target.connection.database)), 'CONFIG_INVALID', 'Redis target database is outside the supported integer range');
+        invariant(target.keyPrefix, 'CONFIG_INVALID', 'Redis target requires a key prefix');
+        invariant((target.allowedNamespaces || []).length === 0, 'CONFIG_INVALID', 'Redis target cannot use MongoDB namespaces');
+        invariant(target.connection.trustServerCertificate !== true, 'CONFIG_INVALID', 'Redis TLS certificate verification cannot be disabled');
+      }
       invariant(
         target.targetFingerprint === computeTargetFingerprint(target),
         'TARGET_BINDING_TAMPERED',
@@ -395,12 +411,21 @@ export class ProjectStore {
       ? validateDisplayText(input.expectedServerIdentity, 'expected server identity')
       : null;
     const allowedNamespaces = (input.allowedNamespaces || []).map((namespace) => validateDisplayText(namespace, 'namespace'));
+    const keyPrefix = input.keyPrefix ? validateRedisKeyPrefix(input.keyPrefix) : null;
     invariant(Number.isSafeInteger(input.port) && input.port > 0 && input.port <= 65535, 'INVALID_ARGUMENT', 'Target port is invalid');
     invariant(
-      !(input.engine === 'oracle' && input.trustServerCertificate),
+      !(['oracle', 'redis'].includes(input.engine) && input.trustServerCertificate),
       'UNSUPPORTED_OPERATION',
-      'Oracle TCPS certificate verification cannot be disabled by this CLI',
+      `${input.engine === 'redis' ? 'Redis TLS' : 'Oracle TCPS'} certificate verification cannot be disabled by this CLI`,
     );
+    if (input.engine === 'redis') {
+      invariant(/^(?:0|[1-9]\d*)$/.test(database) && Number.isSafeInteger(Number(database)), 'INVALID_ARGUMENT', 'Redis database must be a canonical non-negative integer');
+      invariant(keyPrefix, 'INVALID_ARGUMENT', 'Redis targets require --key-prefix');
+      invariant(allowedNamespaces.length === 0, 'INVALID_ARGUMENT', 'Redis targets cannot use MongoDB namespaces');
+      invariant(!service && !authSource, 'INVALID_ARGUMENT', 'Redis targets do not support Oracle service or MongoDB auth source options');
+    } else {
+      invariant(!keyPrefix, 'INVALID_ARGUMENT', '--key-prefix is only supported for Redis targets');
+    }
 
     const connection = {
       host,
@@ -423,6 +448,7 @@ export class ProjectStore {
         environment,
         connection,
         allowedNamespaces,
+        ...(keyPrefix ? { keyPrefix } : {}),
         expectedServerIdentity,
         credentials: { read: null, mutation: null },
         createdAt: now,

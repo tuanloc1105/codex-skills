@@ -17,7 +17,7 @@ Trusted installer hoặc chính người dùng tạo `$HOME/.agent-db/runtime-tr
   "skillTreeSha256": "UPPERCASE_SHA256",
   "skillEntrypoint": "/absolute/path/to/manage-databases/scripts/agent-db/bin/agent-db.js",
   "skillEntrypointSha256": "UPPERCASE_SHA256",
-  "cliVersion": "0.1.0",
+  "cliVersion": "0.2.0",
   "pinnedAt": "RFC3339 timestamp",
   "expiresAt": "RFC3339 timestamp or null"
 }

@@ -1,6 +1,6 @@
 {
   "name": "codex-agent-db-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Project-bound database CLI for the manage-databases Codex skill",
   "type": "module",
@@ -15,6 +15,7 @@
     "check": "node --check ./bin/agent-db.js && node --check ./src/cli.js"
   },
   "dependencies": {
+    "@redis/client": "6.1.0",
     "mongodb": "7.5.0",
     "mssql": "12.7.0",
     "oracledb": "7.0.1",

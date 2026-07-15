@@ -4,6 +4,8 @@
 
 Chỉ chuẩn bị mutation khi yêu cầu hiện tại của người dùng mô tả thay đổi cụ thể trên target cụ thể. Quyền DBA, blanket approval, câu “cứ làm đi”, hoặc phrase gửi trong chat không thay thế cổng local TTY.
 
+Redis v1 chỉ hỗ trợ read/debug; không tạo plan, approval hay execute mutation cho Redis.
+
 Mutation bao gồm mọi thay đổi data, schema, index, user/role/grant, cấu hình, procedure, job, maintenance và administrative command. Target phải có `expectedServerIdentity` và credential mutation riêng. Payload có dấu hiệu chứa secret bị chặn bằng `SECRET_IN_OPERATION`; không preview password/token/private key qua chat/tool output.
 
 ## Bước 1: Prepare
@@ -95,7 +97,7 @@ Cancel và prepare lại khi payload, target, identity, transaction mode hoặc 
 
 ## Transaction mode
 
-- `auto`: PostgreSQL chọn `never` cho `CREATE/DROP DATABASE`, `CREATE/DROP TABLESPACE`, `ALTER SYSTEM`, `VACUUM`, thao tác `CONCURRENTLY`, `CALL`, `DO` và SQL điều khiển transaction; các PostgreSQL mutation khác chọn `always`. Ba engine còn lại chọn `never`.
+- `auto`: PostgreSQL chọn `never` cho `CREATE/DROP DATABASE`, `CREATE/DROP TABLESPACE`, `ALTER SYSTEM`, `VACUUM`, thao tác `CONCURRENTLY`, `CALL`, `DO` và SQL điều khiển transaction; các PostgreSQL mutation khác chọn `always`. Oracle, SQL Server và MongoDB chọn `never`.
 - `always`: chỉ hỗ trợ PostgreSQL; adapter mở transaction, đặt `SET LOCAL statement_timeout`, commit khi thành công và rollback khi lỗi trước commit.
 - `never`: không mở transaction do adapter; PostgreSQL đặt session `statement_timeout`. Oracle, SQL Server và MongoDB luôn execute theo mode này.
 

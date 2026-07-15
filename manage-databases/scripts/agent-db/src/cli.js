@@ -16,8 +16,8 @@ import { assertNoEmbeddedSecret, requireMongoMutation, requireReadOperation, res
 import { readHidden, readVisibleLine, requireTty } from './security/secret-input.js';
 import { Vault } from './security/vault.js';
 
-const VERSION = '0.1.0';
-const DEFAULT_PORTS = { oracle: 1521, mongodb: 27017, sqlserver: 1433, postgresql: 5432 };
+const VERSION = '0.2.0';
+const DEFAULT_PORTS = { oracle: 1521, mongodb: 27017, sqlserver: 1433, postgresql: 5432, redis: 6379 };
 const INPUT_FLAGS = ['target', 'file', 'text', 'stdin', 'max-rows', 'timeout-ms'];
 const TERMINAL_UNSAFE = /[\u007f-\u009f\u061c\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/gu;
 
@@ -33,7 +33,7 @@ const USAGE = [
   'agent-db project init --name <name>',
   'agent-db project show|list',
   'agent-db project bind --id <project-uuid>',
-  'agent-db target add --id <id> --engine <oracle|mongodb|sqlserver|postgresql> --environment <env> --host <host> --database <db-or-service>',
+  'agent-db target add --id <id> --engine <oracle|mongodb|sqlserver|postgresql|redis> --environment <env> --host <host> --database <db-or-service>',
   'agent-db target list|show|test --target <id>',
   'agent-db credential set|status|reveal --target <id> --mode <read|mutation>',
   'agent-db schema refresh|show --target <id>',
@@ -52,6 +52,14 @@ function modeFlag(flags) {
   const mode = optionalString(flags, 'mode') || 'read';
   invariant(mode === 'read' || mode === 'mutation', 'INVALID_ARGUMENT', '--mode must be read or mutation');
   return mode;
+}
+
+function assertModeSupported(target, mode) {
+  invariant(
+    !(target.engine === 'redis' && mode === 'mutation'),
+    'UNSUPPORTED_OPERATION',
+    'Redis mutation mode is not supported in this version',
+  );
 }
 
 async function projectAndTarget(store, flags) {
@@ -89,12 +97,13 @@ async function appendAuditSafely(paths, event) {
 }
 
 async function doctor(paths, store) {
-  const [oracle, mongodb, sqlserver, postgresql, cursor, keyring] = await Promise.all([
+  const [oracle, mongodb, sqlserver, postgresql, cursor, redis, keyring] = await Promise.all([
     driverStatus('oracledb'),
     driverStatus('mongodb'),
     driverStatus('mssql'),
     driverStatus('pg'),
     driverStatus('pg-cursor'),
+    driverStatus('@redis/client'),
     driverStatus('@napi-rs/keyring'),
   ]);
   let project;
@@ -110,7 +119,7 @@ async function doctor(paths, store) {
     platform: process.platform,
     runtimeRoot: paths.root,
     project,
-    drivers: { oracle, mongodb, sqlserver, postgresql, postgresqlCursor: cursor },
+    drivers: { oracle, mongodb, sqlserver, postgresql, postgresqlCursor: cursor, redis },
     keyring,
   };
 }
@@ -140,7 +149,7 @@ async function handleTarget(action, flags, store, vault) {
   if (action === 'add') {
     assertAllowedFlags(flags, [
       'id', 'engine', 'environment', 'host', 'port', 'database', 'service', 'namespace',
-      'tls', 'encrypt', 'trust-server-certificate', 'auth-source', 'expected-server-identity',
+      'key-prefix', 'tls', 'encrypt', 'trust-server-certificate', 'auth-source', 'expected-server-identity',
     ]);
     const project = await store.resolveProject();
     const engine = requiredString(flags, 'engine');
@@ -154,6 +163,7 @@ async function handleTarget(action, flags, store, vault) {
       database: requiredString(flags, 'database'),
       service: optionalString(flags, 'service'),
       allowedNamespaces: listFlag(flags, 'namespace'),
+      keyPrefix: optionalString(flags, 'key-prefix'),
       tls: booleanFlag(flags, 'tls', engine !== 'sqlserver'),
       encrypt: booleanFlag(flags, 'encrypt', engine === 'sqlserver'),
       trustServerCertificate: booleanFlag(flags, 'trust-server-certificate', false),
@@ -180,6 +190,7 @@ async function handleTarget(action, flags, store, vault) {
     assertAllowedFlags(flags, ['target', 'mode', 'timeout-ms']);
     const { project, target } = await projectAndTarget(store, flags);
     const mode = modeFlag(flags);
+    assertModeSupported(target, mode);
     const credential = await targetCredential(vault, project, target, mode);
     const adapter = await createAdapter(target, credential);
     return { ...await adapter.test({ timeoutMs: integerFlag(flags, 'timeout-ms', 15000, { min: 1000, max: 300000 }) }), mode };
@@ -193,6 +204,7 @@ async function handleCredential(action, flags, store, vault, paths) {
   assertAllowedFlags(flags, allowed);
   const { project, target } = await projectAndTarget(store, flags);
   const mode = modeFlag(flags);
+  assertModeSupported(target, mode);
 
   if (action === 'status') {
     return { target: publicTarget(target), mode, configured: Boolean(target.credentials[mode]) };
@@ -270,13 +282,13 @@ async function handleRead(flags, store, vault, paths) {
   assertAllowedFlags(flags, INPUT_FLAGS);
   const { project, target } = await projectAndTarget(store, flags);
   const rawInput = await operationInput(flags);
-  requireReadOperation(target.engine, rawInput, target);
-  const credential = await targetCredential(vault, project, target, 'read');
-  const adapter = await createAdapter(target, credential);
   const options = {
     maxRows: integerFlag(flags, 'max-rows', 100, { min: 1, max: 10000 }),
     timeoutMs: integerFlag(flags, 'timeout-ms', 15000, { min: 1000, max: 300000 }),
   };
+  requireReadOperation(target.engine, rawInput, target, options);
+  const credential = await targetCredential(vault, project, target, 'read');
+  const adapter = await createAdapter(target, credential);
   const result = await adapter.executeRead(rawInput, options);
   await appendAudit(paths, {
     action: 'read.execute', projectId: project.id, targetId: target.id, outcome: 'success',
@@ -289,6 +301,7 @@ async function handleMutation(action, flags, store, vault, pending, paths) {
   if (action === 'prepare') {
     assertAllowedFlags(flags, ['target', 'file', 'text', 'stdin', 'timeout-ms', 'transaction']);
     const { project, target } = await projectAndTarget(store, flags);
+    invariant(target.engine !== 'redis', 'UNSUPPORTED_OPERATION', 'Redis mutation is not supported in this version');
     const rawInput = await operationInput(flags);
     assertNoEmbeddedSecret(target.engine, rawInput);
     invariant(target.expectedServerIdentity, 'TARGET_IDENTITY_REQUIRED', 'Mutation targets require --expected-server-identity');
@@ -351,6 +364,7 @@ async function handleMutation(action, flags, store, vault, pending, paths) {
     const planId = requiredString(flags, 'plan');
     return store.withProjectManifestLock(project, async (lockedProject) => {
       const lockedTarget = await store.target(lockedProject, target.id);
+      invariant(lockedTarget.engine !== 'redis', 'UNSUPPORTED_OPERATION', 'Redis mutation is not supported in this version');
       const credential = await targetCredential(vault, lockedProject, lockedTarget, 'mutation');
       const adapter = await createAdapter(lockedTarget, credential);
       const plan = await pending.consume(planId, lockedProject, lockedTarget);

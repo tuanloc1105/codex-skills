@@ -1,6 +1,6 @@
 ---
 name: manage-databases
-description: Tương tác an toàn với Oracle, MongoDB, SQL Server và PostgreSQL qua CLI Node.js project-bound. Dùng khi cần cấu hình kết nối, kiểm tra danh tính database, khám phá schema, chạy truy vấn chỉ đọc, chẩn đoán kết nối, hoặc thực hiện tác vụ DBA/mutation có phê duyệt; luôn mặc định chỉ đọc, tách credential read/mutation, và buộc preview chính xác cùng xác nhận mới cho mọi thay đổi dữ liệu hay cấu hình database.
+description: Tương tác an toàn với Oracle, MongoDB, SQL Server, PostgreSQL và Redis qua CLI Node.js project-bound. Dùng khi cần cấu hình kết nối, kiểm tra danh tính database, khám phá schema/keyspace, chạy truy vấn hoặc Redis command chỉ đọc, chẩn đoán kết nối, hoặc thực hiện tác vụ DBA/mutation có phê duyệt trên engine được hỗ trợ; luôn mặc định chỉ đọc, tách credential read/mutation, và buộc preview chính xác cùng xác nhận mới cho mọi thay đổi dữ liệu hay cấu hình database.
 ---
 
 # Quản lý database an toàn
@@ -28,7 +28,7 @@ description: Tương tác an toàn với Oracle, MongoDB, SQL Server và Postgre
 - Đọc [credential vault](references/credential-vault.md) khi thiết lập, khôi phục, di chuyển, hoặc giải thích mã hóa credential.
 - Đọc [runtime trust](references/runtime-trust.md) khi receipt runtime thiếu/hết hiệu lực, sau khi Node/skill được cập nhật, hoặc khi chuẩn bị lệnh local TTY cho người dùng.
 - Đọc [phê duyệt mutation](references/mutation-approval.md) trước mọi thay đổi dữ liệu, schema, quyền, cấu hình hay tác vụ quản trị.
-- Chỉ đọc tham chiếu engine đang dùng: [Oracle](references/oracle.md), [MongoDB](references/mongodb.md), [SQL Server](references/sql-server.md), hoặc [PostgreSQL](references/postgresql.md).
+- Chỉ đọc tham chiếu engine đang dùng: [Oracle](references/oracle.md), [MongoDB](references/mongodb.md), [SQL Server](references/sql-server.md), [PostgreSQL](references/postgresql.md), hoặc [Redis](references/redis.md).
 
 ## Thực hiện luồng chuẩn
 
@@ -42,7 +42,7 @@ description: Tương tác an toàn với Oracle, MongoDB, SQL Server và Postgre
 
 ## Xử lý mutation
 
-Chỉ bắt đầu khi người dùng vừa yêu cầu một thay đổi cụ thể. Target mutation bắt buộc có `expectedServerIdentity`. Chạy `mutation prepare`; bước này kiểm tra lại identity bằng credential mutation và khóa project `bindingRevision`, target fingerprint, credential, exact payload, transaction mode cùng identity vào plan 5 phút. Sau đó trình bày project, environment, target, fingerprint, identity đã kiểm chứng, operation/approval hash, exact preview, transaction mode và thời hạn. Yêu cầu người dùng tự chạy lệnh sau trong terminal local của đúng project:
+Redis v1 chỉ hỗ trợ read/debug; không tạo credential mutation và không dùng workflow dưới đây cho target Redis. Với engine có hỗ trợ mutation, chỉ bắt đầu khi người dùng vừa yêu cầu một thay đổi cụ thể. Target mutation bắt buộc có `expectedServerIdentity`. Chạy `mutation prepare`; bước này kiểm tra lại identity bằng credential mutation và khóa project `bindingRevision`, target fingerprint, credential, exact payload, transaction mode cùng identity vào plan 5 phút. Sau đó trình bày project, environment, target, fingerprint, identity đã kiểm chứng, operation/approval hash, exact preview, transaction mode và thời hạn. Yêu cầu người dùng tự chạy lệnh sau trong terminal local của đúng project:
 
 ```text
 <trusted-node-tuyệt-đối> <entrypoint-skill-tuyệt-đối> mutation approve --target <id> --plan <uuid>
@@ -54,4 +54,4 @@ Nếu yêu cầu/payload, project binding, target hoặc credential đổi, hay 
 
 ## Dừng an toàn
 
-Dừng và hỏi lại khi thiếu project, target, endpoint, database/service, credential hoặc phạm vi namespace. Nếu operation có thể là mutation nhưng người dùng chưa yêu cầu rõ thay đổi cụ thể, không prepare hay execute. Dừng ngay khi identity thực tế không khớp target, khi query read bị phân loại không chắc chắn, hoặc khi dữ liệu đầu vào có chứa secret cần đi qua chat/tool output.
+Dừng và hỏi lại khi thiếu project, target, endpoint, database/service, credential hoặc phạm vi namespace/key prefix. Nếu operation có thể là mutation nhưng người dùng chưa yêu cầu rõ thay đổi cụ thể, không prepare hay execute. Dừng ngay khi identity thực tế không khớp target, khi query read bị phân loại không chắc chắn, hoặc khi dữ liệu đầu vào có chứa secret cần đi qua chat/tool output.

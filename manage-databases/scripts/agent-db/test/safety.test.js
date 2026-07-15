@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   assertNoEmbeddedSecret,
   classifyMongoRead,
+  classifyRedisRead,
   classifySqlRead,
   requireMongoMutation,
   requireReadOperation,
@@ -197,5 +198,82 @@ test('deep MongoDB input fails with a structured complexity error', () => {
   assert.throws(
     () => classifyMongoRead({ operation: 'find', collection: 'orders', filter }),
     { code: 'INPUT_TOO_COMPLEX' },
+  );
+});
+
+test('Redis classifier accepts typed, prefix-scoped debug commands', () => {
+  const target = { keyPrefix: 'app:' };
+  const get = classifyRedisRead({
+    operation: 'command',
+    command: 'get',
+    arguments: { key: 'app:user:42' },
+  }, target);
+  assert.equal(get.classification, 'read');
+  assert.deepEqual(get.operation.argv, ['GET', 'app:user:42']);
+
+  const scan = classifyRedisRead({
+    operation: 'command',
+    command: 'SCAN',
+    arguments: { cursor: '0', matchSuffix: 'user:*', count: 25, type: 'hash' },
+  }, target, { maxRows: 50 });
+  assert.equal(scan.classification, 'read');
+  assert.deepEqual(scan.operation.argv, ['SCAN', '0', 'MATCH', 'app:user:*', 'COUNT', '25', 'TYPE', 'hash']);
+
+  const slowlog = classifyRedisRead({
+    operation: 'command', command: 'SLOWLOG GET', arguments: { count: 5 },
+  }, target, { maxRows: 10 });
+  assert.equal(slowlog.operation.resultKind, 'slowlog');
+});
+
+test('Redis classifier blocks unknown, mutating, blocking, scripting, and module commands', () => {
+  const target = { keyPrefix: 'app:' };
+  for (const command of [
+    'SET', 'DEL', 'KEYS', 'RANDOMKEY', 'MONITOR', 'XREAD', 'BLPOP', 'EVAL', 'FCALL',
+    'CONFIG GET', 'ACL LIST', 'CLIENT LIST', 'FT.SEARCH', 'JSON.GET',
+  ]) {
+    const result = classifyRedisRead({ operation: 'command', command, arguments: {} }, target);
+    assert.notEqual(result.classification, 'read', command);
+    assert.throws(
+      () => requireReadOperation('redis', { operation: 'command', command, arguments: {} }, target),
+      { code: 'UNSUPPORTED_OPERATION' },
+    );
+  }
+});
+
+test('Redis classifier enforces exact schemas, bounds, and key prefix', () => {
+  const target = { keyPrefix: 'app:' };
+  assert.throws(
+    () => classifyRedisRead({ operation: 'command', command: 'GET', arguments: { key: 'other:user' } }, target),
+    { code: 'NAMESPACE_NOT_ALLOWED' },
+  );
+  assert.throws(
+    () => classifyRedisRead({ operation: 'command', command: 'GET', arguments: { key: 'app:user', surprise: true } }, target),
+    { code: 'INVALID_ARGUMENT' },
+  );
+  assert.throws(
+    () => classifyRedisRead({ operation: 'command', command: 'LRANGE', arguments: { key: 'app:list', start: 0, stop: 100 } }, target, { maxRows: 10 }),
+    { code: 'INVALID_ARGUMENT' },
+  );
+  assert.throws(
+    () => classifyRedisRead({ operation: 'command', command: 'XRANGE', arguments: { key: 'app:stream', start: '-', end: '+' } }, target),
+    { code: 'INVALID_ARGUMENT' },
+  );
+  assert.deepEqual(
+    classifyRedisRead({
+      operation: 'command', command: 'XREVRANGE', arguments: { key: 'app:stream', start: '-', end: '+', count: 5 },
+    }, target).operation.argv,
+    ['XREVRANGE', 'app:stream', '+', '-', 'COUNT', '5'],
+  );
+  assert.throws(
+    () => classifyRedisRead({ operation: 'command', command: 'MEMORY USAGE', arguments: { key: 'app:user', samples: 0 } }, target),
+    { code: 'INVALID_ARGUMENT' },
+  );
+  assert.throws(
+    () => classifyRedisRead({ operation: 'command', command: 'INFO', arguments: { section: 'everything' } }, target),
+    { code: 'UNSUPPORTED_OPERATION' },
+  );
+  assert.throws(
+    () => classifyRedisRead({ operation: 'command', command: 'SCAN', arguments: { cursor: '0', match: '*' } }, target),
+    { code: 'INVALID_ARGUMENT' },
   );
 });
