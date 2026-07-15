@@ -1,7 +1,7 @@
 interface:
   display_name: "Discussion Only"
-  short_description: "Discuss with a Markdown tracker"
-  default_prompt: "Use $discussion-only and save the Markdown tracker at ./.discussion/discussion-tracker.md."
+  short_description: "Discuss with an auto-saved Markdown tracker"
+  default_prompt: "Use $discussion-only to discuss this topic, respect any explicit tracker destination, or auto-save under ./discussion/ without asking storage questions."
 
 policy:
   allow_implicit_invocation: false

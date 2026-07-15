@@ -1,4 +1,4 @@
 interface:
   display_name: "Plan Mode"
-  short_description: "Discuss, approve, and save execution plans"
-  default_prompt: "Use $plan-mode to discuss, finalize, and save a detailed How to do it plan."
+  short_description: "Discuss, approve, and auto-save execution plans"
+  default_prompt: "Use $plan-mode to discuss and finalize a detailed How to do it plan, respect any explicit destination, or auto-save under ./plans/ without asking storage questions."
