@@ -45,15 +45,16 @@ if ($LASTEXITCODE -ne 0) { throw "git failed with exit code $LASTEXITCODE" }
 5. For complex multi-line logic, create or edit a `.ps1` file with the available file-editing tool, then run it with `-File`. Do not cram fragile scripts into one heavily escaped command string.
 
 ```powershell
-pwsh -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
+pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
 ```
 
 ## Command Authoring Rules
 
 - Use full cmdlet names in generated commands. Avoid aliases such as `ls`, `cat`, `rm`, `curl`, `wget`, `where`, `sort`, and `sc` unless verifying an interactive user habit.
+- Do not add `-NoProfile` by default. Let the selected shell load its normal profiles; use `-NoProfile` only when the user explicitly requests a profile-free session or when isolating a problem caused by profile configuration.
 - Use `-LiteralPath` for user-provided paths and any path containing `[]`, wildcard characters, leading dashes, or unusual punctuation.
 - Quote paths with spaces. Invoke quoted executables with the call operator: `& 'C:\Program Files\Git\bin\git.exe' status`.
-- When using a native launcher or wrapper command, do not pass PowerShell cmdlets such as `Get-Content` or `Test-Path` as the executable. Invoke PowerShell explicitly instead, for example `pwsh -NoLogo -NoProfile -Command "Get-Content -Raw -LiteralPath 'C:\path\file.txt'"`.
+- When using a native launcher or wrapper command, do not pass PowerShell cmdlets such as `Get-Content` or `Test-Path` as the executable. Invoke PowerShell explicitly instead, for example `pwsh -NoLogo -Command "Get-Content -Raw -LiteralPath 'C:\path\file.txt'"`.
 - Use single quotes for literal strings and double quotes only when interpolation is needed.
 - Use `${name}` or `$($expr)` inside expandable strings when characters follow a variable, especially before `:`.
 - For regex patterns containing both quote types, backticks, or character classes like `['"]`, assign the pattern to a single-quoted variable first, for example `$pattern = 'from [''"]([^''"]+)[''"]'`, or move the logic into a script file. Avoid packing such regex directly into a long one-liner pipeline.

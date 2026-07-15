@@ -24,19 +24,19 @@ Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContin
 From `cmd.exe` or another launcher:
 
 ```powershell
-pwsh -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
+pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
 ```
 
 For Windows PowerShell 5.1:
 
 ```powershell
-powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
+powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
 ```
 
 Prefer `-File` for multi-line scripts:
 
 ```powershell
-pwsh -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\build.ps1
+pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
 Use `-EncodedCommand` only when a launcher makes quoting impossible. Encode the command as UTF-16LE before Base64.
@@ -194,7 +194,7 @@ if ($LASTEXITCODE -ne 0) { throw "curl.exe failed with exit code $LASTEXITCODE" 
 Prefer process-scoped bypass for one command or one script run:
 
 ```powershell
-pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
+pwsh -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
 ```
 
 Inside an existing session:
