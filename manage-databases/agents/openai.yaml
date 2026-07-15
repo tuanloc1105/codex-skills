@@ -1,0 +1,4 @@
+interface:
+  display_name: "Quản lý database"
+  short_description: "Truy vấn và quản trị database an toàn"
+  default_prompt: "Dùng $manage-databases để kiểm tra database của project này với chế độ chỉ đọc mặc định."
