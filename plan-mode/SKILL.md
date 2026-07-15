@@ -99,6 +99,11 @@ Ask the user for the destination path before saving.
 
 - If the user gives a directory, create the plan file inside it.
 - If the user gives a full file path, use it, but ensure the filename starts with the date prefix.
+- Resolve the directory that will contain the plan. If that directory or any parent directory does not exist, create the missing directories automatically before saving; do not ask for separate confirmation.
+- After the destination directory exists, determine whether it is inside a Git worktree. If it is, ensure the worktree root's `.gitignore` ignores the directory containing the plans:
+  - Create the root `.gitignore` if it does not exist, preserve its existing contents, and add a root-relative anchored directory rule with a trailing slash.
+  - Do not add a duplicate rule or modify `.gitignore` when the destination directory is already ignored.
+  - If the destination directory is the worktree root, ignore the plan file itself with a root-relative anchored file rule instead; never add a rule that ignores the entire worktree.
 - Filename format: `YYYY-MM-DD-<plan-name>.md`.
 - Use the current local date unless the user requests another date.
 - Slugify `<plan-name>` with lowercase ASCII words joined by hyphens.
