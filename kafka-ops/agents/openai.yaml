@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kafka Operations"
+  short_description: "Debug Kafka an toàn trên macOS, Linux và Windows"
+  default_prompt: "Use $kafka-ops để chẩn đoán Kafka ở chế độ chỉ đọc trên macOS, Linux hoặc Windows và chuẩn bị mutation an toàn khi cần."
