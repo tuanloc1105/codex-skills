@@ -50,6 +50,33 @@ KNOWN_KAFKA_TOOLS = {
     "kafka-verifiable-consumer",
     "kafka-verifiable-producer",
 }
+LOCAL_HELP_VERSION_TOOLS = {
+    "kafka-acls",
+    "kafka-broker-api-versions",
+    "kafka-client-metrics",
+    "kafka-cluster",
+    "kafka-configs",
+    "kafka-consumer-groups",
+    "kafka-features",
+    "kafka-get-offsets",
+    "kafka-groups",
+    "kafka-log-dirs",
+    "kafka-metadata-quorum",
+    "kafka-reassign-partitions",
+    "kafka-share-groups",
+    "kafka-storage",
+    "kafka-topics",
+    "kafka-transactions",
+}
+ALWAYS_MUTATION_TOOLS = {
+    "kafka-console-producer",
+    "kafka-delete-records",
+    "kafka-leader-election",
+    "kafka-producer-perf-test",
+    "kafka-server-start",
+    "kafka-server-stop",
+    "kafka-verifiable-producer",
+}
 SHELL_CONTROL_TOKENS = {"|", "||", "&", "&&", ";", ">", ">>", "<", "<<"}
 CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x1f\x7f]")
 BATCH_UNSAFE_PATTERN = re.compile(r"[%!^&|<>\"\x00-\x1f\x7f]")
@@ -103,6 +130,7 @@ FILE_PATH_FLAGS = MUTATION_INPUT_FLAGS + (
     "--consumer-config",
     "--consumer.config",
     "--producer.config",
+    "--reader-config",
 )
 MAX_HASHED_INPUT_BYTES = 100 * 1024 * 1024
 
@@ -160,8 +188,15 @@ def _cmd_batch_line(binary: str | Path, args: Sequence[str]) -> str:
         location = "binary path" if unsafe_index == 0 else f"argument {unsafe_index}"
         problem = "empty token" if not tokens[unsafe_index] else "unsafe cmd.exe metacharacter"
         raise ValueError(f"{problem} in {location}")
-    quoted = " ".join(f'"{token}"' for token in tokens)
+    quoted = " ".join(_cmd_quote_token(token) for token in tokens)
     return f'"{quoted}"'
+
+
+def _cmd_quote_token(token: str) -> str:
+    trailing_backslashes = len(token) - len(token.rstrip("\\"))
+    if trailing_backslashes:
+        token += "\\" * trailing_backslashes
+    return f'"{token}"'
 
 
 def _is_runnable(path: Path, platform: str | None = None) -> bool:
@@ -250,6 +285,15 @@ def _version_command(
     return [str(binary), "--version"]
 
 
+def _windows_batch_version_invocation(binary: Path) -> tuple[str, str, dict[str, str]]:
+    command_interpreter = _windows_system_cmd()
+    command = _version_command(binary, "nt", command_interpreter)
+    command_line = f"cmd.exe {' '.join(command[1:4])} {command[4]}"
+    environment = os.environ.copy()
+    environment["COMSPEC"] = command_interpreter
+    return command_line, command_interpreter, environment
+
+
 def _first_clean_line(value: str) -> str:
     ansi = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
     for line in value.splitlines():
@@ -326,13 +370,21 @@ def preflight(required: Sequence[str], explicit_bin: str | None = None) -> dict[
         }
 
     try:
-        version_command = _version_command(anchor)
+        run_options: dict[str, Any] = {}
+        if os.name == "nt" and _is_batch_script(anchor):
+            version_command, executable, environment = _windows_batch_version_invocation(anchor)
+            run_options.update(executable=executable, env=environment)
+        else:
+            version_command = _version_command(anchor)
         completed = subprocess.run(
             version_command,
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
+            **run_options,
         )
     except (OSError, subprocess.TimeoutExpired, ValueError) as exc:
         return {
@@ -531,11 +583,25 @@ def _classify_command(command: Sequence[str], platform: str | None = None) -> di
     if tool in {"kafka-server-start", "kafka-server-stop"}:
         return _classification("MUTATION", tool, "server-lifecycle", "broker lifecycle scripts may ignore help/version flags", "high")
     if args and all(arg in {"--help", "-h", "--version"} for arg in args):
-        return _classification("LOCAL_READ", tool, "help-or-version", "local help/version invocation")
+        if tool in LOCAL_HELP_VERSION_TOOLS:
+            return _classification("LOCAL_READ", tool, "help-or-version", "local help/version invocation")
+        if tool not in ALWAYS_MUTATION_TOOLS:
+            return _classification("UNKNOWN", tool, "help-or-version", "help/version is not allowlisted for this tool")
 
     if tool == "kafka-console-consumer":
         return _classify_console_consumer(tool, args)
     if tool in {"kafka-console-producer", "kafka-producer-perf-test", "kafka-verifiable-producer"}:
+        if tool == "kafka-console-producer" and _present(args, "--line-reader"):
+            return _classification(
+                "UNKNOWN",
+                tool,
+                "produce-records",
+                "custom line readers can change record boundaries and are not supported",
+            )
+        if tool == "kafka-console-producer" and _present(args, "--reader-config"):
+            reader_config = _value_after(args, "--reader-config")
+            if not reader_config or reader_config.startswith("-"):
+                return _classification("UNKNOWN", tool, "produce-records", "--reader-config requires an absolute file path")
         return _classification("MUTATION", tool, "produce-records", "producer tools write records", "high")
     if tool in {"kafka-consumer-perf-test", "kafka-verifiable-consumer", "kafka-console-share-consumer"}:
         return _classification("UNKNOWN", tool, "consume", "consumer tool can change group/share-group state and is not safely bounded")
@@ -602,7 +668,7 @@ def _classify_command(command: Sequence[str], platform: str | None = None) -> di
             return _classification("READ", tool, "describe-features", "recognized feature metadata read")
     elif tool == "kafka-client-metrics":
         if _present(args, "--alter") or _present(args, "--delete"):
-            return _classification("MUTATION", tool, "alter-client-metrics", "client metrics configuration will change", "standard")
+            return _classification("MUTATION", tool, "alter-client-metrics", "client metrics configuration will change", "high")
         if _present(args, "--describe"):
             return _classification("READ", tool, "describe-client-metrics", "recognized client metrics config read")
     elif tool == "kafka-metadata-quorum":
@@ -667,6 +733,30 @@ def _hash_file(path: Path) -> tuple[str, int]:
     return digest.hexdigest(), size
 
 
+def _hash_producer_payload(path: Path) -> tuple[str, int, int]:
+    digest = hashlib.sha256()
+    size = 0
+    record_count = 0
+    previous_chunk_ended_with_cr = False
+    last_byte = b""
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            size += len(chunk)
+            if size > MAX_HASHED_INPUT_BYTES:
+                raise ValueError(f"input file exceeds {MAX_HASHED_INPUT_BYTES} bytes")
+            digest.update(chunk)
+            record_count += chunk.count(b"\n") + chunk.count(b"\r") - chunk.count(b"\r\n")
+            if previous_chunk_ended_with_cr and chunk.startswith(b"\n"):
+                record_count -= 1
+            previous_chunk_ended_with_cr = chunk.endswith(b"\r")
+            last_byte = chunk[-1:]
+    if size == 0:
+        raise ValueError("kafka-console-producer payload file must not be empty")
+    if last_byte not in {b"\r", b"\n"}:
+        record_count += 1
+    return digest.hexdigest(), size, record_count
+
+
 def _server_start_config(args: Sequence[str]) -> str | None:
     for arg in args:
         if arg in {"-daemon", "--daemon"}:
@@ -699,6 +789,7 @@ def build_plan(
     kafka_version: str,
     command: Sequence[str],
     input_files: Iterable[str],
+    minimum_risk: str = "standard",
 ) -> dict[str, Any]:
     argv = list(command)
     if argv and argv[0] == "--":
@@ -712,8 +803,11 @@ def build_plan(
         raise ValueError("environment must be a non-empty single-line value")
     if not kafka_version.strip() or any(char in kafka_version for char in "\r\n\x00"):
         raise ValueError("kafka-version must be a non-empty single-line value")
+    if minimum_risk not in {"standard", "high"}:
+        raise ValueError("minimum-risk must be standard or high")
+    effective_risk = "high" if "high" in {classification["risk"], minimum_risk} else "standard"
 
-    inputs: list[dict[str, Any]] = []
+    resolved_inputs: list[Path] = []
     seen: set[str] = set()
     for raw_path in input_files:
         if not _is_absolute_path(raw_path):
@@ -725,10 +819,9 @@ def build_plan(
         if marker in seen:
             continue
         seen.add(marker)
-        digest, size = _hash_file(path)
-        inputs.append({"path": str(path), "sha256": digest, "size": size})
+        resolved_inputs.append(path)
 
-    pinned_inputs = {os.path.normcase(item["path"]) for item in inputs}
+    pinned_inputs = {os.path.normcase(str(path)) for path in resolved_inputs}
     referenced_pins: set[str] = set()
     missing_pins: list[str] = []
     for raw_path in _referenced_mutation_inputs(argv):
@@ -741,6 +834,7 @@ def build_plan(
             missing_pins.append(str(referenced))
     if missing_pins:
         raise ValueError(f"referenced mutation inputs must be passed via --input-file: {', '.join(missing_pins)}")
+    producer_payload: str | None = None
     if canonical_tool(argv[0]) == "kafka-console-producer":
         payload_inputs = pinned_inputs - referenced_pins
         if len(payload_inputs) != 1:
@@ -748,6 +842,17 @@ def build_plan(
                 "kafka-console-producer requires exactly one exact payload file passed via --input-file "
                 "in addition to command-referenced files"
             )
+        producer_payload = next(iter(payload_inputs))
+
+    inputs: list[dict[str, Any]] = []
+    producer_record_count: int | None = None
+    for path in resolved_inputs:
+        marker = os.path.normcase(str(path))
+        if marker == producer_payload:
+            digest, size, producer_record_count = _hash_producer_payload(path)
+        else:
+            digest, size = _hash_file(path)
+        inputs.append({"path": str(path), "sha256": digest, "size": size})
 
     surface = {
         "cluster_id": cluster_id.strip(),
@@ -755,21 +860,25 @@ def build_plan(
         "kafka_version": kafka_version.strip(),
         "argv": argv,
         "inputs": inputs,
+        "effective_risk": effective_risk,
     }
+    if producer_record_count is not None:
+        surface["producer_record_count"] = producer_record_count
     canonical = json.dumps(surface, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     change_id = hashlib.sha256(canonical).hexdigest()[:12]
     command_hash = hashlib.sha256(
         json.dumps(argv, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     ).hexdigest()
-    if classification["risk"] == "high":
+    if effective_risk == "high":
         confirmation = f"XÁC NHẬN KAFKA NGUY HIỂM {cluster_id.strip()} {change_id}"
     else:
         confirmation = f"XÁC NHẬN KAFKA {change_id}"
-    return {
+    result = {
         "status": "planned",
         "change_id": change_id,
         "command_sha256": command_hash,
         "classification": classification,
+        "effective_risk": effective_risk,
         "cluster_id": cluster_id.strip(),
         "environment": environment.strip(),
         "kafka_version": kafka_version.strip(),
@@ -777,6 +886,9 @@ def build_plan(
         "inputs": inputs,
         "confirmation_phrase": confirmation,
     }
+    if producer_record_count is not None:
+        result["producer_record_count"] = producer_record_count
+    return result
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -794,6 +906,7 @@ def _parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--cluster-id", required=True)
     plan_parser.add_argument("--environment", required=True)
     plan_parser.add_argument("--kafka-version", required=True)
+    plan_parser.add_argument("--minimum-risk", choices=("standard", "high"), default="standard")
     plan_parser.add_argument("--input-file", action="append", default=[])
     plan_parser.add_argument("command", nargs=argparse.REMAINDER)
     return parser
@@ -812,7 +925,14 @@ def main() -> int:
             return 0
         return 10 if payload["classification"] == "MUTATION" else 20
     try:
-        payload = build_plan(args.cluster_id, args.environment, args.kafka_version, args.command, args.input_file)
+        payload = build_plan(
+            args.cluster_id,
+            args.environment,
+            args.kafka_version,
+            args.command,
+            args.input_file,
+            minimum_risk=args.minimum_risk,
+        )
     except (OSError, ValueError) as exc:
         emit({"status": "blocked", "reason": str(exc)})
         return 2

@@ -31,6 +31,16 @@ function Test-FullyQualifiedWindowsPath {
     return $false
 }
 
+function ConvertTo-CmdQuotedToken {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Token
+    )
+
+    $escapedToken = [regex]::Replace($Token, '(\\+)$', '$1$1')
+    return '"' + $escapedToken + '"'
+}
+
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     Stop-WithCode 'invoke_kafka.ps1 supports native Windows only.'
 }
@@ -97,15 +107,33 @@ if ($extension -in @('.bat', '.cmd')) {
         Stop-WithCode 'Trusted Windows cmd.exe path resolves to a directory.'
     }
 
-    $quotedTokens = @('"' + $binary + '"')
+    $quotedTokens = @(ConvertTo-CmdQuotedToken -Token $binary)
     foreach ($argument in $kafkaArguments) {
-        $quotedTokens += '"' + $argument + '"'
+        $quotedTokens += ConvertTo-CmdQuotedToken -Token $argument
     }
     $commandLine = '"' + ($quotedTokens -join ' ') + '"'
-    $commandArguments = @('/d', '/s', '/c', $commandLine)
     $commandInterpreterExecutable = $commandInterpreter.FullName
-    & $commandInterpreterExecutable @commandArguments
-    $kafkaExitCode = $LASTEXITCODE
+    $processStartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $processStartInfo.FileName = $commandInterpreterExecutable
+    $processStartInfo.UseShellExecute = $false
+    $processStartInfo.Arguments = '/d /s /c ' + $commandLine
+    $processStartInfo.EnvironmentVariables['COMSPEC'] = $commandInterpreterExecutable
+    $processStartInfo.RedirectStandardInput = $false
+    $processStartInfo.RedirectStandardOutput = $false
+    $processStartInfo.RedirectStandardError = $false
+
+    $process = [System.Diagnostics.Process]::new()
+    try {
+        $process.StartInfo = $processStartInfo
+        if (-not $process.Start()) {
+            Stop-WithCode 'cmd.exe could not be started.'
+        }
+        $process.WaitForExit()
+        $kafkaExitCode = $process.ExitCode
+    }
+    finally {
+        $process.Dispose()
+    }
     exit $kafkaExitCode
 }
 

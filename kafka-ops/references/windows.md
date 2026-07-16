@@ -7,6 +7,7 @@
 - [Gọi guard từ PowerShell](#gọi-guard-từ-powershell)
 - [Gọi Kafka CLI](#gọi-kafka-cli)
 - [Hardening cho batch script](#hardening-cho-batch-script)
+- [Local smoke checks đã duyệt](#local-smoke-checks-đã-duyệt)
 - [Checklist Windows](#checklist-windows)
 - [Nguồn chính thức](#nguồn-chính-thức)
 
@@ -32,6 +33,8 @@ Khi không có `--kafka-bin`, guard tìm installation theo các nguồn sau rồ
 3. Mọi thư mục trong `PATH`.
 
 Chỉ truyền `--kafka-bin` khi người dùng đã chọn installation cụ thể; path phải absolute và thường là `C:\...\Kafka\bin\windows`. Guard nhận `.bat`, `.cmd`, `.exe` hoặc executable không extension trên native Windows; không nhận `.sh` trong PowerShell.
+
+Khi preflight kiểm tra version của `.bat`/`.cmd`, Python không truyền một argv list thông thường cho batch file. Guard resolve `cmd.exe` từ Windows system directory, dựng raw command line có literal argv0 `cmd.exe` và `/d /s /c <validated-payload>`, rồi gọi `subprocess.run` với `executable` trỏ tới trusted absolute `cmd.exe`. Child environment cũng pin `COMSPEC` vào cùng path; giá trị `$env:COMSPEC` ban đầu không được tin cậy. Nhánh `.exe`/extensionless vẫn dùng argv list trực tiếp.
 
 ## Gọi guard từ PowerShell
 
@@ -89,7 +92,8 @@ Không chuyển array thành một string. Nếu thay một token, chạy `class
 `invoke_kafka.ps1` chỉ là transport an toàn cho exact argv trên Windows; nó không cấp quyền mutation và không thay thế classifier, plan hay xác nhận của người dùng. Runner:
 
 - Chỉ nhận absolute Kafka executable đã tồn tại.
-- Gọi `.bat`/`.cmd` bằng `cmd.exe /d /s /c`, quote từng token và kiểm tra exit code ngay lập tức.
+- Gọi `.bat`/`.cmd` bằng `System.Diagnostics.ProcessStartInfo`: `FileName` là trusted absolute `cmd.exe`, `UseShellExecute = $false`, `Arguments` là raw `/d /s /c <validated-payload>`, và `EnvironmentVariables['COMSPEC']` được pin vào cùng executable.
+- Không redirect standard streams; chờ bằng `WaitForExit()`, lấy `ExitCode`, rồi `Dispose()` trong `finally` để giữ streaming behavior và exit code nguyên vẹn trên Windows PowerShell 5.1 lẫn PowerShell 7.
 - Gọi `.exe` trực tiếp bằng argument array.
 - Không log argv hoặc đọc credential file.
 
@@ -118,7 +122,69 @@ Mọi Windows transport đều từ chối empty token, embedded `"` và control
 
 `.bat` và `.cmd` còn bị từ chối khi token chứa `%`, `!`, `^`, `&`, `|`, `<` hoặc `>`. Đây là fail-closed boundary chống expansion/injection của `cmd.exe`, áp dụng cả binary path và file/config/resource arguments.
 
-Path có khoảng trắng, dấu ngoặc, Unicode và UNC được hỗ trợ khi không chứa các ký tự bị chặn. Dùng giá trị path đã resolve, không truyền chuỗi kiểu `%KAFKA_HOME%\...`. Nếu resource/path thực sự chứa ký tự bị chặn, dừng và báo không thể biểu diễn an toàn; không tự escape, encode hoặc đổi shell để lách guard.
+Mỗi token batch hợp lệ được bao trong `"..."`. Chỉ run backslash ở cuối token được nhân đôi trước closing quote; backslash bên trong token giữ nguyên. Contract này bảo toàn path/argument có khoảng trắng, dấu ngoặc, Unicode, UNC và trailing `\`, miễn là không chứa ký tự bị chặn. Dùng giá trị path đã resolve, không truyền chuỗi kiểu `%KAFKA_HOME%\...`. Nếu resource/path thực sự chứa ký tự bị chặn, dừng và báo không thể biểu diễn an toàn; không tự escape, encode hoặc đổi shell để lách guard.
+
+## Local smoke checks đã duyệt
+
+Chạy từ repository root trên máy validation hiện tại. Các check này chỉ dùng unit fixture, local `--version`, classifier và synthetic planner; không kết nối broker, không dùng credential và tuyệt đối không execute mutation đã plan.
+
+```powershell
+& python.exe .\kafka-ops\scripts\test_kafka_guard.py
+if ($LASTEXITCODE -ne 0) { throw "kafka_guard tests failed with exit code $LASTEXITCODE" }
+
+$skillRoot = (Resolve-Path -LiteralPath '.\kafka-ops').Path
+$kafkaBin = 'D:\dev-kit\kafka\bin\windows'
+$topics = Join-Path -Path $kafkaBin -ChildPath 'kafka-topics.bat'
+$guard = Join-Path -Path $skillRoot -ChildPath 'scripts\kafka_guard.ps1'
+$runner = Join-Path -Path $skillRoot -ChildPath 'scripts\invoke_kafka.ps1'
+$hosts = @('powershell.exe', 'D:\dev-kit\PS7\pwsh.exe')
+
+foreach ($hostExe in $hosts) {
+    $guardHostArgs = @(
+        '-NoLogo', '-NoProfile', '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass', '-File', $guard
+    )
+    $runnerHostArgs = @(
+        '-NoLogo', '-NoProfile', '-NonInteractive',
+        '-ExecutionPolicy', 'Bypass', '-File', $runner
+    )
+
+    $preflightText = & $hostExe @guardHostArgs preflight --kafka-bin $kafkaBin --require kafka-topics
+    if ($LASTEXITCODE -ne 0) { throw "$hostExe preflight failed" }
+    $preflight = (@($preflightText) -join "`n") | ConvertFrom-Json
+    if ($preflight.status -ne 'ready' -or $preflight.version -notmatch '4\.3\.1') {
+        throw "$hostExe returned unexpected preflight output"
+    }
+
+    $versionText = & $hostExe @runnerHostArgs $topics --version
+    if ($LASTEXITCODE -ne 0 -or (@($versionText) -join "`n") -notmatch '4\.3\.1') {
+        throw "$hostExe failed the kafka-topics.bat --version smoke"
+    }
+
+    $classificationText = & $hostExe @guardHostArgs classify -- $topics --version
+    if ($LASTEXITCODE -ne 0) { throw "$hostExe classify smoke failed" }
+    $classification = (@($classificationText) -join "`n") | ConvertFrom-Json
+    if ($classification.classification -ne 'LOCAL_READ') {
+        throw "$hostExe did not classify explicit local version read correctly"
+    }
+
+    $planText = & $hostExe @guardHostArgs plan `
+        --cluster-id synthetic-local `
+        --environment local `
+        --kafka-version 4.3.1 `
+        --minimum-risk high -- `
+        $topics --create --topic smoke-do-not-execute `
+        --partitions 1 --replication-factor 1 `
+        --bootstrap-server 127.0.0.1:1
+    if ($LASTEXITCODE -ne 0) { throw "$hostExe synthetic plan failed" }
+    $plan = (@($planText) -join "`n") | ConvertFrom-Json
+    if ($plan.status -ne 'planned' -or $plan.effective_risk -ne 'high') {
+        throw "$hostExe did not preserve one-way risk elevation"
+    }
+}
+```
+
+Không chuyển synthetic plan trên thành lệnh execute. `127.0.0.1:1` chỉ là token approval surface và planner không mở kết nối.
 
 ## Checklist Windows
 

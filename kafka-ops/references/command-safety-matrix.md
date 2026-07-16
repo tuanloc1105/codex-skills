@@ -24,7 +24,7 @@ Các lớp:
 | `kafka-groups` | `--list` | Không allowlist | Action khác là `UNKNOWN` cho đến khi version-specific help được review và guard cập nhật. |
 | `kafka-acls` | `--list` là `SENSITIVE_READ` | `--add`, `--remove` | ACL wildcard/prefix có blast radius lớn. |
 | `kafka-console-consumer` | Chỉ bounded direct-partition pattern bên dưới | Dùng `--group` hoặc auto-commit có thể đổi group/offset | Mọi pattern khác là `UNKNOWN`. |
-| `kafka-console-producer` | Không | Mọi invocation | Exact payload/count phải nằm trong approval surface. |
+| `kafka-console-producer` | Không | Mọi invocation | Risk `high`; exact payload hash/count phải nằm trong approval surface. Custom `--line-reader` là `UNKNOWN`; `--reader-config` phải absolute và được pin. |
 | `kafka-get-offsets` | Query | Không allowlist | Vẫn giới hạn topic/partition khi có thể. |
 | `kafka-broker-api-versions` | Query | Không allowlist | Dùng để tách lỗi network/protocol khỏi auth. |
 | `kafka-log-dirs` | `--describe` | `--alter` | Alter replica placement là high risk. |
@@ -34,7 +34,7 @@ Các lớp:
 | `kafka-delegation-tokens` | `--describe` là `SENSITIVE_READ` | `--create`, `--renew`, `--expire` | Không in token/secret material. |
 | `kafka-transactions` | `--list`, `--describe` là `SENSITIVE_READ` | `--abort` | Transactional IDs có thể nhạy cảm. |
 | `kafka-features` | `--describe` | `--upgrade`, `--downgrade`, `--disable` | Feature-level change là cluster-wide. |
-| `kafka-client-metrics` | `--describe` | `--alter`, `--delete` | Selector rộng phải coi là production blast radius. |
+| `kafka-client-metrics` | `--describe` | `--alter`, `--delete` | Cả hai mutation có risk `high`; selector rộng phải coi là production blast radius. |
 | `kafka-metadata-quorum` | `--describe` | add/remove controller flags | Quorum membership mutation là high risk. |
 | `kafka-cluster` | `cluster-id` | `unregister` | Dùng cluster ID làm identity cho approval. |
 | `kafka-streams-application-reset` | Chỉ explicit `--dry-run` | Invocation không có `--dry-run` | Reset có thể đổi offsets và internal topics. |
@@ -58,7 +58,10 @@ Nếu cần đọc nhiều hơn, thực hiện nhiều đợt nhỏ sau khi báo
 
 ## Quy tắc version và flag
 
-- Dùng version từ preflight và local `--help`/`--version` để kiểm tra cú pháp; help không cấp quyền chạy action chưa có trong allowlist.
+- `--help`/`--version` chỉ là `LOCAL_READ` cho explicit allowlist hiện hành: `kafka-acls`, `kafka-broker-api-versions`, `kafka-client-metrics`, `kafka-cluster`, `kafka-configs`, `kafka-consumer-groups`, `kafka-features`, `kafka-get-offsets`, `kafka-groups`, `kafka-log-dirs`, `kafka-metadata-quorum`, `kafka-reassign-partitions`, `kafka-share-groups`, `kafka-storage`, `kafka-topics` và `kafka-transactions`.
+- Các tool luôn mutation — `kafka-console-producer`, `kafka-delete-records`, `kafka-leader-election`, `kafka-producer-perf-test`, `kafka-server-start`, `kafka-server-stop`, `kafka-verifiable-producer` — vẫn là `MUTATION` khi argv chứa `--help` hoặc `--version`.
+- Với known tool còn lại (`kafka-console-consumer`, `kafka-console-share-consumer`, `kafka-consumer-perf-test`, `kafka-delegation-tokens`, `kafka-streams-application-reset`, `kafka-verifiable-consumer`), help/version là `UNKNOWN` vì guard chưa chứng minh invocation local và bounded. Tool không được nhận diện hoặc tổ hợp action/flag không allowlist cũng là `UNKNOWN`.
+- Dùng version từ preflight và local help/version đã được allowlist để kiểm tra cú pháp; help không cấp quyền chạy action khác chưa có trong allowlist.
 - Nếu Kafka thêm action mới, đổi semantics hoặc CLI vendor dùng cùng tên, giữ `UNKNOWN` cho đến khi cập nhật guard và tests.
 - Nếu một lệnh có đồng thời read và mutation flag, mutation thắng.
 - Không dùng shell pipeline/redirection để làm lệnh “trông giống read”; classifier chỉ bảo vệ exact argv được truyền vào.

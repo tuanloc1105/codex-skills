@@ -41,6 +41,18 @@ pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\build.ps1
 
 Use `-EncodedCommand` only when a launcher makes quoting impossible. Encode the command as UTF-16LE before Base64.
 
+### PowerShell launching PowerShell
+
+Keep child-owned variables literal at the outer boundary. Outer single quotes preserve `$PSVersionTable` for the child process:
+
+```powershell
+& powershell.exe -NoLogo -NoProfile -NonInteractive `
+    -Command '$PSVersionTable.PSVersion.ToString()'
+if ($LASTEXITCODE -ne 0) { throw "child PowerShell failed with exit code $LASTEXITCODE" }
+```
+
+Do not put that child payload in outer double quotes: the outer host can expand `$PSVersionTable` first and pass an invalid type-name expression to the child. Prefer `-File` when the child command needs single-quoted literals, loops, pipelines, or other non-trivial logic; use `-EncodedCommand` only when a launcher prevents `-File`.
+
 ## Fail Fast
 
 ```powershell
@@ -93,6 +105,59 @@ Use `--%` only on Windows, only for native commands, and only when literal argum
 ```powershell
 icacls X:\VMS --% /grant Dom\HVAdmin:(CI)(OI)F
 ```
+
+### Validated `.bat`/`.cmd` through raw `cmd.exe` arguments
+
+A nested batch launch under `cmd.exe /s /c` is not a normal argv-array problem. When an existing runner has a narrow validated token contract, use `ProcessStartInfo` to keep the raw payload intact on both Windows PowerShell 5.1 and PowerShell 7:
+
+```powershell
+function ConvertTo-CmdQuotedToken {
+    param([Parameter(Mandatory = $true)][string]$Token)
+
+    # Double only the final run of backslashes before the closing quote.
+    $escapedToken = [regex]::Replace($Token, '(\\+)$', '$1$1')
+    return '"' + $escapedToken + '"'
+}
+
+$batch = 'C:\Program Files\Kafka\bin\windows\kafka-topics.bat'
+$batchArgs = @('--version')
+$tokens = @($batch) + $batchArgs
+$unsafe = '[%!^&|<>"\u0000-\u001F\u007F]'
+foreach ($token in $tokens) {
+    if ([string]::IsNullOrEmpty($token) -or $token -match $unsafe) {
+        throw 'Batch token cannot be transported by this cmd.exe contract.'
+    }
+}
+
+$cmd = (Get-Item -LiteralPath (
+    Join-Path -Path ([Environment]::SystemDirectory) -ChildPath 'cmd.exe'
+) -ErrorAction Stop).FullName
+$quotedTokens = @($tokens | ForEach-Object { ConvertTo-CmdQuotedToken -Token $_ })
+$payload = '"' + ($quotedTokens -join ' ') + '"'
+
+$startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+$startInfo.FileName = $cmd
+$startInfo.UseShellExecute = $false
+$startInfo.Arguments = '/d /s /c ' + $payload
+$startInfo.EnvironmentVariables['COMSPEC'] = $cmd
+$startInfo.RedirectStandardInput = $false
+$startInfo.RedirectStandardOutput = $false
+$startInfo.RedirectStandardError = $false
+
+$process = [System.Diagnostics.Process]::new()
+try {
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) { throw 'cmd.exe could not be started.' }
+    $process.WaitForExit()
+    $exitCode = $process.ExitCode
+}
+finally {
+    $process.Dispose()
+}
+if ($exitCode -ne 0) { throw "batch command failed with exit code $exitCode" }
+```
+
+The metacharacter rejection and trailing-backslash rule are part of this specific contract, not a general-purpose Windows argument encoder. Do not use this pattern to bypass a runner that rejected a token, and keep native `.exe` launches on argument arrays when possible.
 
 ## Paths
 

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -13,6 +15,13 @@ from pathlib import Path
 from unittest.mock import patch
 
 import kafka_guard
+
+
+LOCAL_PWSH = Path(r"D:\dev-kit\PS7\pwsh.exe")
+PWSH_EXECUTABLE = str(LOCAL_PWSH) if LOCAL_PWSH.is_file() else shutil.which("pwsh.exe")
+POWERSHELL_HOSTS = (("Windows PowerShell 5.1", "powershell.exe"),)
+if PWSH_EXECUTABLE:
+    POWERSHELL_HOSTS += (("PowerShell 7", PWSH_EXECUTABLE),)
 
 
 def kafka_tool(name: str) -> str:
@@ -96,19 +105,85 @@ class ClassifyTests(unittest.TestCase):
         self.assert_class("UNKNOWN", [kafka_tool("kafka-server-start"), "relative-server.properties"])
 
     def test_windows_batch_argv_hardening(self) -> None:
-        binary = "/opt/Kafka Home ü/bin/windows/kafka-topics.bat"
+        binary = r"C:\Kafka Home ü\bin\windows\kafka-topics.bat"
         for safe in ("orders.eu", "orders'west", "orders$(west)", "orders`west", "orders\\"):
             with self.subTest(safe=safe):
                 self.assert_class("READ", [binary, "--describe", "--topic", safe])
         for unsafe in ("orders&whoami", "%TEMP%", "orders!x", 'orders"x'):
             with self.subTest(unsafe=unsafe):
                 result = self.assert_class("UNKNOWN", [binary, "--describe", "--topic", unsafe])
-                self.assertIn("cmd.exe metacharacter", str(result["reason"]))
+                if '"' in unsafe:
+                    self.assertIn("embedded quotes", str(result["reason"]))
+                else:
+                    self.assertIn("cmd.exe metacharacter", str(result["reason"]))
         for control in ("orders\twest", "orders\x1fwest", "orders\x7fwest"):
             with self.subTest(control=repr(control)):
                 self.assert_class("UNKNOWN", [binary, "--describe", "--topic", control])
         empty = self.assert_class("UNKNOWN", [binary, "--describe", "--topic", ""])
         self.assertIn("empty token", str(empty["reason"]))
+
+    def test_help_and_version_policy_is_explicit_for_every_known_tool(self) -> None:
+        local_read = {
+            "kafka-acls",
+            "kafka-broker-api-versions",
+            "kafka-client-metrics",
+            "kafka-cluster",
+            "kafka-configs",
+            "kafka-consumer-groups",
+            "kafka-features",
+            "kafka-get-offsets",
+            "kafka-groups",
+            "kafka-log-dirs",
+            "kafka-metadata-quorum",
+            "kafka-reassign-partitions",
+            "kafka-share-groups",
+            "kafka-storage",
+            "kafka-topics",
+            "kafka-transactions",
+        }
+        always_mutation = {
+            "kafka-console-producer",
+            "kafka-delete-records",
+            "kafka-leader-election",
+            "kafka-producer-perf-test",
+            "kafka-server-start",
+            "kafka-server-stop",
+            "kafka-verifiable-producer",
+        }
+        unknown_or_unbounded = kafka_guard.KNOWN_KAFKA_TOOLS - local_read - always_mutation
+        self.assertEqual(kafka_guard.KNOWN_KAFKA_TOOLS, local_read | always_mutation | unknown_or_unbounded)
+
+        for flag in ("--help", "--version"):
+            for tool in sorted(local_read):
+                with self.subTest(tool=tool, flag=flag):
+                    self.assert_class("LOCAL_READ", [kafka_tool(tool), flag])
+            for tool in sorted(always_mutation):
+                with self.subTest(tool=tool, flag=flag):
+                    result = self.assert_class("MUTATION", [kafka_tool(tool), flag])
+                    self.assertEqual("high", result["risk"])
+            for tool in sorted(unknown_or_unbounded):
+                with self.subTest(tool=tool, flag=flag):
+                    self.assert_class("UNKNOWN", [kafka_tool(tool), flag])
+
+    def test_client_metrics_mutations_are_high_risk(self) -> None:
+        for flag in ("--alter", "--delete"):
+            with self.subTest(flag=flag):
+                result = self.assert_class("MUTATION", [kafka_tool("kafka-client-metrics"), flag, "--name", "clients"])
+                self.assertEqual("high", result["risk"])
+
+    def test_console_producer_custom_reader_and_reader_config_fail_closed(self) -> None:
+        custom_reader = [
+            kafka_tool("kafka-console-producer"),
+            "--topic",
+            "orders",
+            "--line-reader",
+            "com.example.CustomReader",
+        ]
+        self.assert_class("UNKNOWN", custom_reader)
+        self.assert_class(
+            "UNKNOWN",
+            [kafka_tool("kafka-console-producer"), "--topic", "orders", "--reader-config", "relative.properties"],
+        )
 
 
 class PortabilityTests(unittest.TestCase):
@@ -140,6 +215,16 @@ class PortabilityTests(unittest.TestCase):
             command[4],
         )
 
+    def test_batch_command_line_preserves_trailing_backslashes(self) -> None:
+        raw = kafka_guard._cmd_batch_line(
+            Path(r"C:\Kafka (local)\bin\windows\kafka-topics.cmd"),
+            ["plain", "with space", "trailing\\", "Unicode-ü"],
+        )
+        self.assertEqual(
+            '""C:\\Kafka (local)\\bin\\windows\\kafka-topics.cmd" "plain" "with space" "trailing\\\\" "Unicode-ü""',
+            raw,
+        )
+
     def test_windows_native_transport_rejects_embedded_quotes(self) -> None:
         binary = r"C:\Kafka\bin\windows\kafka-topics.exe"
         safe = kafka_guard.classify([binary, "--describe", "--topic", "orders"], "nt")
@@ -153,7 +238,14 @@ class PortabilityTests(unittest.TestCase):
         with patch.dict(os.environ, {"COMSPEC": r"C:\poison\cmd.exe"}, clear=False):
             with patch.object(kafka_guard, "_windows_system_cmd", return_value=r"C:\Windows\System32\cmd.exe"):
                 command = kafka_guard._version_command(binary, "nt")
+                raw, executable, environment = kafka_guard._windows_batch_version_invocation(binary)
         self.assertEqual(r"C:\Windows\System32\cmd.exe", command[0])
+        self.assertEqual(
+            'cmd.exe /d /s /c ""C:\\Kafka\\bin\\windows\\kafka-topics.bat" "--version""',
+            raw,
+        )
+        self.assertEqual(r"C:\Windows\System32\cmd.exe", executable)
+        self.assertEqual(executable, environment["COMSPEC"])
 
     def test_windows_candidate_dirs_include_bin_windows_first(self) -> None:
         with tempfile.TemporaryDirectory() as raw_dir:
@@ -165,13 +257,22 @@ class PortabilityTests(unittest.TestCase):
 
 
 class PreflightTests(unittest.TestCase):
-    def _fake_tool(self, directory: Path, name: str, exit_code: int = 0) -> None:
+    def _fake_tool(
+        self,
+        directory: Path,
+        name: str,
+        exit_code: int = 0,
+        suffix: str | None = None,
+        version: str = "4.3.0",
+    ) -> None:
         if os.name == "nt":
-            path = directory / f"{name}.bat"
-            path.write_bytes(f"@echo off\r\necho 4.3.0\r\nexit /b {exit_code}\r\n".encode("ascii"))
+            path = directory / f"{name}{suffix or '.bat'}"
+            path.write_bytes(
+                f"@echo off\r\nchcp 65001 >nul\r\necho {version}\r\nexit /b {exit_code}\r\n".encode("utf-8")
+            )
         else:
             path = directory / name
-            path.write_text(f"#!/bin/sh\nprintf '4.3.0\\n'\nexit {exit_code}\n", encoding="utf-8")
+            path.write_text(f"#!/bin/sh\nprintf '{version}\\n'\nexit {exit_code}\n", encoding="utf-8")
             path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
     def test_explicit_installation_is_ready(self) -> None:
@@ -247,6 +348,28 @@ class PreflightTests(unittest.TestCase):
             self.assertEqual("ready", result["status"], result)
             self.assertEqual(str(directory.resolve()), result["bin_dir"])
 
+    @unittest.skipUnless(os.name == "nt", "native Windows batch transport test")
+    def test_batch_preflight_handles_spaces_unicode_parentheses_and_cmd_suffix(self) -> None:
+        for suffix in (".bat", ".cmd"):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as raw_dir:
+                directory = Path(raw_dir) / "Kafka Home (local) ü"
+                directory.mkdir()
+                self._fake_tool(directory, "kafka-topics", suffix=suffix, version="4.3.1-ü")
+                with patch.dict(os.environ, {"COMSPEC": str(directory / "poisoned.cmd")}, clear=False):
+                    result = kafka_guard.preflight([], str(directory))
+                self.assertEqual("ready", result["status"], result)
+                self.assertEqual("4.3.1-ü", result["version"])
+
+    @unittest.skipUnless(os.name == "nt", "native Windows batch transport test")
+    def test_batch_preflight_preserves_nonzero_exit_code_for_cmd(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_dir:
+            directory = Path(raw_dir) / "Kafka Home (local)"
+            directory.mkdir()
+            self._fake_tool(directory, "kafka-topics", exit_code=41, suffix=".cmd")
+            result = kafka_guard.preflight([], str(directory))
+            self.assertEqual("unusable_cli", result["reason"])
+            self.assertEqual(41, result["exit_code"])
+
 
 class CliEncodingTests(unittest.TestCase):
     def test_plan_json_is_utf8_when_initial_stdout_encoding_is_legacy(self) -> None:
@@ -279,6 +402,35 @@ class CliEncodingTests(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stderr.decode(errors="replace"))
         payload = json.loads(completed.stdout.decode("utf-8"))
         self.assertIn("XÁC NHẬN", payload["confirmation_phrase"])
+
+    def test_invalid_minimum_risk_is_rejected_by_argparse(self) -> None:
+        guard = Path(__file__).with_name("kafka_guard.py").resolve()
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(guard),
+                "plan",
+                "--cluster-id",
+                "cluster-a",
+                "--environment",
+                "prod",
+                "--kafka-version",
+                "4.3.0",
+                "--minimum-risk",
+                "critical",
+                "--",
+                kafka_tool("kafka-topics"),
+                "--create",
+                "--topic",
+                "orders",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(2, completed.returncode)
+        self.assertIn("invalid choice", completed.stderr)
 
 
 @unittest.skipUnless(os.name == "nt", "native Windows PowerShell runner tests")
@@ -320,47 +472,56 @@ class WindowsPowerShellRunnerTests(unittest.TestCase):
     def test_runner_preserves_safe_argv_and_exit_code(self) -> None:
         runner = Path(__file__).with_name("invoke_kafka.ps1").resolve()
         safe_args = ["plain", "with space", "single'quote", "$(literal)", "`tick", "trailing\\", "Unicode-ü"]
-        with tempfile.TemporaryDirectory() as raw_dir:
-            directory = Path(raw_dir)
-            probe = directory / "probe.py"
-            output = directory / "argv.json"
-            batch = directory / "kafka-argv-probe.cmd"
-            poisoned_marker = directory / "poisoned-cmd.txt"
-            poisoned_comspec = directory / "poisoned-cmd.cmd"
-            probe.write_text(
-                "import json, pathlib, sys\n"
-                "pathlib.Path(sys.argv[1]).write_text(json.dumps(sys.argv[2:], ensure_ascii=False), encoding='utf-8')\n",
-                encoding="utf-8",
-            )
-            batch.write_bytes(
-                b'@echo off\r\n"%KAFKA_TEST_PYTHON%" "%~dp0probe.py" "%~dp0argv.json" %*\r\nexit /b 37\r\n'
-            )
-            poisoned_comspec.write_bytes(b'@echo poisoned>"%~dp0poisoned-cmd.txt"\r\nexit /b 99\r\n')
-            environment = os.environ.copy()
-            environment["KAFKA_TEST_PYTHON"] = sys.executable
-            environment["COMSPEC"] = str(poisoned_comspec)
-            completed = subprocess.run(
-                [
-                    "powershell.exe",
-                    "-NoLogo",
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    str(runner),
-                    str(batch),
-                    *safe_args,
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-                env=environment,
-                timeout=15,
-            )
-            self.assertEqual(37, completed.returncode, completed.stderr)
-            self.assertEqual(safe_args, json.loads(output.read_text(encoding="utf-8")))
-            self.assertFalse(poisoned_marker.exists())
+        for suffix in (".bat", ".cmd"):
+            with self.subTest(suffix=suffix), tempfile.TemporaryDirectory() as raw_dir:
+                directory = Path(raw_dir) / "Kafka Probe (local) ü"
+                directory.mkdir()
+                probe = directory / "probe.py"
+                output = directory / "argv.json"
+                batch = directory / f"kafka-argv-probe{suffix}"
+                poisoned_marker = directory / "poisoned-cmd.txt"
+                poisoned_comspec = directory / "poisoned-cmd.cmd"
+                probe.write_text(
+                    "import json, pathlib, sys\n"
+                    "pathlib.Path(sys.argv[1]).write_text(json.dumps(sys.argv[2:], ensure_ascii=False), encoding='utf-8')\n",
+                    encoding="utf-8",
+                )
+                batch.write_bytes(
+                    b'@echo off\r\nchcp 65001 >nul\r\necho stdout-\xc3\xbc\r\n>&2 echo stderr-\xc3\xbc\r\n'
+                    b'"%KAFKA_TEST_PYTHON%" "%~dp0probe.py" "%~dp0argv.json" %*\r\nexit /b 37\r\n'
+                )
+                poisoned_comspec.write_bytes(b'@echo poisoned>"%~dp0poisoned-cmd.txt"\r\nexit /b 99\r\n')
+                environment = os.environ.copy()
+                environment["KAFKA_TEST_PYTHON"] = sys.executable
+                environment["COMSPEC"] = str(poisoned_comspec)
+                for host_name, host in POWERSHELL_HOSTS:
+                    with self.subTest(host=host_name):
+                        output.unlink(missing_ok=True)
+                        completed = subprocess.run(
+                            [
+                                host,
+                                "-NoLogo",
+                                "-NoProfile",
+                                "-NonInteractive",
+                                "-ExecutionPolicy",
+                                "Bypass",
+                                "-File",
+                                str(runner),
+                                str(batch),
+                                *safe_args,
+                            ],
+                            check=False,
+                            capture_output=True,
+                            text=True,
+                            encoding="utf-8",
+                            env=environment,
+                            timeout=15,
+                        )
+                        self.assertEqual(37, completed.returncode, completed.stderr)
+                        self.assertIn("stdout-ü", completed.stdout)
+                        self.assertIn("stderr-ü", completed.stderr)
+                        self.assertEqual(safe_args, json.loads(output.read_text(encoding="utf-8")))
+                        self.assertFalse(poisoned_marker.exists())
 
     def test_runner_blocks_batch_metacharacters_before_execution(self) -> None:
         runner = Path(__file__).with_name("invoke_kafka.ps1").resolve()
@@ -383,28 +544,30 @@ class WindowsPowerShellRunnerTests(unittest.TestCase):
                 "x\x7fy",
             ):
                 with self.subTest(unsafe=unsafe):
-                    marker.unlink(missing_ok=True)
-                    completed = subprocess.run(
-                        [
-                            "powershell.exe",
-                            "-NoLogo",
-                            "-NoProfile",
-                            "-NonInteractive",
-                            "-ExecutionPolicy",
-                            "Bypass",
-                            "-File",
-                            str(runner),
-                            str(batch),
-                            "--describe",
-                            unsafe,
-                        ],
-                        check=False,
-                        capture_output=True,
-                        text=True,
-                        timeout=15,
-                    )
-                    self.assertEqual(2, completed.returncode, completed.stderr)
-                    self.assertFalse(marker.exists())
+                    for host_name, host in POWERSHELL_HOSTS:
+                        with self.subTest(host=host_name):
+                            marker.unlink(missing_ok=True)
+                            completed = subprocess.run(
+                                [
+                                    host,
+                                    "-NoLogo",
+                                    "-NoProfile",
+                                    "-NonInteractive",
+                                    "-ExecutionPolicy",
+                                    "Bypass",
+                                    "-File",
+                                    str(runner),
+                                    str(batch),
+                                    "--describe",
+                                    unsafe,
+                                ],
+                                check=False,
+                                capture_output=True,
+                                text=True,
+                                timeout=15,
+                            )
+                            self.assertEqual(2, completed.returncode, completed.stderr)
+                            self.assertFalse(marker.exists())
 
 
 class PlanTests(unittest.TestCase):
@@ -427,6 +590,97 @@ class PlanTests(unittest.TestCase):
             self.assertNotEqual(first["change_id"], changed["change_id"])
             version_changed = kafka_guard.build_plan("cluster-a", "prod", "4.4.0", command, [str(input_path)])
             self.assertNotEqual(changed["change_id"], version_changed["change_id"])
+
+    def test_minimum_risk_only_escalates_and_changes_approval_surface(self) -> None:
+        standard_command = [kafka_tool("kafka-topics"), "--create", "--topic", "orders"]
+        default = kafka_guard.build_plan("cluster-a", "prod", "4.3.0", standard_command, [])
+        explicit_standard = kafka_guard.build_plan(
+            "cluster-a", "prod", "4.3.0", standard_command, [], minimum_risk="standard"
+        )
+        escalated = kafka_guard.build_plan(
+            "cluster-a", "prod", "4.3.0", standard_command, [], minimum_risk="high"
+        )
+        self.assertEqual("standard", default["effective_risk"])
+        self.assertEqual(default["change_id"], explicit_standard["change_id"])
+        self.assertEqual("high", escalated["effective_risk"])
+        self.assertNotEqual(default["change_id"], escalated["change_id"])
+        self.assertIn("NGUY HIỂM", escalated["confirmation_phrase"])
+
+        high_command = [kafka_tool("kafka-topics"), "--delete", "--topic", "orders"]
+        high = kafka_guard.build_plan(
+            "cluster-a", "prod", "4.3.0", high_command, [], minimum_risk="standard"
+        )
+        self.assertEqual("high", high["effective_risk"])
+        self.assertIn("NGUY HIỂM", high["confirmation_phrase"])
+
+        with self.assertRaisesRegex(ValueError, "requires MUTATION"):
+            kafka_guard.build_plan(
+                "cluster-a",
+                "prod",
+                "4.3.0",
+                [kafka_tool("kafka-topics"), "--unsupported"],
+                [],
+                minimum_risk="high",
+            )
+
+    def test_console_producer_record_count_hash_and_change_id(self) -> None:
+        cases = {
+            "lf-ended": (b"one\ntwo\n", 2),
+            "lf-open": (b"one\ntwo", 2),
+            "crlf": (b"one\r\ntwo\r\n", 2),
+            "cr": (b"one\rtwo", 2),
+            "unicode": ("một\nhai".encode("utf-8"), 2),
+        }
+        with tempfile.TemporaryDirectory() as raw_dir:
+            directory = Path(raw_dir)
+            command = [kafka_tool("kafka-console-producer"), "--topic", "orders"]
+            for name, (content, expected_count) in cases.items():
+                with self.subTest(name=name):
+                    payload = directory / f"{name}.records"
+                    payload.write_bytes(content)
+                    first = kafka_guard.build_plan("cluster-a", "prod", "4.3.0", command, [str(payload)])
+                    second = kafka_guard.build_plan("cluster-a", "prod", "4.3.0", command, [str(payload)])
+                    self.assertEqual(expected_count, first["producer_record_count"])
+                    self.assertEqual(hashlib.sha256(content).hexdigest(), first["inputs"][0]["sha256"])
+                    self.assertEqual(first["change_id"], second["change_id"])
+
+    def test_console_producer_rejects_empty_payload_and_custom_line_reader(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_dir:
+            payload = Path(raw_dir) / "empty.records"
+            payload.write_bytes(b"")
+            command = [kafka_tool("kafka-console-producer"), "--topic", "orders"]
+            with self.assertRaisesRegex(ValueError, "payload.*empty"):
+                kafka_guard.build_plan("cluster-a", "prod", "4.3.0", command, [str(payload)])
+            with self.assertRaisesRegex(ValueError, "requires MUTATION"):
+                kafka_guard.build_plan(
+                    "cluster-a",
+                    "prod",
+                    "4.3.0",
+                    [*command, "--line-reader", "com.example.CustomReader"],
+                    [str(payload)],
+                )
+
+    def test_console_producer_reader_config_is_pinned(self) -> None:
+        with tempfile.TemporaryDirectory() as raw_dir:
+            directory = Path(raw_dir)
+            reader_config = directory / "reader.properties"
+            payload = directory / "payload.records"
+            reader_config.write_text("parse.key=false\n", encoding="utf-8")
+            payload.write_text("one\n", encoding="utf-8")
+            command = [
+                kafka_tool("kafka-console-producer"),
+                "--topic",
+                "orders",
+                "--reader-config",
+                str(reader_config),
+            ]
+            with self.assertRaisesRegex(ValueError, "must be passed via --input-file"):
+                kafka_guard.build_plan("cluster-a", "prod", "4.3.0", command, [str(payload)])
+            planned = kafka_guard.build_plan(
+                "cluster-a", "prod", "4.3.0", command, [str(reader_config), str(payload)]
+            )
+            self.assertEqual(1, planned["producer_record_count"])
+            self.assertEqual(2, len(planned["inputs"]))
 
     def test_plan_requires_referenced_inputs_and_producer_payload(self) -> None:
         with tempfile.TemporaryDirectory() as raw_dir:
