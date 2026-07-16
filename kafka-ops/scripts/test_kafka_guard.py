@@ -35,8 +35,13 @@ def absolute_fixture(name: str) -> str:
 
 
 class ClassifyTests(unittest.TestCase):
-    def assert_class(self, expected: str, command: list[str]) -> dict[str, object]:
-        result = kafka_guard.classify(command)
+    def assert_class(
+        self,
+        expected: str,
+        command: list[str],
+        platform: str | None = None,
+    ) -> dict[str, object]:
+        result = kafka_guard.classify(command, platform)
         self.assertEqual(expected, result["classification"], result)
         return result
 
@@ -108,18 +113,18 @@ class ClassifyTests(unittest.TestCase):
         binary = r"C:\Kafka Home ü\bin\windows\kafka-topics.bat"
         for safe in ("orders.eu", "orders'west", "orders$(west)", "orders`west", "orders\\"):
             with self.subTest(safe=safe):
-                self.assert_class("READ", [binary, "--describe", "--topic", safe])
+                self.assert_class("READ", [binary, "--describe", "--topic", safe], "nt")
         for unsafe in ("orders&whoami", "%TEMP%", "orders!x", 'orders"x'):
             with self.subTest(unsafe=unsafe):
-                result = self.assert_class("UNKNOWN", [binary, "--describe", "--topic", unsafe])
+                result = self.assert_class("UNKNOWN", [binary, "--describe", "--topic", unsafe], "nt")
                 if '"' in unsafe:
                     self.assertIn("embedded quotes", str(result["reason"]))
                 else:
                     self.assertIn("cmd.exe metacharacter", str(result["reason"]))
         for control in ("orders\twest", "orders\x1fwest", "orders\x7fwest"):
             with self.subTest(control=repr(control)):
-                self.assert_class("UNKNOWN", [binary, "--describe", "--topic", control])
-        empty = self.assert_class("UNKNOWN", [binary, "--describe", "--topic", ""])
+                self.assert_class("UNKNOWN", [binary, "--describe", "--topic", control], "nt")
+        empty = self.assert_class("UNKNOWN", [binary, "--describe", "--topic", ""], "nt")
         self.assertIn("empty token", str(empty["reason"]))
 
     def test_help_and_version_policy_is_explicit_for_every_known_tool(self) -> None:
