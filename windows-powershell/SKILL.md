@@ -9,6 +9,15 @@ description: Reliable Windows PowerShell 5.1 and PowerShell 7+ command authoring
 
 Use this skill to make Windows shell work predictable. Treat PowerShell as its own shell, not as Bash with different slashes.
 
+## Self-Maintenance
+
+When a Windows command failure exposes a reusable gap and the active `AGENTS.md` authorizes updating this skill:
+
+1. Reproduce and diagnose the failure before changing guidance. Add only a general rule or example that prevents the same class of failure.
+2. Edit the authoritative repository directory at `D:\usually-use-script\codex-skills\windows-powershell\`. Do not edit only `~\.codex\skills\windows-powershell\`; it is the installed mirror.
+3. Read `D:\usually-use-script\codex-skills\docs\agent\skill-maintenance.md`, validate the repository copy, sync the complete skill directory to `~\.codex\skills\windows-powershell\`, validate the mirror, and verify all non-excluded paths and contents match.
+4. If the repository source is unavailable, report the proposed update instead of mutating the installed mirror.
+
 ## Core Workflow
 
 1. Identify the active shell before writing non-trivial commands:
