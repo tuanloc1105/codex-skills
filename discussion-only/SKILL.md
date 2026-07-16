@@ -35,6 +35,18 @@ If it is unclear whether a target counts as source code, treat it as protected a
 
 Explicitly exiting `discussion-only` is required only before source-code mutation; it is not required for an explicitly authorized non-source-code mutation.
 
+## Existing Behavior and Regression Safety
+
+When the discussion concerns changing, replacing, removing, or refactoring an existing mechanism, establish a read-only behavioral baseline before recommending a direction or implementation plan. This analysis does not authorize source-code mutation.
+
+- Inspect the relevant implementation, exports, callers, consumers, routes, schemas, data flows, configs, tests, logs, and docs as needed to understand the current behavior. Keep the inspection proportionate to the requested change.
+- Record what is observed to work now and the evidence supporting it. Distinguish verified behavior from inference, user-reported behavior, and unknowns; never present an unverified assumption as an established baseline.
+- Identify behaviors, invariants, interfaces, data contracts, error handling, UX expectations, and backward-compatibility requirements that must remain stable unless the user explicitly chooses to change them.
+- Map likely touchpoints and regression risks. Separate intentional behavior changes from accidental regressions and call out downstream consumers that could break.
+- Identify existing checks that demonstrate the baseline, including tests, type checks, runtime probes, screenshots, logs, or manual reproduction. Use only checks guaranteed not to mutate source or external state; if a useful baseline check cannot be run safely, record the gap and the evidence still needed.
+- Include preservation acceptance criteria, targeted regression checks, and rollback or recovery considerations in any recommended plan.
+- If the available context is insufficient to establish a material part of the baseline, label it as unknown and resolve it through safe inspection or a focused user question before recommending a potentially breaking change.
+
 ## Markdown Tracker Requirement
 
 Before starting any substantive discussion, automatically resolve and create the Markdown tracker. Never ask the user about its save location, directory, filename, reuse, or overwrite behavior.
@@ -77,6 +89,12 @@ Use a concise, resumable Markdown format. Prefer these sections, omitting empty 
 
 ## Current Understanding
 
+## Existing Behavior Baseline
+
+## Preservation Requirements
+
+## Regression Risks and Checks
+
 ## Decisions
 
 ## Requirements
@@ -95,10 +113,11 @@ Track the user goal, important context, decisions, requirements, constraints, op
 ## Allowed Work
 
 - Discuss ideas, architecture, tradeoffs, risks, bugs, learning paths, or plans.
-- Explain existing context using only information already available in the conversation.
+- Explain existing context using information available in the conversation or established through permitted read-only inspection.
 - Ask clarifying questions and help the user decide what to do next.
 - Provide non-applied examples, pseudocode, checklists, review rubrics, or implementation plans.
 - Use read-only inspection when the user explicitly asks to inspect local or external context and the tool action is guaranteed not to mutate state.
+- Use the minimal read-only inspection needed to establish existing behavior and regression safety when the requested discussion concerns changing an existing mechanism.
 - Perform the minimal local read-only inspection needed to resolve the tracker destination, identify a containing Git worktree, inspect ignore state, and verify tracker housekeeping without separate authorization.
 - Create or update the automatically selected or user-specified Markdown tracker file for this discussion.
 - Create missing parent directories for the tracker and maintain its repository `.gitignore` rule as built-in tracker housekeeping.
@@ -119,7 +138,7 @@ If the user clearly requests an in-scope non-source-code mutation, perform it wi
 
 ## Tool Discipline
 
-Prefer answering from conversation context. Use read-only tools only when the user requests inspection or when they are necessary for tracker housekeeping, and confirm that they will not change state.
+Prefer answering from conversation context. Use read-only tools only when the user requests inspection, when they are necessary to establish existing behavior and regression safety for a requested change, or when they are necessary for tracker housekeeping. Confirm that the tools will not change source code, local runtime state, or external state.
 
 Avoid commands or tools with side effects unless they maintain the approved Markdown tracker, create its missing parent directories, maintain its repository `.gitignore` rule, or are necessary for an explicitly authorized non-source-code mutation. Before using a mutating tool, verify that its target and effect fit the granted scope and cannot modify source code. If there is material doubt, do not run it; clarify the boundary instead.
 
@@ -162,9 +181,10 @@ When a user asks for something actionable while this mode is active:
 2. Create missing tracker directories, exclusively reserve the final collision-free path, and freeze it for the discussion.
 3. Identify any containing Git worktree from the reserved path's nearest existing ancestor and create or update the root `.gitignore` idempotently according to `Repository Ignore Rule`.
 4. Initialize or update the reserved Markdown tracker with the current discussion state and record the tracker housekeeping performed.
-5. Determine whether the requested action would mutate source code.
-6. If it would mutate source code, explain that the user must explicitly exit `discussion-only`, then wait without making the change.
-7. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, verify it proportionately, and update the tracker with the result.
-8. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
-9. Clarify that `discussion-only` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
-10. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
+5. If the discussion concerns changing an existing mechanism, establish and record the behavioral baseline, preservation requirements, regression risks, and evidence gaps before recommending the change.
+6. Determine whether the requested action would mutate source code.
+7. If it would mutate source code, explain that the user must explicitly exit `discussion-only`, then wait without making the change.
+8. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, verify it proportionately, and update the tracker with the result.
+9. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
+10. Clarify that `discussion-only` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
+11. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.

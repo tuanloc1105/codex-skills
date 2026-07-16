@@ -43,16 +43,23 @@ While in this fallback:
    - Relevant repository instructions and local conventions
    - Existing files, exports, callers, routes, schemas, tests, configs, logs, or docs
    - Current constraints from the user and active environment
-4. Propose a plan with clear scope:
+4. Establish an existing-behavior and regression-safety baseline before proposing changes to an existing mechanism:
+   - Record the current behavior and the evidence supporting it; distinguish verified facts, user-reported behavior, inferences, and unknowns
+   - Identify stable behaviors, invariants, interfaces, data contracts, UX expectations, error handling, and backward-compatibility requirements that must be preserved unless the user explicitly changes them
+   - Trace affected callers, consumers, integrations, data flows, and other downstream touchpoints
+   - Identify the existing tests, checks, logs, screenshots, or manual reproduction that demonstrate the baseline; run only safe read-only checks and record any checks that could not be run
+   - Separate intentional behavior changes from regressions and make material evidence gaps explicit before planning potentially breaking work
+5. Propose a plan with clear scope:
    - What will change
    - What will not change
    - Main files, modules, services, UI surfaces, data flows, or external systems touched
    - Phase dependencies, execution waves, and bounded subagent candidates when the work benefits from phases
    - Risks, assumptions, and open questions
-   - Verification strategy
-5. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Treat approval as required before writing the final handoff plan.
-6. After the plan is approved, resolve the save path automatically. Respect an explicit destination; otherwise use `./plans/` in the current working directory. Never ask about the save path, filename, overwrite behavior, or collisions.
-7. Save the approved "How to do it" plan as a Markdown file. Do not implement the plan in the same Plan-mode flow unless the user explicitly requests execution after saving.
+   - Preservation acceptance criteria, regression checks, and verification strategy
+   - Rollback or recovery for material behavior changes
+6. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Treat approval as required before writing the final handoff plan.
+7. After the plan is approved, resolve the save path automatically. Respect an explicit destination; otherwise use `./plans/` in the current working directory. Never ask about the save path, filename, overwrite behavior, or collisions.
+8. Save the approved "How to do it" plan as a Markdown file. Do not implement the plan in the same Plan-mode flow unless the user explicitly requests execution after saving.
 
 ## Question and Open-Issue Contract
 
@@ -138,6 +145,12 @@ Status: Approved plan, not yet implemented
 ## Current State
 <What was inspected and what is true now: repo layout, files, behavior, configs, constraints, or missing pieces.>
 
+## Existing Behavior Baseline
+<Current working behavior and supporting evidence. Distinguish verified facts, user-reported behavior, inferences, unknowns, and checks that could not be run safely.>
+
+## Preservation Requirements
+<Behaviors, invariants, interfaces, contracts, compatibility guarantees, error handling, and UX expectations that must remain unchanged unless explicitly approved otherwise.>
+
 ## Scope
 <In scope.>
 
@@ -152,6 +165,9 @@ Status: Approved plan, not yet implemented
 
 ## Desired Logic and Behavior
 <The intended behavior, state transitions, data flow, edge cases, error handling, UX expectations, or acceptance criteria.>
+
+## Regression Risks and Safety Checks
+<Affected callers and consumers, likely regressions, intentional behavior changes, baseline checks, preservation acceptance criteria, and targeted tests or manual checks that will detect breakage.>
 
 ## Execution Structure
 <For small linear work, write "Sequential; no subagent candidates." For phased work, use the table below. `Depends on` is authoritative; `Wave` must agree with it.>
@@ -179,7 +195,7 @@ Phase verification: <narrow checks and expected result.>
 <Repeat for remaining phases. For small linear work, use one ordinary checklist instead.>
 
 ## Verification
-<Separate phase-local checks, integration checks after each parallel wave, and final end-to-end checks. Include expected results, screenshots/manual QA if relevant, and residual risk when checks cannot run.>
+<Compare post-change behavior with the recorded baseline and preservation requirements. Separate phase-local checks, integration checks after each parallel wave, targeted regression checks, and final end-to-end checks. Include expected results, screenshots/manual QA if relevant, and residual risk when checks cannot run.>
 
 ## Rollback or Recovery
 <How to undo or safely recover if implementation fails.>
@@ -195,6 +211,8 @@ Phase verification: <narrow checks and expected result.>
 
 - Make the plan operational, not aspirational.
 - Prefer concrete file paths, commands, function names, UI labels, schemas, routes, and test names when known.
+- Do not plan a change to an existing mechanism without recording the behavioral baseline, preservation requirements, supporting evidence, affected consumers, and material unknowns.
+- Treat preserved behavior as explicit acceptance criteria. Distinguish every approved behavior change from an accidental regression and pair material risks with targeted checks.
 - Include enough context for a fresh session to proceed accurately without rereading the whole chat.
 - Capture user-approved decisions, rejected alternatives, and tradeoffs that affect implementation.
 - Keep the document organized for execution: clear steps, clear verification, clear boundaries.
