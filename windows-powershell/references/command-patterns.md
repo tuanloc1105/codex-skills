@@ -43,6 +43,17 @@ Use `-EncodedCommand` only when a launcher makes quoting impossible. Encode the 
 
 ### PowerShell launching PowerShell
 
+When the parent process is already PowerShell and the child command is a short inline script, pass a script block directly to avoid another layer of string quoting:
+
+```powershell
+& 'D:\dev-kit\PS7\pwsh.exe' -NoLogo -NoProfile -Command {
+    Get-Content -LiteralPath 'C:\path\file.txt' -Raw
+    Write-Output '--- next file ---'
+}
+```
+
+Do not wrap that script block in an outer double-quoted string; embedded quotes and child-owned expressions can be parsed or expanded by the parent before launch. Use `-File` for non-trivial or reusable scripts.
+
 Keep child-owned variables literal at the outer boundary. Outer single quotes preserve `$PSVersionTable` for the child process:
 
 ```powershell
