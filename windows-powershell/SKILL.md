@@ -87,7 +87,7 @@ pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
 - Avoid Bashisms in Windows PowerShell 5.1: no `&&`, `||`, `??`, `?:`, process substitution, here-docs, `export`, `VAR=value cmd`, `/dev/null`, `chmod`, or `sudo`.
 - Do not use Bash heredoc forms such as `node - <<'NODE'` for inline Node/Python scripts. In PowerShell, pass short scripts with `node -e "..."` or put multi-line scripts in a temporary `.js`, `.py`, or `.ps1` file and execute that file.
 - For Windows path filtering, prefer wildcard operators such as `-like '*\node_modules\*'` or `-notlike '*\node_modules\*'` when regex is not needed. If using `-match` or `-notmatch` with a literal path segment, wrap the segment with `[regex]::Escape(...)`; a regex pattern that ends with `\` is invalid.
-- Avoid local variable names that differ only by case from automatic variables, such as `$matches` versus `$Matches`; PowerShell variables are case-insensitive, and regex `-match` repopulates `$Matches`.
+- Avoid local variable names that collide case-insensitively with automatic variables. For example, `$matches` aliases `$Matches` and is repopulated by regex `-match`, while `$host` aliases the read-only `$Host` variable and cannot be assigned. Prefer task-specific names such as `$matchResult` or `$repositoryHost`.
 
 ## Common Translations
 
