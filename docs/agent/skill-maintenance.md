@@ -5,7 +5,7 @@
 - Each top-level directory containing `SKILL.md` is a skill. The repository directory is authoritative; `~/.codex/skills/<skill-name>/` is its installed mirror.
 - A skill may also own `agents/`, `references/`, `scripts/`, and assets. Inspect the complete directory before editing or syncing; do not assume that copying `SKILL.md` is sufficient.
 - Exclude `.git`, `.serena`, `.DS_Store`, `__pycache__`, and `*.pyc` from mirror operations and comparisons. Treat any other destination-only path as drift that must be reconciled.
-- `anti-ai-design/` is a nested Git repository tracked by the parent repository as a gitlink. Keep its Git metadata out of mirror operations, commit source changes in the nested repository, and update the parent gitlink when required.
+- Keep every skill directory, including `anti-ai-design/`, as ordinary files tracked by the parent repository. Never copy nested `.git` metadata into a skill directory; if one appears, remove the nested metadata and verify the parent index does not record the skill as a `160000` gitlink.
 
 ## Add Or Update A Skill
 

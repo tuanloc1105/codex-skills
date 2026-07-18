@@ -1,0 +1,36 @@
+{
+  "name": "@huyhoangnhh98/anti-ai-design",
+  "version": "1.1.0",
+  "description": "Auto-orchestrating UI design skill for AI agents — prevents generic AI output, generates impossibly beautiful screens.",
+  "main": "SKILL.md",
+  "files": [
+    "SKILL.md",
+    "README.md",
+    "LICENSE",
+    "references/"
+  ],
+  "keywords": [
+    "ai-agent",
+    "agent-skill",
+    "design",
+    "ui",
+    "claude-code",
+    "gemini-cli",
+    "codex-cli",
+    "cursor",
+    "anti-ai-design",
+    "ui-design"
+  ],
+  "author": "huyhoangnhh98 <huyhoangnhh98@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huyhoangnhh98/anti-ai-design.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  }
+}
