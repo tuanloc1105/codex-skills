@@ -1,6 +1,6 @@
 ---
 name: discussion-only
-description: Use when the user explicitly invokes $discussion-only or asks for a chat-only, planning-only, advisory-only, no-code-change, or discussion-only mode with a Markdown tracker. This skill makes Codex discuss, explain, reason, teach, plan, and ask questions while maintaining one automatically selected or user-specified Markdown file that tracks the discussion. Without an explicit destination, automatically save under ./discussion/ in the current working directory; never ask the user where or under what filename to save. Create missing tracker directories automatically and, when the tracker is inside a Git repository, automatically update the repository's .gitignore to exclude the tracker directory. By default, allow no other mutation beyond this tracker housekeeping; however, the user may explicitly authorize scoped non-source-code mutations without exiting the mode. Never modify source code while the mode remains active.
+description: Use when the user explicitly invokes $discussion-only or asks for a chat-only, planning-only, advisory-only, no-code-change, or discussion-only mode with a Markdown tracker. This skill makes Codex discuss, explain, reason, teach, plan, and ask questions while maintaining one automatically selected or user-specified Markdown file that tracks the discussion. Without an explicit destination, automatically save under ./discussion/ in the current working directory with a dated topic-based filename; never ask the user where or under what filename to save. Create missing tracker directories automatically and, when the tracker is inside a Git repository, automatically update the repository's .gitignore to exclude the tracker directory. By default, allow no other mutation beyond this tracker housekeeping; however, the user may explicitly authorize scoped non-source-code mutations without exiting the mode. Never modify source code while the mode remains active.
 ---
 
 # Discussion Only
@@ -54,11 +54,15 @@ Before starting any substantive discussion, automatically resolve and create the
 - Capture the current working directory when the skill starts and resolve every relative destination against it.
 - Classify a user-provided destination without asking: an existing directory, a path ending in a separator, or explicit directory wording is a directory; otherwise treat it as a file path.
 - If the user provides any file path, including a bare filename, preserve it exactly after resolving relative paths against the captured current working directory.
-- If the user provides a directory, create `discussion-tracker.md` inside it.
-- If the user provides no destination, use `./discussion/discussion-tracker.md` relative to the current working directory at the time the skill starts.
-- If the selected file or a symlink at that path already exists and the user explicitly says to reuse, continue, update, append, or overwrite it, follow that instruction after applying the same path-safety checks. Otherwise, preserve the existing path and automatically choose the lowest available numbered sibling for that basename, such as `discussion-tracker-2.md`, then `discussion-tracker-3.md`.
+- If the user provides a directory, generate the tracker filename inside it.
+- If the user provides no destination, use `./discussion/` relative to the current working directory at the time the skill starts.
+- For an agent-generated filename, derive `<discussion-name>` from the discussion topic or goal. Use `discussion` only when no meaningful slug can be derived.
+- If the selected file or a symlink at that path already exists and the user explicitly says to reuse, continue, update, append, or overwrite it, follow that instruction after applying the same path-safety checks. Otherwise, preserve the existing path and automatically choose the lowest available numbered sibling for that basename, such as `YYYY-MM-DD-<discussion-name>-2.md`, then `YYYY-MM-DD-<discussion-name>-3.md`.
 - Create the selected parent directory and all missing ancestors automatically. Do not ask for permission.
 - For a new tracker, reserve the selected file with exclusive creation and retry with the next numbered sibling if another writer wins the same path. Freeze the successfully reserved or explicitly reused path for the rest of the discussion so later turns keep updating the same tracker.
+- For an agent-generated filename, use the format `YYYY-MM-DD-<discussion-name>.md`.
+- For an agent-generated filename, use the current local date unless the user requests another date.
+- Slugify an agent-generated `<discussion-name>` with lowercase ASCII words joined by hyphens.
 
 Once the destination is resolved automatically, create its parent directories and exclusively reserve the final collision-free tracker path before generating any file-specific ignore rule. Then perform repository ignore handling, initialize the tracker content, and continue the discussion. Keep updating the same reserved tracker after meaningful discussion turns and tell the user where it was saved.
 
@@ -69,7 +73,7 @@ After resolving the tracker destination, automatically protect it from Git track
 1. Normalize `.` and `..` segments and resolve existing symlink components before mutating anything. Never place the tracker inside Git metadata such as `<git-root>/.git/`; report the exact blocker and stop without asking a storage-choice question.
 2. Starting from the destination's parent directory, or its nearest existing ancestor directory when the parent is missing, identify the nearest containing Git worktree root. This must also work when one or more tracker directories still need to be created and when repositories are nested.
 3. If the destination is inside that worktree, create or update `<git-root>/.gitignore` without asking for permission.
-4. Add one valid, root-anchored ignore pattern for the tracker directory relative to the Git root, with a trailing slash, such as `/notes/discussions/`. Use `/` separators and escape Git ignore metacharacters in path components. If the tracker is directly in the Git root, ignore the tracker file itself, such as `/discussion-tracker.md`; never add a rule that ignores the Git root.
+4. Add one valid, root-anchored ignore pattern for the tracker directory relative to the Git root, with a trailing slash, such as `/notes/discussions/`. Use `/` separators and escape Git ignore metacharacters in path components. If the tracker is directly in the Git root, ignore the tracker file itself, such as `/YYYY-MM-DD-<discussion-name>.md`; never add a rule that ignores the Git root.
 5. Preserve all existing `.gitignore` content and ordering. Append the new rule without rewriting unrelated rules, and do not add a duplicate when an existing rule in that `.gitignore` already excludes the directory or file.
 6. Verify that the resulting rule excludes the tracker path without staging it or otherwise changing repository state.
 7. If the selected tracker directory already contains non-tracker files, warn that its folder-level rule also ignores untracked files there, but do not change the destination or ask for permission.
@@ -177,7 +181,7 @@ When combined with `$teach-for-understanding`, teach incrementally and verify un
 
 When a user asks for something actionable while this mode is active:
 
-1. Resolve the Markdown tracker destination automatically, defaulting to `./discussion/discussion-tracker.md` and selecting a numbered variant on collision without asking.
+1. Resolve the Markdown tracker destination automatically, defaulting to `./discussion/YYYY-MM-DD-<discussion-name>.md` and selecting a numbered variant on collision without asking.
 2. Create missing tracker directories, exclusively reserve the final collision-free path, and freeze it for the discussion.
 3. Identify any containing Git worktree from the reserved path's nearest existing ancestor and create or update the root `.gitignore` idempotently according to `Repository Ignore Rule`.
 4. Initialize or update the reserved Markdown tracker with the current discussion state and record the tracker housekeeping performed.
