@@ -1,6 +1,6 @@
 ---
 name: execute-plan
-description: Execute an approved Markdown plan file produced by $plan-mode. Use when the user gives a path to a plan and wants Codex to implement the whole plan, schedule dependency-ready phases, optionally delegate parallel-safe phases to separate subagents, keep the plan updated in place, run the required integration and final verification, double-check the resulting diff with $simplify, update agent docs when substantial current-diff changes add missing agent-facing guidance, and then optionally offer a $security-review limited to the current git working-tree diff.
+description: Execute an approved Markdown plan file produced by $plan-mode. Use when the user gives a path to a plan and wants Codex to implement the whole plan, schedule dependency-ready phases, optionally delegate parallel-safe phases to separate subagents, keep the plan updated in place including later user-requested work and commit records, run the required integration and final verification, double-check the resulting diff with $simplify, update agent docs when substantial current-diff changes add missing agent-facing guidance, and then optionally offer a $security-review limited to the current git working-tree diff.
 ---
 
 # Execute Plan
@@ -10,6 +10,8 @@ Use this skill to turn an approved `$plan-mode` handoff plan into completed work
 ## Completion Contract
 
 Execute the entire approved plan, not only the current phase or execution wave.
+
+Treat explicit follow-up work the user adds while continuing the same plan-based task as an amendment to the plan and therefore as in-scope work, unless the user explicitly says to handle it separately or not to update the plan.
 
 Do not send the final response while any in-scope plan item remains pending `[ ]` or in progress `[~]`, unless a genuine blocker requires user input or an external state change. Progress reports, completed phases, failed checks, subagent results, context pressure, tool failures, and unavailable delegation are intermediate states, not completion conditions. Continue recovering and executing within the current task.
 
@@ -137,6 +139,29 @@ Also update the plan status line when present:
 
 When checks are run, update `## Verification` directly with checkboxes or short result notes. Include skipped checks and residual risk in the existing `## Verification` or `## Handoff Notes` sections.
 
+### User-Requested Follow-Up Work
+
+When the user asks for implementation, fixes, tests, documentation, cleanup, or another deliverable that is not represented in the plan while continuing the same plan-based task:
+
+1. Add the request to `## Step-by-Step Plan` before starting it. Use a new pending checklist item and a concise note such as `Added by user on <YYYY-MM-DD>` so the scope change is distinguishable from the approved baseline.
+2. Add or adjust dependency, ownership, integration, and verification notes when the new work affects them. Do not rewrite completed history merely to make the addition look original.
+3. If the plan was already `Implemented`, change its status back to `In progress` before doing the added work.
+4. Mark the new item in progress, execute it under the same recovery and verification rules, then mark it completed or genuinely blocked.
+5. Return the plan to `Implemented` only after the added work and its required verification are complete.
+
+Do not silently perform user-requested follow-up work outside the plan. If the user explicitly wants the work kept separate, honor that instruction and add a short handoff note only when the separation matters for understanding what the plan did and did not cover.
+
+### Commit Records
+
+When the user explicitly asks for one or more commits during the plan-based task:
+
+1. Add a commit checklist item to `## Step-by-Step Plan` before committing, unless an existing plan item already covers the requested commit. Mark it in progress while preparing and verifying the commit scope.
+2. Follow the active repository's commit workflow and preserve unrelated pre-existing user changes.
+3. After each successful commit, mark the commit item completed and record the commit under `## Handoff Notes`. Create a concise `### Commits` subsection when needed and include the full commit SHA, subject, and branch. Keep multiple entries in chronological order.
+4. If a commit attempt fails, keep the item in progress while recovering and add a concise failure note only when it helps a future session. Use `[!]` only when the failure meets the genuine blocker definition.
+
+The final commit SHA cannot be embedded in the commit that produced it because changing the plan would change that SHA. Record the SHA immediately after the commit, do not amend solely to make the SHA self-referential, and disclose the resulting plan-only working-tree change. Create a separate plan-metadata commit only when the user explicitly requests it; do not try to record that metadata commit's own SHA inside itself.
+
 ## Implementation Workflow
 
 1. Resolve and read the plan path.
@@ -156,7 +181,8 @@ When checks are run, update `## Verification` directly with checkboxes or short 
 15. If the current git working-tree diff contains substantial agent-facing changes that are not already covered in agent docs, use `$update-agent-docs` with the current-diff-only scope in this skill.
 16. Re-run the narrowest meaningful checks after any agent-doc updates.
 17. Update the plan status, checklist, verification notes, execution decisions, and residual risks.
-18. Apply the final completion gate and continue working if any requirement fails.
+18. If the user adds follow-up work or requests a commit, amend the plan and resume the applicable workflow before treating the task as complete.
+19. Apply the final completion gate and continue working if any requirement fails.
 
 ## Recovery Before Blocking
 
@@ -233,6 +259,8 @@ Before sending the final response:
 - Confirm final verification was run or its unavailability and residual risk were documented.
 - Confirm the required simplify review was completed through the skill or locally.
 - Confirm optional agent-doc limitations did not prevent plan completion.
+- Confirm every user-requested follow-up deliverable in the same plan-based task was added to the plan and completed or genuinely blocked.
+- If commits were created, confirm their SHA, subject, and branch were recorded in `## Handoff Notes`, and disclose any post-commit plan-only working-tree change.
 - Persist the final checklist, status, verification results, execution decisions, and residual risks to the plan file.
 
 If any requirement above is false, continue working instead of responding finally.
@@ -249,5 +277,7 @@ Summarize:
 - `$simplify` result and any fixes it caused
 - Whether `$update-agent-docs` was run, skipped, or unavailable, and any docs it changed
 - Whether the plan file was updated
+- Which user-requested follow-up items were appended to the plan
+- Commit SHA, subject, and branch for commits created during execution, plus whether recording them left a plan-only working-tree change
 
 Then ask whether the user wants `$security-review` on the current git working-tree diff, unless they already answered that question in the current turn.
