@@ -54,6 +54,17 @@ When the parent process is already PowerShell and the child command is a short i
 
 Do not wrap that script block in an outer double-quoted string; embedded quotes and child-owned expressions can be parsed or expanded by the parent before launch. Use `-File` for non-trivial or reusable scripts.
 
+This is especially important for loops and collections. An outer double-quoted payload can erase child variables and turn `foreach ($item in $items)` into the invalid `foreach ( in )` before PowerShell 7 starts:
+
+```powershell
+& 'D:\dev-kit\PS7\pwsh.exe' -NoLogo -NoProfile -Command {
+    $candidates = @('C:\Java\jdk-21\bin\java.exe', 'C:\Java\jdk-17\bin\java.exe')
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate) { & $candidate -version }
+    }
+}
+```
+
 Keep child-owned variables literal at the outer boundary. Outer single quotes preserve `$PSVersionTable` for the child process:
 
 ```powershell
