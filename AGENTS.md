@@ -13,3 +13,4 @@
 ## Read On Demand
 
 - Before adding, updating, syncing, or validating a skill, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) for the exact workflow, checks, and nested-repository handling.
+- Before changing a skill-specific workflow under `.github/workflows/`, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) and the corresponding skill manifest and test scripts.

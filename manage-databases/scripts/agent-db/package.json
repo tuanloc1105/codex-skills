@@ -12,7 +12,8 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check ./bin/agent-db.js && node --check ./src/cli.js"
+    "test:integration": "node ./scripts/live-adapter-smoke.js",
+    "check": "node --check ./bin/agent-db.js && node --check ./src/cli.js && node --check ./scripts/live-adapter-smoke.js"
   },
   "dependencies": {
     "@redis/client": "6.1.0",
