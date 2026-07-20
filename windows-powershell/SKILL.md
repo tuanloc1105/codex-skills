@@ -60,6 +60,7 @@ pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
 ## Command Authoring Rules
 
 - Use full cmdlet names in generated commands. Avoid aliases such as `ls`, `cat`, `rm`, `curl`, `wget`, `where`, `sort`, and `sc` unless verifying an interactive user habit.
+- A same-volume atomic move preserves the DACL already applied to a temporary file. Validate the moved file with `Get-Acl`; do not reapply the same `FileSecurity` object, because reusing it can make `Set-Acl` request `SeSecurityPrivilege` unnecessarily.
 - Do not add `-NoProfile` by default. Let the selected shell load its normal profiles; use `-NoProfile` only when the user explicitly requests a profile-free session or when isolating a problem caused by profile configuration.
 - Use `-LiteralPath` for user-provided paths and any path containing `[]`, wildcard characters, leading dashes, or unusual punctuation.
 - `-LiteralPath` never expands `*` or `?`. To copy the contents of a trusted directory while retaining literal-path safety, enumerate its children first and call `Copy-Item -LiteralPath $_.FullName` for each item; do not write `Copy-Item -LiteralPath (Join-Path $source '*')`.
