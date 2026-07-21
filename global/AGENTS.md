@@ -6,6 +6,13 @@
 ## Codebase Retrieval
 - Use raw file reads only when editing or when symbolic/search summaries are insufficient.
 
+## Database access
+- For any request that requires connecting to a database, use only the Docker image `db-debug:latest`.
+- Treat every database connection and operation as strictly READ-ONLY by default.
+- Perform a database mutation only after the user explicitly confirms that specific mutation and its target. A general request to work with the database does not count as mutation approval.
+- Before connecting, verify that Docker is running and that the local `db-debug:latest` image exists.
+- If Docker is not running or the image does not exist, stop and report the blocker to the user. Do not start Docker, pull or build the image, or use another image, client, tool, or workaround.
+
 # Global hard rules
 
 - Prefer context-mode for large output, analysis, web fetches, and broad search.

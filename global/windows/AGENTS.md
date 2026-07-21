@@ -27,3 +27,10 @@
 - Golden rule: Do not use workarounds. Identify and pursue a thorough solution; if blocked, stop and present the blocker to the user so they can decide the next step.
 - If a request is assessed as a breaking change or a large change, switch to Plan mode before implementation. If Plan mode cannot be activated in the current runtime, stop and ask whether the user wants to switch to Plan mode.
 - Keep code comments short and concise; do not write long-winded comments.
+
+## Database access
+- For any request that requires connecting to a database, use only the Docker image `db-debug:latest`.
+- Treat every database connection and operation as strictly READ-ONLY by default.
+- Perform a database mutation only after the user explicitly confirms that specific mutation and its target. A general request to work with the database does not count as mutation approval.
+- Before connecting, verify that Docker is running and that the local `db-debug:latest` image exists.
+- If Docker is not running or the image does not exist, stop and report the blocker to the user. Do not start Docker, pull or build the image, or use another image, client, tool, or workaround.
