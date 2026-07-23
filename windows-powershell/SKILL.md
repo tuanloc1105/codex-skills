@@ -60,6 +60,7 @@ pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
 ## Command Authoring Rules
 
 - Use full cmdlet names in generated commands. Avoid aliases such as `ls`, `cat`, `rm`, `curl`, `wget`, `where`, `sort`, and `sc` unless verifying an interactive user habit.
+- Keep whitespace between a cmdlet/function name and its first argument even in compact scripts. For example, write `Write-Output $value`, not `Write-Output$value`; PowerShell parses the latter as a different command name.
 - Give helper functions distinctive verb-noun names. Avoid single-letter names such as `g` or `h` in profile-loading shells because an existing alias can take precedence over the function and invoke an unrelated command.
 - A same-volume atomic move preserves the DACL already applied to a temporary file. Validate the moved file with `Get-Acl`; do not reapply the same `FileSecurity` object, because reusing it can make `Set-Acl` request `SeSecurityPrivilege` unnecessarily.
 - Do not add `-NoProfile` by default. Let the selected shell load its normal profiles; use `-NoProfile` only when the user explicitly requests a profile-free session or when isolating a problem caused by profile configuration.
