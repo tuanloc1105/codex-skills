@@ -21,22 +21,29 @@ Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContin
 
 ## Invoke A Shell Once
 
+Start an interactive PowerShell process with process-scoped execution-policy bypass:
+
+```powershell
+pwsh -ExecutionPolicy Bypass
+powershell.exe -ExecutionPolicy Bypass
+```
+
 From `cmd.exe` or another launcher:
 
 ```powershell
-pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
+pwsh -ExecutionPolicy Bypass -NoLogo -NonInteractive -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
 ```
 
 For Windows PowerShell 5.1:
 
 ```powershell
-powershell.exe -NoLogo -NonInteractive -ExecutionPolicy Bypass -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
+powershell.exe -ExecutionPolicy Bypass -NoLogo -NonInteractive -Command "& { $ErrorActionPreference = 'Stop'; Get-Location }"
 ```
 
 Prefer `-File` for multi-line scripts:
 
 ```powershell
-pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\build.ps1
+pwsh -ExecutionPolicy Bypass -NoLogo -NonInteractive -File .\build.ps1
 ```
 
 Use `-EncodedCommand` only when a launcher makes quoting impossible. Encode the command as UTF-16LE before Base64.
@@ -46,7 +53,7 @@ Use `-EncodedCommand` only when a launcher makes quoting impossible. Encode the 
 When the parent process is already PowerShell and the child command is a short inline script, pass a script block directly to avoid another layer of string quoting:
 
 ```powershell
-& 'D:\dev-kit\PS7\pwsh.exe' -NoLogo -NoProfile -Command {
+& 'D:\dev-kit\PS7\pwsh.exe' -ExecutionPolicy Bypass -NoLogo -NoProfile -Command {
     Get-Content -LiteralPath 'C:\path\file.txt' -Raw
     Write-Output '--- next file ---'
 }
@@ -57,7 +64,7 @@ Do not wrap that script block in an outer double-quoted string; embedded quotes 
 This is especially important for loops and collections. An outer double-quoted payload can erase child variables and turn `foreach ($item in $items)` into the invalid `foreach ( in )` before PowerShell 7 starts:
 
 ```powershell
-& 'D:\dev-kit\PS7\pwsh.exe' -NoLogo -NoProfile -Command {
+& 'D:\dev-kit\PS7\pwsh.exe' -ExecutionPolicy Bypass -NoLogo -NoProfile -Command {
     $candidates = @('C:\Java\jdk-21\bin\java.exe', 'C:\Java\jdk-17\bin\java.exe')
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate) { & $candidate -version }
@@ -68,7 +75,7 @@ This is especially important for loops and collections. An outer double-quoted p
 Keep child-owned variables literal at the outer boundary. Outer single quotes preserve `$PSVersionTable` for the child process:
 
 ```powershell
-& powershell.exe -NoLogo -NoProfile -NonInteractive `
+& powershell.exe -ExecutionPolicy Bypass -NoLogo -NoProfile -NonInteractive `
     -Command '$PSVersionTable.PSVersion.ToString()'
 if ($LASTEXITCODE -ne 0) { throw "child PowerShell failed with exit code $LASTEXITCODE" }
 ```
@@ -278,10 +285,11 @@ if ($LASTEXITCODE -ne 0) { throw "curl.exe failed with exit code $LASTEXITCODE" 
 
 ## Execution Policy
 
-Prefer process-scoped bypass for one command or one script run:
+Always pass process-scoped bypass whenever starting PowerShell 7 or Windows PowerShell, including interactive sessions, one-shot commands, scripts, encoded commands, and nested shells:
 
 ```powershell
-pwsh -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
+pwsh -ExecutionPolicy Bypass -NonInteractive -File .\script.ps1
+powershell.exe -ExecutionPolicy Bypass -NonInteractive -File .\script.ps1
 ```
 
 Inside an existing session:

@@ -28,7 +28,7 @@ Do not assume Bash syntax in PowerShell.
 - Avoid smart quotes. PowerShell treats them as quote characters, but they make scripts fragile.
 - Avoid building one large command string. Prefer `& $exe @args` with an argument array.
 - For regex patterns containing both quote types, backticks, or character classes like `['"]`, assign the pattern to a single-quoted variable first, for example `$pattern = 'from [''"]([^''"]+)[''"]'`, or move the logic into a script file.
-- When nesting `pwsh -Command` or `powershell.exe -Command` inside an outer PowerShell command, the outer shell expands `$...` first. Escape variables with a backtick, for example `` `$_.Name `` or `` `$LASTEXITCODE ``, or avoid nesting by using a `.ps1` file or `-EncodedCommand`.
+- When nesting `pwsh -ExecutionPolicy Bypass -Command` or `powershell.exe -ExecutionPolicy Bypass -Command` inside an outer PowerShell command, the outer shell expands `$...` first. Escape variables with a backtick, for example `` `$_.Name `` or `` `$LASTEXITCODE ``, or avoid nesting by using a `.ps1` file or `-EncodedCommand`.
 
 Common bug:
 

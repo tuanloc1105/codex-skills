@@ -33,7 +33,14 @@ Get-Command pwsh,powershell -ErrorAction SilentlyContinue | Select-Object Name, 
 - Use `powershell.exe` only when the task needs Windows PowerShell 5.1, Desktop-only modules, legacy snap-ins, or exact user reproduction.
 - If the user explicitly says PowerShell 7, use `pwsh`. If they explicitly say Windows PowerShell, use `powershell.exe`.
 
-3. Use a fail-fast wrapper for PowerShell cmdlets and scripts:
+3. Whenever starting a new PowerShell process, always pass `-ExecutionPolicy Bypass` immediately after the executable. Apply this to interactive and non-interactive launches of both PowerShell 7 (`pwsh`) and Windows PowerShell (`powershell.exe`), including `-Command`, `-File`, `-EncodedCommand`, and nested-shell calls. This changes policy only for that process; never replace it with a persistent `CurrentUser` or `LocalMachine` policy change.
+
+```powershell
+pwsh -ExecutionPolicy Bypass
+powershell.exe -ExecutionPolicy Bypass
+```
+
+4. Use a fail-fast wrapper for PowerShell cmdlets and scripts:
 
 ```powershell
 & {
@@ -44,17 +51,17 @@ Get-Command pwsh,powershell -ErrorAction SilentlyContinue | Select-Object Name, 
 }
 ```
 
-4. Check native command exit codes explicitly. `$ErrorActionPreference` handles PowerShell errors, not all native `.exe` failures in every version and preference state.
+5. Check native command exit codes explicitly. `$ErrorActionPreference` handles PowerShell errors, not all native `.exe` failures in every version and preference state.
 
 ```powershell
 git status --short
 if ($LASTEXITCODE -ne 0) { throw "git failed with exit code $LASTEXITCODE" }
 ```
 
-5. For complex multi-line logic, create or edit a `.ps1` file with the available file-editing tool, then run it with `-File`. Do not cram fragile scripts into one heavily escaped command string.
+6. For complex multi-line logic, create or edit a `.ps1` file with the available file-editing tool, then run it with `-File`. Do not cram fragile scripts into one heavily escaped command string.
 
 ```powershell
-pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
+pwsh -ExecutionPolicy Bypass -NoLogo -NonInteractive -File .\script.ps1
 ```
 
 ## Command Authoring Rules
@@ -69,23 +76,23 @@ pwsh -NoLogo -NonInteractive -ExecutionPolicy Bypass -File .\script.ps1
 - Do not rely on PowerShell or Windows to expand wildcard path arguments for native tools such as `rg`. Search a real directory and pass the wildcard through the tool's filter option, for example `rg pattern references -g '*.md'` or `rg pattern node_modules -g '*.d.ts'`. Never pass `references/*.md` or `references\*.md` as a path argument; both can reach `rg` literally and fail on Windows.
 - If using `rg --` to end option parsing for a pattern that begins with `-`, put options such as `-g` before `--`; every token after `--` is a pattern or path, not an option.
 - Quote paths with spaces. Invoke quoted executables with the call operator: `& 'C:\Program Files\Git\bin\git.exe' status`.
-- When using a native launcher or wrapper command, do not pass PowerShell cmdlets such as `Get-Content` or `Test-Path` as the executable. Invoke PowerShell explicitly instead, for example `pwsh -NoLogo -Command "Get-Content -Raw -LiteralPath 'C:\path\file.txt'"`.
+- When using a native launcher or wrapper command, do not pass PowerShell cmdlets such as `Get-Content` or `Test-Path` as the executable. Invoke PowerShell explicitly instead, for example `pwsh -ExecutionPolicy Bypass -NoLogo -Command "Get-Content -Raw -LiteralPath 'C:\path\file.txt'"`.
 - Do not assume every command-batch or sandbox runner uses the interactive session's shell. If diagnostics show that the runner writes a POSIX shell script or prefixes assignments such as `NAME=value`, PowerShell-only syntax (`&`, script blocks, cmdlets, and `$...` variables) will fail before `pwsh.exe` starts. Use a tool whose contract explicitly runs PowerShell, or invoke the absolute `pwsh.exe` path using POSIX-compatible launcher syntax and pass non-trivial logic through `-File`/`-EncodedCommand`; do not send a PowerShell call operator or inline script block through that runner.
 - When policy requires an absolute `pwsh.exe` path while the tool host is already PowerShell, treat this as a nested-shell call. A child script containing variables or loops must use `-File` or `-EncodedCommand`; do not place it in an outer double-quoted `-Command` payload, because the host expands child `$...` expressions before launch.
 - For short read-only batches in a PowerShell host, keep the child `-Command` payload outer-single-quoted and use doubled single quotes for child literals. If the batch needs arrays, loops, or mixed quoting, switch immediately to `-File` or `-EncodedCommand` instead of adding another escaping layer.
-- When a nested `ssh` remote command contains its own single-quoted `awk`, `sed`, or shell program, do not embed it inside another single-quoted `pwsh -Command` payload. Use `-EncodedCommand` for the child PowerShell and assign the remote program with a literal here-string before passing it as one SSH argument.
+- When a nested `ssh` remote command contains its own single-quoted `awk`, `sed`, or shell program, do not embed it inside another single-quoted `pwsh -ExecutionPolicy Bypass -Command` payload. Use `-EncodedCommand` for the child PowerShell and assign the remote program with a literal here-string before passing it as one SSH argument.
 - Use single quotes for literal strings and double quotes only when interpolation is needed.
 - Use `${name}` or `$($expr)` inside expandable strings when characters follow a variable, especially before `:`.
 - For regex patterns containing both quote types, backticks, or character classes like `['"]`, assign the pattern to a single-quoted variable first, for example `$pattern = 'from [''"]([^''"]+)[''"]'`, or move the logic into a script file. Avoid packing such regex directly into a long one-liner pipeline. In particular, never inline backtick-escaped double quotes inside a regex carried through a nested `-Command`; use a `.ps1` file, `-EncodedCommand`, or a simpler quote-free pattern followed by post-processing.
-- When invoking `pwsh -Command` or `powershell.exe -Command` from an outer PowerShell command, avoid fragile nested quoting for scripts containing variables such as `$_`, `$null`, `$p`, or `$LASTEXITCODE`, single-quoted literals, or regex pipes (`|`). The outer shell expands `$...` first, so unescaped variables can disappear before the child shell runs. Prefer a temporary `.ps1` file or `-EncodedCommand`; otherwise escape `$` with a backtick, for example `` `$_.Name ``, or avoid nesting.
+- When invoking `pwsh -ExecutionPolicy Bypass -Command` or `powershell.exe -ExecutionPolicy Bypass -Command` from an outer PowerShell command, avoid fragile nested quoting for scripts containing variables such as `$_`, `$null`, `$p`, or `$LASTEXITCODE`, single-quoted literals, or regex pipes (`|`). The outer shell expands `$...` first, so unescaped variables can disappear before the child shell runs. Prefer a temporary `.ps1` file or `-EncodedCommand`; otherwise escape `$` with a backtick, for example `` `$_.Name ``, or avoid nesting.
 - If a short nested command must stay inline and its body can avoid single-quoted literals, wrap the entire child `-Command` payload in outer single quotes and use double quotes inside it. This preserves child variables such as `$_`; never put that payload in outer double quotes unless every `$` is escaped.
-- In particular, keep child-owned `$...` expressions literal when PowerShell launches another PowerShell. For example, use `& powershell.exe -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'`; the outer single quotes preserve `$PSVersionTable` for the child. A double-quoted payload can expand it in the outer host into a type-name string that the child cannot parse. Use `-File` or `-EncodedCommand` once the child body needs its own single-quoted strings or non-trivial logic.
-- To send a multiline here-string to a child PowerShell stdin, pipe it: `@'... '@ | & pwsh -Command -`. Do not use Bash-style input redirection such as `pwsh -Command - <@'... '@`; `<` is not a PowerShell stdin redirection operator.
+- In particular, keep child-owned `$...` expressions literal when PowerShell launches another PowerShell. For example, use `& powershell.exe -ExecutionPolicy Bypass -NoLogo -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()'`; the outer single quotes preserve `$PSVersionTable` for the child. A double-quoted payload can expand it in the outer host into a type-name string that the child cannot parse. Use `-File` or `-EncodedCommand` once the child body needs its own single-quoted strings or non-trivial logic.
+- To send a multiline here-string to a child PowerShell stdin, pipe it: `@'... '@ | & pwsh -ExecutionPolicy Bypass -Command -`. Do not use Bash-style input redirection such as `pwsh -ExecutionPolicy Bypass -Command - <@'... '@`; `<` is not a PowerShell stdin redirection operator.
 - Do not pipe exact text formats such as unified diffs through the ordinary PowerShell object pipeline when byte-for-byte line endings matter; native stdin may receive CRLF and cause whitespace errors. Create an LF patch file with the available file-editing tool and pass its path to the native command instead.
 - This also applies to tool wrappers and MCP commands whose host shell may already be PowerShell. If the command needs loops, variables, pipelines, or quoting-sensitive arguments, invoke PowerShell with `-File`/`-EncodedCommand` or use a non-shell runner such as `execFile` with an argument array; do not rely on a single-quoted `-Command` payload surviving every layer.
-- From JSON tool calls, a command string such as `pwsh -Command "... $i ..."` is still first parsed by the host shell. The same rule applies when the executable is invoked through an absolute path such as `& 'C:\tools\pwsh.exe' -Command "... $i ..."`; the call operator does not protect the child payload from outer-shell expansion. Treat every `$variable` inside the child payload as unsafe unless escaped for the host shell, encoded, or moved into a script file.
-- In particular, an outer PowerShell invocation using a double-quoted `-Command` payload will expand child variables even when the child script later uses arrays or `foreach`. A command like `pwsh -Command "$files = ...; foreach ($f in $files) { ... }"` can reach the child as `foreach ( in )`. Use `-File`, `-EncodedCommand`, or escape every child `$` for the outer shell.
-- This rule also applies to command strings sent through batch/MCP runners on Windows: assume their host shell parses the string before launching the explicitly named `pwsh.exe`. For any child script with `$variables`, `foreach`, or `$_`, generate UTF-16LE Base64 and invoke `pwsh.exe -EncodedCommand <value>`, or use a checked-in/temporary `.ps1` file; an absolute executable path alone does not make an outer double-quoted `-Command` safe.
+- From JSON tool calls, a command string such as `pwsh -ExecutionPolicy Bypass -Command "... $i ..."` is still first parsed by the host shell. The same rule applies when the executable is invoked through an absolute path such as `& 'C:\tools\pwsh.exe' -ExecutionPolicy Bypass -Command "... $i ..."`; the call operator does not protect the child payload from outer-shell expansion. Treat every `$variable` inside the child payload as unsafe unless escaped for the host shell, encoded, or moved into a script file.
+- In particular, an outer PowerShell invocation using a double-quoted `-Command` payload will expand child variables even when the child script later uses arrays or `foreach`. A command like `pwsh -ExecutionPolicy Bypass -Command "$files = ...; foreach ($f in $files) { ... }"` can reach the child as `foreach ( in )`. Use `-File`, `-EncodedCommand`, or escape every child `$` for the outer shell.
+- This rule also applies to command strings sent through batch/MCP runners on Windows: assume their host shell parses the string before launching the explicitly named `pwsh.exe`. For any child script with `$variables`, `foreach`, or `$_`, generate UTF-16LE Base64 and invoke `pwsh.exe -ExecutionPolicy Bypass -EncodedCommand <value>`, or use a checked-in/temporary `.ps1` file; an absolute executable path alone does not make an outer double-quoted `-Command` safe.
 - When a tool already exposes a native PowerShell command surface (for example `shell_command` on a Windows session), run the script directly in that host instead of wrapping it in `ctx_execute(language: "shell")` plus `powershell -Command`. Use context-mode only with an encoded child script or a non-shell language whose process API accepts an argument array; otherwise `$...` can be consumed by the intermediate shell before PowerShell parses it.
 - Use arrays for native command arguments when constructing them programmatically: `$args = @('status', '--short'); & git @args`.
 - When native output must be piped, truncated, or otherwise processed by PowerShell, capture the native output and `$LASTEXITCODE` separately before starting the PowerShell pipeline. A mixed pipeline such as `& $exe @args 2>&1 | Select-Object -First 3` can leave `$LASTEXITCODE` unset; use `$nativeOutput = & $exe @args 2>&1; $nativeExitCode = $LASTEXITCODE; $nativeOutput | Select-Object -First 3` and validate `$nativeExitCode`.
