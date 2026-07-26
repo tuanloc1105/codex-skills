@@ -41,7 +41,8 @@ Treat unchanged lines in a touched function as in scope only when the change re-
 
 ## Correctness B: Removed-Behavior Auditor
 
-For every deleted or replaced block:
+For every deleted or replaced line, or coherent block when the lines enforce one
+behavior together:
 
 1. Name the guard, invariant, side effect, cleanup, error path, validation rule, or compatibility behavior it previously enforced.
 2. Locate where the new code re-establishes that behavior.
@@ -53,7 +54,10 @@ Do not report deletion by itself. Name the reachable wrong effect caused by losi
 
 ## Correctness C: Cross-File and Contract Tracer
 
-Trace each changed public or cross-file symbol through direct callers and callees.
+Trace every changed function, including private and local functions, through its
+direct callers and callees. Do the same for other changed public or cross-file
+symbols. Search for the symbol rather than assuming its scope from its name or
+visibility.
 
 Check for changes to:
 
@@ -64,11 +68,16 @@ Check for changes to:
 - serialization, schemas, generated types, migrations, and stored data;
 - feature flags, configuration defaults, environment assumptions, and compatibility promises.
 
+Evaluate the combined PR, not each file in isolation. A parallel change to a
+callee in the same PR can make an otherwise unchanged call site unsafe through a
+new precondition, result shape, exception, or ordering requirement.
+
 Inspect tests and fixtures as evidence of the contract. Flag a test change when it merely makes an old behavior assertion accept a regression. Do not treat a missing test as a finding without an underlying behavior defect.
 
 ## Correctness D: Language and Framework Pitfalls
 
-Use this angle at `extra-high` and `max`, and whenever the diff clearly triggers it at a lower mode.
+Use this angle at `extra-high`, `xhigh`, `max`, and `maximum`, and whenever the
+diff clearly triggers it at a lower mode.
 
 Check established traps for the active language and framework, including:
 
@@ -82,7 +91,9 @@ Flag only a concrete instance introduced or made reachable by the change. Do not
 
 ## Correctness E: Wrapper and Proxy Correctness
 
-Use this angle at `extra-high` and `max`, and whenever the diff adds or changes a cache, proxy, decorator, adapter, client wrapper, repository wrapper, or middleware layer.
+Use this angle at `extra-high`, `xhigh`, `max`, and `maximum`, and whenever the
+diff adds or changes a cache, proxy, decorator, adapter, client wrapper,
+repository wrapper, or middleware layer.
 
 Verify that every caller-used method:
 
@@ -105,21 +116,58 @@ Find dead code, redundant branching, unnecessary state, duplicated conditions, o
 
 ## Supporting: Efficiency
 
-Find repeated I/O, queries, parsing, allocation, serialization, locking, remote calls, or unbounded work. Name the realistic hot path, input scale, timeout, contention, or resource-exhaustion scenario. Do not report micro-optimizations or generic performance preferences.
+Find wasted work the diff introduces, including:
+
+- repeated I/O, queries, parsing, allocation, serialization, locking, remote calls, or unbounded work;
+- independent operations made unnecessarily sequential instead of safely concurrent;
+- blocking work added to initialization, startup, or a realistic hot path;
+- long-lived closures or callback objects that retain a much larger enclosing scope than they use.
+
+For closure retention, identify the captured value and object lifetime that make
+the retention material. Prefer a class, struct, or explicit callable that stores
+only the required fields when that is the cheaper safe shape. Name the realistic
+hot path, input scale, timeout, contention, retained memory, or
+resource-exhaustion scenario and the cheaper alternative. Do not report
+micro-optimizations or generic performance preferences.
 
 ## Supporting: Altitude
 
-Check whether the change implements a shared invariant at the wrong layer, fixes one symptom while sibling paths remain broken, or duplicates policy below its source of truth. Name at least one sibling path, caller, or shared boundary that still fails or can diverge.
+Check whether the change implements a shared invariant at the wrong layer, fixes
+one symptom while sibling paths remain broken, or duplicates policy below its
+source of truth. A special case layered onto shared infrastructure is a signal
+that the underlying mechanism may need to enforce the invariant instead. Name at
+least one sibling path, caller, or shared boundary that still fails or can
+diverge; do not propose a broader abstraction without that concrete consequence.
 
 ## Supporting: Conventions
 
-Compare changed behavior with established repository patterns for error handling, compatibility, config, logging, transactions, async control flow, APIs, and tests. Report only deviations that change runtime behavior or operational expectations. Ignore cosmetic inconsistency.
+Find every applicable `AGENTS.md` and other repository instruction file that the
+environment or user declares authoritative for a changed file. Respect the
+documented directory scope and precedence, including nearer ancestor-directory
+instructions when present.
+
+Report an instruction violation only when the candidate can cite:
+
+- the instruction file's repository-relative or absolute source path;
+- the exact applicable rule; and
+- the exact offending changed line.
+
+An explicit applicable rule violation is actionable even when the rule is
+procedural or stylistic. Do not infer the "spirit" of an instruction, turn a
+general preference into a rule, or report anything for this sub-check when no
+governing rule can be quoted.
+
+Separately compare changed behavior with established repository patterns for
+error handling, compatibility, config, logging, transactions, async control
+flow, APIs, and tests. Report an undocumented-pattern deviation only when it
+changes runtime behavior or operational expectations; ignore cosmetic
+inconsistency.
 
 ## Non-Findings
 
 Do not report:
 
-- style, formatting, or naming preferences;
+- style, formatting, or naming preferences, unless an exact applicable repository instruction explicitly requires them;
 - missing tests without a behavior defect;
 - generic performance or architecture advice;
 - cleanup with no observable consequence;

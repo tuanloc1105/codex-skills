@@ -31,6 +31,11 @@ For each candidate:
 6. Search for guards or invariants that refute the trigger.
 7. Classify the candidate as `CONFIRMED`, `PLAUSIBLE`, or `REFUTED`.
 
+Base `CONFIRMED` and `REFUTED` on decisive, exact evidence rather than a
+confidence impression. Cite or quote the changed line and the smallest caller, guard,
+type, constant, test, configuration rule, or documented contract that proves the
+verdict. If a required premise is still unknown, the evidence is not decisive.
+
 ## Verdicts
 
 ### CONFIRMED
@@ -42,6 +47,9 @@ State:
 - the triggering input or state;
 - the resulting wrong behavior;
 - the supporting changed line and any essential contract line.
+
+The evidence must show that the trigger is reachable and that the stated effect
+follows. A likely-looking pattern without that link is not `CONFIRMED`.
 
 ### PLAUSIBLE
 
@@ -55,11 +63,18 @@ State:
 
 Do not use `PLAUSIBLE` for a vague concern without a concrete wrong effect.
 
+`PLAUSIBLE` may survive into the report, but it is not by itself a safe basis for
+an automatic fix. Resolve the missing fact in `confirmation_needed` before
+editing, or skip the fix with a concise reason; ask the user when resolution
+depends on intended behavior rather than repository evidence.
+
 ### REFUTED
 
 Use `REFUTED` only when code evidence shows that the claim is factually wrong, guarded elsewhere, impossible under a type or invariant, already handled by the diff, unreachable, or behaviorally harmless.
 
 Cite the line, type, constant, guard, or contract that proves refutation. Do not refute merely because the trigger is rare or runtime-dependent.
+If no exact evidence makes the trigger impossible, already handled, or harmless,
+do not use `REFUTED` merely because the failure seems unlikely.
 
 ## Precision Bias
 
@@ -67,7 +82,8 @@ At `medium`, require a maintainer-actionable claim. Keep `PLAUSIBLE` only when b
 
 ## Recall Bias
 
-At `high`, `extra-high`, and `max`, default realistic uncertainty to `PLAUSIBLE` rather than `REFUTED` for:
+At `high`, `extra-high`, `xhigh`, `max`, and `maximum`, default realistic
+uncertainty to `PLAUSIBLE` rather than `REFUTED` for:
 
 - concurrency races and cancellation windows;
 - rare but reachable nullish values;
@@ -101,7 +117,7 @@ Omit `confirmation_needed` for `CONFIRMED` and `REFUTED`. Discard `REFUTED` cand
 
 ## Verification Guardrails
 
-- Do not convert a style preference into a correctness verdict.
+- Do not convert a style preference into a correctness verdict. An exact applicable repository-instruction violation may remain a `conventions` finding when it meets the evidence contract in `finder-angles.md`.
 - Do not rely only on a changed test when production code or a contract contradicts it.
 - Do not assume an external API contract from memory when repository evidence is available.
 - Do not run broad tests merely to verify one candidate when a focused trace or test is sufficient.
