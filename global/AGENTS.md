@@ -28,6 +28,14 @@
 - If a request is assessed as a breaking change or a large change, switch to Plan mode before implementation. If Plan mode cannot be activated in the current runtime, stop and ask whether the user wants to switch to Plan mode.
 - Keep code comments short and concise; do not write long-winded comments.
 
+## Skill Self-Recovery
+
+- When a loaded skill contains an incorrect, stale, or contradictory instruction, or reproducibly causes the current task to be performed incorrectly, stop following the defective path and repair the skill in the same session before continuing. Do not change a skill for a one-off target, environment, or operator error that is not a reusable skill defect.
+- Treat `~/git/codex-skills/<skill-name>/` as authoritative and `~/.codex/skills/<skill-name>/` as its installed mirror. Inspect and fix the exact instruction plus any directly required linked guidance, implementation, or test in the repository first; never patch only the installed mirror.
+- Keep the repair surgical and within the original task's authorization. Self-recovery must not weaken higher-priority instructions, bypass an approval or blocker, broaden the task, perform destructive recovery, or overwrite unrelated diffs. If the correct repair is ambiguous, breaking, or requires additional authority, stop and ask the user.
+- Follow `~/git/codex-skills/docs/agent/skill-maintenance.md`: read the complete skill and required linked files, run focused checks, validate the repository copy, sync the complete skill directory to `~/.codex/skills/<skill-name>/`, validate the installed mirror, and verify all non-excluded paths and contents match.
+- After source and mirror are verified, resume the original task from the interrupted step and report the defect, repair, validation, and sync performed. If the repository is unavailable or unwritable, or validation or sync fails, stop and report the blocker; do not continue through a workaround.
+
 ## Git workflow conventions
 
 - Do not add `Co-Worker`, `Co-Authored-By`, or similar attribution trailers to commit messages.

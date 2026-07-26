@@ -2,7 +2,7 @@
 - When invoking PowerShell explicitly, use PowerShell 7 at `D:\dev-kit\PS7\pwsh.exe`.
 - For Windows shell, PowerShell, Windows paths, or `.ps1` work, load and use the `$windows-powershell` skill by default.
 - For Python work, prefer the virtual environment at `D:\usually-use-script\.venv` (invoke `D:\usually-use-script\.venv\Scripts\python.exe`). If a required package is missing, stop and tell the user which package is needed; do not install packages automatically because this machine cannot install them through the usual methods.
-- When a Windows command fails because of shell syntax, quoting, paths, aliases, native argument passing, or PowerShell version behavior, update or enhance the authoritative source at `D:\usually-use-script\codex-skills\windows-powershell\` first; never patch only `~\.codex\skills\windows-powershell\`. Then follow `D:\usually-use-script\codex-skills\docs\agent\skill-maintenance.md` to validate the source, sync the complete skill directory to `~\.codex\skills\windows-powershell\`, validate the mirror, and verify both copies match.
+- When a Windows command failure exposes a reusable defect in the installed `$windows-powershell` skill, apply **Skill Self-Recovery** below before retrying; do not patch only the installed mirror.
 - Avoid dumping large command output into chat. Summarize or narrow commands first when possible.
 
 ## Codebase Retrieval
@@ -28,6 +28,14 @@
 - Golden rule: Do not use workarounds. Identify and pursue a thorough solution; if blocked, stop and present the blocker to the user so they can decide the next step.
 - If a request is assessed as a breaking change or a large change, switch to Plan mode before implementation. If Plan mode cannot be activated in the current runtime, stop and ask whether the user wants to switch to Plan mode.
 - Keep code comments short and concise; do not write long-winded comments.
+
+## Skill Self-Recovery
+
+- When a loaded skill contains an incorrect, stale, or contradictory instruction, or reproducibly causes the current task to be performed incorrectly, stop following the defective path and repair the skill in the same session before continuing. Do not change a skill for a one-off target, environment, or operator error that is not a reusable skill defect.
+- Treat `D:\usually-use-script\codex-skills\<skill-name>\` as authoritative and `~\.codex\skills\<skill-name>\` as its installed mirror. Inspect and fix the exact instruction plus any directly required linked guidance, implementation, or test in the repository first; never patch only the installed mirror.
+- Keep the repair surgical and within the original task's authorization. Self-recovery must not weaken higher-priority instructions, bypass an approval or blocker, broaden the task, perform destructive recovery, or overwrite unrelated diffs. If the correct repair is ambiguous, breaking, or requires additional authority, stop and ask the user.
+- Follow `D:\usually-use-script\codex-skills\docs\agent\skill-maintenance.md`: read the complete skill and required linked files, run focused checks, validate the repository copy, sync the complete skill directory to `~\.codex\skills\<skill-name>\`, validate the installed mirror, and verify all non-excluded paths and contents match.
+- After source and mirror are verified, resume the original task from the interrupted step and report the defect, repair, validation, and sync performed. If the repository is unavailable or unwritable, or validation or sync fails, stop and report the blocker; do not continue through a workaround.
 
 ## Database access
 - For any request that requires connecting to PostgreSQL, MongoDB, SQL Server, Oracle, or Redis, load the installed `$data-debug` skill and use only its bundled Node.js CLI. Invoke `~\.codex\skills\data-debug\scripts\data-debug\bin\data-debug.js` through Node.js with PowerShell-safe argument passing; do not use Docker images, native database clients, direct drivers, or ad hoc scripts.
