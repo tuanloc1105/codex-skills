@@ -30,11 +30,10 @@
 - Keep code comments short and concise; do not write long-winded comments.
 
 ## Database access
-- For any request that requires connecting to a database, use only the Docker image `db-debug:latest`.
-- Treat every database connection and operation as strictly READ-ONLY by default.
-- Perform a database mutation only after the user explicitly confirms that specific mutation and its target. A general request to work with the database does not count as mutation approval.
-- Before connecting, verify that Docker is running and that the local `db-debug:latest` image exists.
-- If Docker is not running or the image does not exist, stop and report the blocker to the user. Do not start Docker, pull or build the image, or use another image, client, tool, or workaround.
-- For MongoDB connections, use `mongo-connect` inside `db-debug:latest`; do not call `mongosh` or `mongo-legacy` directly.
-- For a known MongoDB 3.4 target, pass `--server-version 3.4` to `mongo-connect`; otherwise use its default modern-client routing.
-- Do not force the legacy MongoDB client for TLS, authentication, DNS, or network failures.
+- For any request that requires connecting to PostgreSQL, MongoDB, SQL Server, Oracle, or Redis, load the installed `$data-debug` skill and use only its bundled Node.js CLI. Invoke `~\.codex\skills\data-debug\scripts\data-debug\bin\data-debug.js` through Node.js with PowerShell-safe argument passing; do not use Docker images, native database clients, direct drivers, or ad hoc scripts.
+- Treat every connection and operation as strictly READ-ONLY by default. Use `doctor`, `test`, `inspect`, and `read` without granting mutation authority.
+- Supply secrets only through `--connection-env` or `--password-env`, optionally loaded from a local `--env-file`. Never place a connection URI or password in chat or a command argument.
+- Perform a data mutation only through `mutation preview`, show the exact plan, approval hash, target, and operation to the user, and wait for explicit approval in the current chat. A general request, earlier approval, or approval for another plan does not count.
+- After valid approval, execute only the same single-use plan with the same connection source and `mutation execute --plan <id> --approved <hash>`. If the plan, hash, target, payload, or connection changes, preview again and request new approval.
+- Do not use the mutation workflow for DDL, schema/index changes, procedures, permissions, configuration, maintenance, or admin commands. Redis flush/config/ACL/script/function/module commands are always prohibited.
+- If the skill, Node.js runtime, dependency, required connection metadata, or supported operation is unavailable, stop and report the blocker. Do not switch to another database tool.

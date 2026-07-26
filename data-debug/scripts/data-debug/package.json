@@ -1,0 +1,27 @@
+{
+  "name": "codex-data-debug-cli",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Stateless database and Redis debugging CLI for the data-debug Codex skill",
+  "type": "module",
+  "bin": {
+    "data-debug": "./bin/data-debug.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:integration": "node ./scripts/live-adapter-smoke.js",
+    "check": "node --check ./bin/data-debug.js && node --check ./src/cli.js && node --check ./scripts/live-adapter-smoke.js"
+  },
+  "dependencies": {
+    "@redis/client": "6.1.0",
+    "mongodb": "7.5.0",
+    "mssql": "12.7.0",
+    "oracledb": "7.0.1",
+    "pg": "8.22.0",
+    "pg-cursor": "2.21.0"
+  },
+  "license": "UNLICENSED"
+}
