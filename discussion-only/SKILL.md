@@ -45,7 +45,7 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Map likely touchpoints and regression risks. Separate intentional behavior changes from accidental regressions and call out downstream consumers that could break.
 - Identify existing checks that demonstrate the baseline, including tests, type checks, runtime probes, screenshots, logs, or manual reproduction. Use only checks guaranteed not to mutate source or external state; if a useful baseline check cannot be run safely, record the gap and the evidence still needed.
 - Include preservation acceptance criteria, targeted regression checks, and rollback or recovery considerations in any recommended plan.
-- If the available context is insufficient to establish a material part of the baseline, label it as unknown and resolve it through safe inspection or a focused user question before recommending a potentially breaking change.
+- If the available context is insufficient to establish a material part of the baseline, label it as unknown and resolve it through safe inspection or a focused user question before recommending a potentially breaking change. When resolution requires a material user-owned decision, apply `Immediate Decision Gate` instead of continuing the baseline analysis.
 
 ## Markdown Tracker Requirement
 
@@ -146,16 +146,30 @@ Prefer answering from conversation context. Use read-only tools only when the us
 
 Avoid commands or tools with side effects unless they maintain the approved Markdown tracker, create its missing parent directories, maintain its repository `.gitignore` rule, or are necessary for an explicitly authorized non-source-code mutation. Before using a mutating tool, verify that its target and effect fit the granted scope and cannot modify source code. If there is material doubt, do not run it; clarify the boundary instead.
 
+## Immediate Decision Gate
+
+After completing required tracker housekeeping, work in bounded increments. As soon as the first material issue is encountered whose resolution requires the user's preference, scope choice, authorization, or acceptance of a consequential tradeoff, stop all substantive work for the turn.
+
+- Do not continue inspection, analyze later branches, complete later workflow steps, collect more decisions, or apply a default.
+- Finish only an already-running atomic read-only operation. Start no further substantive tool call. Make only the minimal tracker update needed to record progress, evidence, the blocking decision, and deferred work.
+- Ask exactly one decision question with 2-4 options total, then end the response and wait for the user's answer. Count `Other — specify` toward the 2-4 total.
+- After the user answers, record the decision, resume from the checkpoint, and apply this gate again at the next material decision.
+- Do not treat a factual unknown that can be resolved through safe, proportionate read-only inspection as a decision gate. If that inspection exposes a material user-owned decision, stop immediately after the current atomic operation.
+- If one result exposes several material decisions, ask only the one that blocks the earliest next action; prioritize safety or irreversibility when tied. Record later decisions as deferred without asking them yet.
+- Keep inspection batches narrow enough that they do not knowingly cross a foreseeable decision gate.
+
+This gate applies only while full `discussion-only` mode is active. A `$plan-mode` discussion-only fallback inherits `Question Style`, but not this gate, unless that skill explicitly opts into it.
+
 ## Question Style
 
 Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, approval, or permission to exit this mode. Never ask a storage-choice question for the tracker.
 
-- Present each distinct issue as a separate question block. Do not combine unrelated decisions under one option list.
-- Provide 2-4 practical, mutually distinguishable options that answer that question.
+- For a material decision gate, present only the first unresolved issue as a single question block. Do not batch multiple decision questions; defer later issues to subsequent turns.
+- Provide 2-4 total practical, mutually distinguishable options that answer that question.
 - Mark one option as `Recommended` or `Default` when there is a reasonable choice.
 - Include `Other — specify` when the listed choices may not cover the user's intent.
 - When the user must supply a free-form value unrelated to tracker storage, such as a URL or external resource name, offer useful defaults or actions first and include an option to provide a different value. Never invent the free-form value.
-- If a question is non-blocking, state which default the agent will use if the user does not answer.
+- If a question is non-blocking and outside a material decision gate, state which default the agent will use if the user does not answer. Never apply a default to a material decision gate; wait for the user's answer.
 - Apply these rules to questions in chat and to every item recorded under `Open Questions` in the tracker.
 - Before sending a response, check that no user-facing question lacks its own option list.
 
@@ -180,6 +194,8 @@ When combined with `$teach-for-understanding`, teach incrementally and verify un
 ## Response Pattern
 
 When a user asks for something actionable while this mode is active:
+
+Apply `Immediate Decision Gate` throughout every step below. When it triggers, stop at the current step and do not advance until the user answers.
 
 1. Resolve the Markdown tracker destination automatically, defaulting to `./discussion/YYYY-MM-DD-<discussion-name>.md` and selecting a numbered variant on collision without asking.
 2. Create missing tracker directories, exclusively reserve the final collision-free path, and freeze it for the discussion.
