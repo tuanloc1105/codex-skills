@@ -83,7 +83,7 @@ const specs = {
       arguments: { keys: [redisSmokeKey] },
     },
     assertVerification(result) {
-      assert.equal(result.value, smokeValue);
+      assert.deepEqual(result.value, { $binary: Buffer.from(smokeValue).toString('base64') });
     },
   },
   sqlserver: {

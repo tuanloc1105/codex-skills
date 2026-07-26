@@ -129,6 +129,11 @@ test('Redis paired scan and sorted-set responses become bounded structured rows'
   assert.deepEqual(sorted.values, [{ member: 'alice', score: '42' }, { member: 'bob', score: '7' }]);
 });
 
+test('Redis binary scalar replies preserve bytes in the structured output', () => {
+  const result = formatRedisReply({ resultKind: 'scalar' }, Buffer.from('known-value'), 1);
+  assert.deepEqual(result.value, { $binary: Buffer.from('known-value').toString('base64') });
+});
+
 test('Redis SLOWLOG formatting never returns raw command arguments or client metadata', () => {
   const result = formatRedisReply(
     { resultKind: 'slowlog' },

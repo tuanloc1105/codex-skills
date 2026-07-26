@@ -106,6 +106,8 @@ Các field `arguments` cho read:
 
 Read trả scalar trong `value`, tập bounded trong `values`/`entries`, hoặc scan page có `nextCursor` tùy command. Luôn kiểm tra `rowCount`, `truncated`, `truncationReason` và `outputBytes`; tự quyết định có cần gọi page kế tiếp hay không, không tự enumerate toàn bộ keyspace.
 
+Redis string/blob replies được giữ nguyên byte bằng dạng `{ "$binary": "<base64>" }`; chỉ decode khi application encoding đã biết chắc chắn.
+
 Mutation chỉ cho phép data commands typed:
 
 - String/key lifetime: `SET`, `DEL`, `UNLINK`, `EXPIRE`, `PEXPIRE`, `EXPIREAT`, `PEXPIREAT`, `PERSIST`
