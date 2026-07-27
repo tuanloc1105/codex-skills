@@ -57,6 +57,8 @@ Always use `mongo-connect` instead of calling `mongosh` or `mongo-legacy` direct
 
 Do not switch to the legacy MongoDB client when the failure is related to TLS, authentication, DNS, or networking.
 
+Always delete the container after completing the query.
+
 ### Read-Only Examples
 
 PostgreSQL:
