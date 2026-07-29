@@ -1,4 +1,0 @@
-interface:
-  display_name: "Data Debug"
-  short_description: "Chẩn đoán và sửa dữ liệu database an toàn"
-  default_prompt: "Dùng $data-debug để kiểm tra database này ở chế độ chỉ đọc mặc định."
