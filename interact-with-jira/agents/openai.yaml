@@ -1,4 +1,4 @@
 interface:
   display_name: "Tương tác với Jira"
-  short_description: "Thao tác Jira Cloud an toàn bằng Atlassian CLI"
-  default_prompt: "Dùng $interact-with-jira để kiểm tra và thực hiện tác vụ Jira Cloud này bằng ACLI."
+  short_description: "Thao tác Jira Cloud an toàn bằng ACLI hoặc MCP"
+  default_prompt: "Dùng $interact-with-jira để chọn, cấu hình hoặc phối hợp ACLI và Atlassian MCP cho tác vụ Jira Cloud này."
