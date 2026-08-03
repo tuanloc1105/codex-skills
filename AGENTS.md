@@ -14,4 +14,5 @@
 
 - Before adding, updating, syncing, or validating a skill, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) for the exact workflow, checks, and nested-repository handling.
 - Before changing a skill-specific workflow under `.github/workflows/`, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) and the corresponding skill manifest and test scripts.
+- For OCB Jira-to-MR delivery, use [deliver-ocb-frontend-change/SKILL.md](deliver-ocb-frontend-change/SKILL.md) for web frontend work and [deliver-ocb-backend-change/SKILL.md](deliver-ocb-backend-change/SKILL.md) for backend work.
 - For Jira Cloud work through Atlassian CLI `acli`, read [interact-with-jira/SKILL.md](interact-with-jira/SKILL.md) before authenticating, constructing commands, or mutating Jira data.
