@@ -1,99 +1,99 @@
 ---
 name: interact-with-jira
-description: Thao tác Jira Cloud bằng Atlassian CLI chính thức (`acli`) và Atlassian Rovo MCP, gồm cấu hình, xác thực, tìm kiếm, xem, tạo, sửa và chuyển trạng thái work item cùng các khả năng Jira mà từng công cụ hỗ trợ. Dùng khi Codex cần chọn, phối hợp, cấu hình hoặc chẩn đoán ACLI/MCP; tự động fallback sang công cụ còn khả dụng và áp dụng cổng an toàn cho thao tác ghi, hàng loạt hoặc phá hủy.
+description: Work with Jira Cloud through the official Atlassian CLI (`acli`) and Atlassian Rovo MCP, including configuration, authentication, searching, viewing, creating, editing, transitioning work items, and other Jira capabilities supported by each tool. Use when Codex needs to select, coordinate, configure, or troubleshoot ACLI/MCP; automatically fall back to an available tool and apply safety gates to write, bulk, or destructive operations.
 ---
 
-# Tương tác với Jira
+# Interact with Jira
 
-## Giữ đúng phạm vi
+## Stay within scope
 
-- Áp dụng cho Jira Cloud qua Atlassian CLI `acli` và Atlassian Rovo MCP. Không suy diễn rằng các quy trình này dùng được cho Jira Data Center, Forge CLI hoặc TWG CLI `twg`.
-- Nếu người dùng nói “Atlassian CLI” nhưng không nêu binary, kiểm tra executable hoặc hỏi lại khi cả `acli` và `twg` đều khả dụng. Không áp dụng cú pháp của `twg` cho `acli`.
-- Không gọi Jira REST API để lách thiếu sót của ACLI hoặc MCP. Nếu cả hai công cụ đều không hỗ trợ tác vụ, báo giới hạn và xin phép trước khi mở rộng phạm vi sang công cụ khác.
+- Apply this skill to Jira Cloud through Atlassian CLI `acli` and Atlassian Rovo MCP. Do not assume these workflows apply to Jira Data Center, Forge CLI, or TWG CLI `twg`.
+- If the user says “Atlassian CLI” without naming the binary, check the executable or ask when both `acli` and `twg` are available. Do not use `twg` syntax with `acli`.
+- Do not call the Jira REST API to work around ACLI or MCP limitations. If neither tool supports the task, report the limitation and ask for permission before expanding scope to another tool.
 
-## Chọn và phối hợp công cụ
+## Select and coordinate tools
 
-1. Xác định tác vụ cần khả năng nào, target nào và là đọc hay ghi.
-2. Kiểm tra nhẹ các công cụ có thể dùng trong môi trường hiện tại; không yêu cầu cả hai phải hiện diện:
-   - ACLI: kiểm tra executable, version, help và auth theo quy trình ACLI.
-   - MCP: kiểm tra server/tool Atlassian đã được client nạp, trạng thái kết nối và identity/site theo quy trình MCP.
-3. Chọn công cụ đang khả dụng và hỗ trợ tác vụ. Khi cả hai đều dùng được:
-   - Ưu tiên MCP cho hội thoại tự nhiên, ngữ cảnh đa sản phẩm và các Jira tool mà server công bố.
-   - Ưu tiên ACLI cho thao tác xác định, scriptable hoặc các nhóm quản trị mà MCP không expose.
-   - Có thể dùng một công cụ để đọc/preflight và công cụ kia để thực hiện khi điều đó giảm rủi ro; xác minh chúng đang trỏ tới cùng site/account/target.
-4. Nếu công cụ đã chọn thiếu, mất kết nối, chưa xác thực hoặc không hỗ trợ capability, thử công cụ còn lại khi nó có thể hoàn tất an toàn. Báo ngắn gọn việc đổi công cụ; không bắt người dùng cài cả hai.
-5. Chỉ dừng vì thiếu công cụ khi cả ACLI lẫn MCP đều không khả dụng hoặc không thể cấu hình/xác thực trong phạm vi được phép. Nếu cả hai đều có nhưng không hỗ trợ capability cần thiết, báo giới hạn và xin phép mở rộng phạm vi.
+1. Determine the required capability and target, and whether the operation is a read or write.
+2. Perform lightweight checks for tools available in the current environment; do not require both:
+   - ACLI: check the executable, version, help, and authentication according to the ACLI workflow.
+   - MCP: check that the client loaded the Atlassian server/tools, the connection status, and the identity/site according to the MCP workflow.
+3. Select an available tool that supports the task. When both are available:
+   - Prefer MCP for natural-language interaction, cross-product context, and Jira tools exposed by the server.
+   - Prefer ACLI for deterministic, scriptable operations or administrative groups that MCP does not expose.
+   - You may use one tool for reads/preflight and the other for execution when that reduces risk; verify that both point to the same site/account/target.
+4. If the selected tool is missing, disconnected, unauthenticated, or lacks the capability, try the other tool when it can finish safely. Briefly report the switch; do not require the user to install both.
+5. Stop for missing tooling only when neither ACLI nor MCP is available or can be configured/authenticated within the permitted scope. If both are available but neither supports the required capability, report the limitation and ask for permission to expand scope.
 
-Không chuyển sang công cụ khác để tự retry một mutation có kết quả chưa xác định. Trước tiên đọc lại target bằng một công cụ khả dụng, xác định phần đã thành công rồi xin quyết định mới.
+Do not switch tools to automatically retry a mutation with an uncertain result. First read the target again with an available tool, determine what succeeded, and ask for a new decision.
 
-## Xác minh trước khi thao tác
+## Verify before acting
 
-1. Với ACLI, chạy `acli --version`, `acli jira --help`, help của nhóm và command lá được định dùng. Dùng cú pháp do binary hiện tại công bố, không đoán flag từ trí nhớ hoặc từ `twg`.
-2. Với MCP, dùng tool schema mà server hiện tại công bố. Không đoán tên tool, input hoặc capability từ ví dụ cũ; xác minh server, auth, site và tool chỉ đọc trước mutation.
-3. Khi cần kiểm tra thay đổi, cài đặt, xác thực, endpoint hoặc lỗi phiên bản, đọc [nguồn Atlassian chính thức](references/official-sources.md).
-4. Trước lần dùng ACLI, đọc [quy trình ACLI và an toàn](references/command-workflows.md). Trước lần dùng hoặc cấu hình MCP, đọc [quy trình Atlassian MCP](references/mcp-workflows.md). Đọc lại phần liên quan trước thao tác hàng loạt, phá hủy hoặc xác thực.
+1. For ACLI, run `acli --version`, `acli jira --help`, and the help for the group and leaf command you intend to use. Use syntax published by the current binary; do not guess flags from memory or from `twg`.
+2. For MCP, use the tool schema published by the current server. Do not guess tool names, inputs, or capabilities from old examples; verify the server, authentication, site, and a read-only tool before a mutation.
+3. When checking changes, installation, authentication, endpoints, or version errors, consult the [official Atlassian sources](references/official-sources.md).
+4. Before first using ACLI, read the [ACLI workflow and safety guidance](references/command-workflows.md). Before using or configuring MCP, read the [Atlassian MCP workflow](references/mcp-workflows.md). Re-read the relevant section before bulk, destructive, or authentication operations.
 
-## Hỗ trợ cấu hình
+## Configuration support
 
-- Khi người dùng yêu cầu, có thể hướng dẫn hoặc thực hiện cấu hình công cụ còn thiếu. Xác minh client, hệ điều hành, binary/help hiện tại và tài liệu chính thức trước khi ghi cấu hình.
-- Với MCP, ưu tiên Atlassian Rovo MCP chính thức qua Streamable HTTP và OAuth 2.1 cho phiên tương tác. Không dùng endpoint SSE đã ngừng hỗ trợ, không đặt token trực tiếp trong config/chat và không tự bật API-token auth của organization.
-- Với ACLI, dùng hướng dẫn cài đặt/xác thực chính thức và ưu tiên OAuth web. Không tự cài, nâng cấp, đăng xuất hoặc thay credential nếu người dùng chỉ yêu cầu thao tác Jira.
-- Cấu hình một công cụ không phải điều kiện để dùng công cụ kia. Sau cấu hình, xác minh bằng status và một thao tác chỉ đọc tối thiểu; phân biệt rõ “đã khai báo/enabled” với “đã kết nối và gọi tool thành công”.
+- When requested, you may guide or perform configuration for a missing tool. Verify the client, operating system, current binary/help, and official documentation before writing configuration.
+- For MCP, prefer official Atlassian Rovo MCP over Streamable HTTP with OAuth 2.1 for interactive sessions. Do not use the retired SSE endpoint, place tokens directly in configuration/chat, or automatically enable an organization's API-token authentication.
+- For ACLI, use official installation/authentication guidance and prefer web OAuth. Do not install, upgrade, log out, or replace credentials when the user only requested a Jira operation.
+- Configuring one tool is not required to use the other. After configuration, verify with status and one minimal read-only operation; distinguish “declared/enabled” from “connected and successfully invoked.”
 
-## Kiểm tra identity và target
+## Check identity and target
 
-- Với ACLI, chạy `acli jira auth status` trước khi truy cập dữ liệu thật. Với MCP, dùng tool identity/resource chỉ đọc mà server công bố để xác nhận account, site và `cloudId` khi cần. Che email, site, account ID và cloud ID nếu không cần đưa vào chat.
-- Dùng `acli jira auth switch --site <site> --email <email>` khi người dùng đã chọn identity khác. Không tự chọn giữa nhiều site/account có khả năng hợp lệ.
-- Ưu tiên OAuth tương tác của công cụ đang dùng. Không suy diễn rằng đăng nhập ACLI cũng xác thực MCP hoặc ngược lại.
-- Với API token, chỉ truyền token qua standard input từ secret store, biến môi trường hoặc file local không được commit. Không đặt token vào argument, script, lịch sử shell, log hay chat.
-- Không đăng xuất, cài đặt, nâng cấp hoặc thay đổi credential nếu người dùng chỉ yêu cầu thao tác Jira và vẫn còn một công cụ phù hợp đang hoạt động.
+- With ACLI, run `acli jira auth status` before accessing real data. With MCP, use a read-only identity/resource tool published by the server to confirm the account, site, and `cloudId` when needed. Redact email, site, account ID, and cloud ID when they are unnecessary in chat.
+- Use `acli jira auth switch --site <site> --email <email>` after the user selects another identity. Do not choose automatically among multiple potentially valid sites/accounts.
+- Prefer the interactive OAuth flow of the tool in use. Do not assume an ACLI login also authenticates MCP or vice versa.
+- For API tokens, provide the token through standard input from a secret store, environment variable, or uncommitted local file. Never place it in an argument, script, shell history, log, or chat.
+- Do not log out, install, upgrade, or change credentials when the user only requested a Jira operation and a suitable tool remains operational.
 
-## Phân loại hành động
+## Classify actions
 
-### Chỉ đọc
+### Read-only
 
-Cho phép thực hiện trong phạm vi yêu cầu sau khi xác minh target:
+After verifying the target, these actions are allowed within the requested scope:
 
-- Kiểm tra version/help/auth/status của ACLI hoặc MCP client/server.
-- Các command ACLI `list`, `search`, `view`, `count`, `get` còn được phiên bản hiện tại hỗ trợ.
-- Các MCP tool được server hiện tại đánh dấu chỉ đọc, gồm identity/resource discovery, đọc work item, project, metadata, transition và tìm kiếm khi khả dụng.
-- Tra cứu work item, project, board, sprint, filter và dashboard bằng công cụ có capability tương ứng.
+- Check ACLI or MCP client/server version, help, authentication, or status.
+- Use ACLI `list`, `search`, `view`, `count`, and `get` commands supported by the current version.
+- Use tools marked read-only by the current MCP server, including identity/resource discovery, work item, project, metadata, transition, and search reads when available.
+- Look up work items, projects, boards, sprints, filters, and dashboards using a tool with the corresponding capability.
 
-Giới hạn JQL, field và số lượng kết quả ở mức nhỏ nhất đủ dùng. Ưu tiên `--json` khi cần xử lý bằng máy; không dùng `--paginate` nếu chưa thật sự cần toàn bộ tập kết quả.
+Keep JQL, fields, and result counts to the minimum needed. Prefer `--json` for machine processing; do not use `--paginate` unless the entire result set is truly required.
 
-### Thay đổi có target rõ ràng
+### Writes with a specific target
 
-Yêu cầu ban đầu của người dùng có thể cho phép đúng một thay đổi cụ thể như tạo work item, sửa field đã nêu, gán assignee, chuyển trạng thái hoặc thêm comment. Trước khi chạy:
+The user's initial request may authorize exactly one specific change, such as creating a work item, editing named fields, assigning an assignee, transitioning status, or adding a comment. Before executing:
 
-1. Xác minh site/account và command help hoặc MCP tool schema.
-2. Đọc lại work item/project hiện tại nếu điều đó giúp phát hiện target sai hoặc tránh ghi đè.
-3. Tóm tắt target và trường sẽ đổi khi lệnh không thể hiện rõ trong yêu cầu.
-4. Giữ prompt xác nhận của ACLI/MCP client; chỉ bỏ qua prompt hoặc phê duyệt tự động khi cổng bên dưới đã được đáp ứng.
-5. Sau khi chạy, kiểm tra exit code và đọc lại đối tượng quan trọng để xác nhận kết quả.
+1. Verify the site/account and command help or MCP tool schema.
+2. Re-read the current work item/project when that can detect a wrong target or prevent overwriting.
+3. Summarize the target and fields to change when the request does not make them explicit.
+4. Preserve the ACLI/MCP client confirmation prompt; bypass or automatically approve it only after satisfying the gate below.
+5. After execution, check the exit code and re-read important objects to verify the result.
 
-Không xem yêu cầu chung như “dọn Jira” hoặc “cập nhật các ticket này” là quyền thực hiện mọi thay đổi có thể suy ra.
+Do not treat a general request such as “clean up Jira” or “update these tickets” as authorization for every inferred change.
 
-### Hàng loạt hoặc phá hủy
+### Bulk or destructive operations
 
-Luôn thực hiện read-only preflight và xin xác nhận rõ ràng ngay trước khi chạy đối với:
+Always perform a read-only preflight and request explicit confirmation immediately before executing:
 
-- Mọi mutation chọn target bằng JQL, filter, file hoặc nhiều key.
-- Delete, archive/unarchive, restore, thay owner, xóa/reset cấu hình hoặc xóa comment, attachment, watcher, link.
-- Xóa/archive project, board, sprint hoặc custom field.
-- Bất kỳ hành động nào có thể ảnh hưởng workflow, quyền truy cập, báo cáo hoặc nhiều người dùng.
+- Any mutation selecting targets by JQL, filter, file, or multiple keys.
+- Delete, archive/unarchive, restore, change owner, remove/reset configuration, or remove a comment, attachment, watcher, or link.
+- Delete/archive a project, board, sprint, or custom field.
+- Any action that may affect workflows, access, reporting, or multiple users.
 
-Preflight phải cho biết site/account, command hoặc MCP tool đã redact secret, selector, số lượng và danh sách key/ID khi khả thi, các field/status sẽ đổi và khả năng hoàn tác. Dừng sau khi xin xác nhận; chỉ thực thi nếu người dùng đồng ý trong chat hiện tại với đúng target và operation đó. Preview lại nếu selector, dữ liệu, identity, command, tool hoặc công cụ thực thi thay đổi.
+The preflight must identify the site/account, redacted command or MCP tool, selector, count and key/ID list when practical, fields/statuses to change, and reversibility. Stop after requesting confirmation; execute only when the user agrees in the current chat to that exact target and operation. Repeat the preview if the selector, data, identity, command, tool, or execution tool changes.
 
-Không dùng `--ignore-errors` mặc định. Không tự retry mutation khi kết quả không xác định; đọc lại trạng thái trước, báo phần thành công/thất bại và xin quyết định mới.
+Do not use `--ignore-errors` by default. Do not automatically retry a mutation with an uncertain result; re-read state, report what succeeded or failed, and ask for a new decision.
 
-## Thực thi và báo cáo
+## Execute and report
 
-- Với ACLI, truyền native arguments dưới dạng argument vector/array, không ghép một chuỗi shell từ dữ liệu Jira hoặc dữ liệu người dùng. Với MCP, gửi input đúng schema và chỉ các field cần thiết.
-- Dùng file JSON/ADF cho payload phức tạp; xem schema mẫu từ `--generate-json` của đúng phiên bản và rà soát file trước khi gửi.
-- Kiểm tra native exit code hoặc MCP tool result/error trước khi parse output. Không coi output một phần là thành công toàn bộ.
-- Redact token, email không cần thiết, nội dung riêng tư và PII trước khi đưa kết quả vào chat.
-- Báo công cụ và command family/tool đã dùng, site đã xác minh, target, kết quả, phần bị giới hạn, fallback nếu có và kiểm tra sau ghi. Không lặp lại secret hoặc payload nhạy cảm.
+- For ACLI, pass native arguments as an argument vector/array; do not construct a shell string from Jira or user data. For MCP, send input matching the schema and include only required fields.
+- Use JSON/ADF files for complex payloads; obtain a sample schema from `--generate-json` on the exact version and review the file before sending it.
+- Check the native exit code or MCP tool result/error before parsing output. Do not treat partial output as complete success.
+- Redact tokens, unnecessary email addresses, private content, and PII before presenting results in chat.
+- Report the tool and command family/tool used, verified site, target, result, limitations, fallback if any, and post-write verification. Do not repeat secrets or sensitive payloads.
 
-## Dừng an toàn
+## Stop safely
 
-Dừng và hỏi lại khi site, account, project, work item, selector hoặc mutation còn mơ hồ; khi help/schema không khớp ví dụ; khi cả hai công cụ đều thiếu quyền/reauthorization; khi không công cụ nào hỗ trợ capability; hoặc khi hoàn tất đòi hỏi REST API, browser automation hay công cụ ngoài phạm vi. Không tạo workaround âm thầm và không dừng chỉ vì một trong hai công cụ vắng mặt.
+Stop and ask when the site, account, project, work item, selector, or mutation is ambiguous; when help/schema conflicts with examples; when both tools lack permission or require reauthorization; when neither tool supports the capability; or when completion requires the REST API, browser automation, or an out-of-scope tool. Do not create silent workarounds, and do not stop merely because one of the two tools is absent.

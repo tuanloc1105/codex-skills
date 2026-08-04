@@ -1,30 +1,30 @@
-# Quy trình Atlassian Rovo MCP cho Jira Cloud
+# Atlassian Rovo MCP workflow for Jira Cloud
 
-## Mục lục
+## Contents
 
-- Khám phá và chọn MCP client
-- Cấu hình trên Codex
-- Xác thực và target
-- Đọc dữ liệu
-- Mutation
-- Fallback với ACLI
-- Chẩn đoán
+- Discover and select an MCP client
+- Configure Codex
+- Authenticate and identify the target
+- Read data
+- Mutate data
+- Fall back to ACLI
+- Troubleshoot
 
-## Khám phá và chọn MCP client
+## Discover and select an MCP client
 
-Atlassian Rovo MCP là remote Streamable HTTP server. Trước khi cấu hình, xác định MCP client người dùng đang dùng và kiểm tra help/tài liệu hiện hành của client đó; không sao chép cú pháp Codex sang client khác.
+Atlassian Rovo MCP is a remote Streamable HTTP server. Before configuration, identify the user's MCP client and inspect its current help/documentation; do not copy Codex syntax to another client.
 
-Endpoint chính thức hiện hành:
+Current official endpoint:
 
 ```text
 https://mcp.atlassian.com/v1/mcp/authv2
 ```
 
-Không cấu hình endpoint `/v1/sse`. Không thay Atlassian Rovo MCP chính thức bằng package MCP Jira bên thứ ba nếu người dùng chưa yêu cầu và chưa đánh giá rủi ro.
+Do not configure the `/v1/sse` endpoint. Do not replace official Atlassian Rovo MCP with a third-party Jira MCP package unless the user requests it and the risks have been assessed.
 
-## Cấu hình trên Codex
+## Configure Codex
 
-Xác minh CLI trước:
+Verify the CLI first:
 
 ```text
 codex --version
@@ -33,16 +33,16 @@ codex mcp add --help
 codex mcp login --help
 ```
 
-Khi người dùng đã yêu cầu cấu hình, thêm server:
+After the user requests configuration, add the server:
 
 ```text
 codex mcp add atlassian --url https://mcp.atlassian.com/v1/mcp/authv2
 codex mcp login atlassian
 ```
 
-OAuth mở trình duyệt để người dùng đăng nhập và consent. Không tự chọn account/site khi có nhiều lựa chọn. Không đưa access token vào command, config hoặc chat.
+OAuth opens a browser for the user to sign in and consent. Do not choose an account/site automatically when multiple options exist. Do not put an access token in a command, configuration, or chat.
 
-Cấu hình an toàn đề xuất trong `~/.codex/config.toml` hoặc project config được người dùng chọn:
+Recommended safe configuration in `~/.codex/config.toml` or the project configuration selected by the user:
 
 ```toml
 [mcp_servers.atlassian]
@@ -52,57 +52,57 @@ default_tools_approval_mode = "writes"
 enabled = true
 ```
 
-Không ghi đè table đã có. Đọc cấu hình hiện tại, giữ nguyên field không liên quan và chỉ thêm/sửa giá trị người dùng yêu cầu. Sau thay đổi, chạy:
+Do not overwrite an existing table. Read the current configuration, preserve unrelated fields, and add or change only values requested by the user. After the change, run:
 
 ```text
 codex mcp list
 codex mcp get atlassian
 ```
 
-`enabled` và `OAuth` chỉ xác nhận cấu hình đã được nhận. Mở phiên Codex mới khi cần, kiểm tra `/mcp`, rồi gọi đúng một tool chỉ đọc tối thiểu để xác nhận server đã kết nối và OAuth thực sự hoạt động.
+`enabled` and `OAuth` only confirm that the configuration was recognized. Open a new Codex session when needed, check `/mcp`, and call exactly one minimal read-only tool to verify that the server connected and OAuth actually works.
 
-## Xác thực và target
+## Authenticate and identify the target
 
-- Ưu tiên OAuth 2.1 cho phiên tương tác. API token dành cho non-interactive/M2M và chỉ dùng khi organization cho phép cùng người dùng yêu cầu.
-- Dùng `atlassianUserInfo` và `getAccessibleAtlassianResources`, hoặc tool tương đương mà server hiện tại công bố, để xác minh identity và site/cloud ID.
-- Nếu có nhiều site, không tự chọn chỉ từ tên gần giống. Xin người dùng chọn hoặc đối chiếu target đã nêu.
-- Quyền MCP không vượt quyền Jira của user. Organization admin còn có thể chặn riêng nhóm Read, Write hoặc Search, domain OAuth và IP.
+- Prefer OAuth 2.1 for interactive sessions. API tokens are for non-interactive/M2M use and may be used only when the organization permits them and the user requests them.
+- Use `atlassianUserInfo` and `getAccessibleAtlassianResources`, or equivalent tools published by the current server, to verify the identity and site/cloud ID.
+- When multiple sites exist, do not choose one solely by a similar name. Ask the user to select or correlate it with the specified target.
+- MCP permissions do not exceed the user's Jira permissions. Organization administrators may also independently block Read, Write, or Search groups, OAuth domains, and IP addresses.
 
-## Đọc dữ liệu
+## Read data
 
-Chỉ gọi tool server hiện tại expose và dùng schema được công bố. Các capability Jira thường có gồm đọc work item, project/type metadata, transition, remote link, tìm account và tìm kiếm JQL.
+Call only tools exposed by the current server and use their published schemas. Common Jira capabilities include reading work items, project/type metadata, transitions, remote links, account lookup, and JQL search.
 
-Giữ truy vấn hẹp:
+Keep queries narrow:
 
-- Chỉ yêu cầu field cần thiết.
-- Giới hạn JQL/result count.
-- Không lấy description, comment, attachment hoặc dữ liệu người dùng nếu tác vụ không cần.
-- Redact email, account ID, cloud ID, site và nội dung riêng tư trước khi báo cáo.
+- Request only required fields.
+- Limit JQL and result counts.
+- Do not retrieve descriptions, comments, attachments, or user data unless the task needs them.
+- Redact email, account ID, cloud ID, site, and private content before reporting.
 
-## Mutation
+## Mutate data
 
-Các capability ghi thường gặp gồm tạo/sửa work item, comment, worklog và transition. Trước mỗi mutation:
+Common write capabilities include creating/editing work items, comments, worklogs, and transitions. Before every mutation:
 
-1. Xác minh identity/site và tool schema.
-2. Đọc target hoặc metadata/transition cần thiết.
-3. Giữ approval cho write tools.
-4. Với hàng loạt hoặc phá hủy, thực hiện preflight và xin xác nhận theo `SKILL.md`.
-5. Sau tool result thành công, đọc lại target quan trọng.
+1. Verify identity/site and the tool schema.
+2. Read the target or required metadata/transitions.
+3. Preserve approval for write tools.
+4. For bulk or destructive operations, perform a preflight and request confirmation as specified in `SKILL.md`.
+5. After a successful tool result, re-read important targets.
 
-Nếu tool timeout hoặc trả kết quả không rõ, không gọi lại bằng MCP hay ACLI ngay. Đọc lại target trước để tránh mutation trùng.
+If a tool times out or returns an uncertain result, do not immediately invoke it again through MCP or ACLI. Read the target first to avoid a duplicate mutation.
 
-## Fallback với ACLI
+## Fall back to ACLI
 
-- Nếu MCP chưa cấu hình, chưa xác thực, bị policy chặn hoặc không expose capability, dùng ACLI khi ACLI khả dụng và hỗ trợ tác vụ.
-- Nếu ACLI thiếu command/capability nhưng MCP có tool phù hợp, dùng MCP.
-- Một công cụ đang hoạt động là đủ; không yêu cầu cấu hình công cụ còn lại chỉ để hoàn tất tác vụ.
-- Khi đổi công cụ giữa preflight và mutation, xác minh lại site/account/target và preview lại nếu command/tool hoặc tác động thay đổi.
+- If MCP is unconfigured, unauthenticated, blocked by policy, or does not expose the capability, use ACLI when ACLI is available and supports the task.
+- If ACLI lacks the command/capability but MCP has a suitable tool, use MCP.
+- One operational tool is enough; do not require configuration of the other merely to finish the task.
+- When switching tools between preflight and mutation, verify the site/account/target again and repeat the preview if the command/tool or impact changes.
 
-## Chẩn đoán
+## Troubleshoot
 
-- Server không xuất hiện: kiểm tra config scope, `codex mcp list`, client restart/new session và `/mcp`.
-- `enabled` nhưng không gọi được tool: chạy live check chỉ đọc; kiểm tra OAuth, token hết hạn, organization permission, domain/IP allowlist và network.
-- OAuth không mở hoặc callback lỗi: chạy lại login sau khi kiểm tra browser/callback và domain allowlist; không tự chuyển sang token.
-- `Access denied`: xác minh quyền Jira của user và nhóm Read/Write/Search trong Atlassian Administration.
-- Không có tool mong đợi: kiểm tra danh sách tool chính thức và tool schema hiện tại; dùng ACLI nếu có capability tương ứng.
-- Nhiều site hoặc sai `cloudId`: gọi lại resource discovery và yêu cầu người dùng chọn target.
+- Server is absent: check configuration scope, `codex mcp list`, client restart/new session, and `/mcp`.
+- `enabled` but tools cannot be called: run a live read-only check; inspect OAuth, token expiration, organization permissions, domain/IP allowlists, and network access.
+- OAuth does not open or the callback fails: retry login after checking browser/callback behavior and the domain allowlist; do not automatically switch to a token.
+- `Access denied`: verify the user's Jira permissions and Read/Write/Search groups in Atlassian Administration.
+- Expected tool is absent: check the official tool list and current tool schema; use ACLI if it has the corresponding capability.
+- Multiple sites or incorrect `cloudId`: repeat resource discovery and ask the user to select the target.
