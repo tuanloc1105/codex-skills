@@ -1,6 +1,6 @@
 ---
 name: discussion-only
-description: Use when the user explicitly invokes $discussion-only or asks for a chat-only, planning-only, advisory-only, no-code-change, or discussion-only mode with a Markdown tracker. This skill makes Codex discuss, explain, reason, teach, plan, and ask questions while maintaining one automatically selected or user-specified Markdown file that tracks the discussion. Without an explicit destination, automatically save under ./discussion/ in the current working directory with a dated topic-based filename; never ask the user where or under what filename to save. Create missing tracker directories automatically and, when the tracker is inside a Git repository, automatically update the repository's .gitignore to exclude the tracker directory. By default, allow no other mutation beyond this tracker housekeeping; however, the user may explicitly authorize scoped non-source-code mutations without exiting the mode. Never modify source code while the mode remains active.
+description: Use when the user explicitly invokes $discussion-only or asks for a chat-only, planning-only, advisory-only, no-code-change, or discussion-only mode with a Markdown tracker. This skill makes Codex discuss, explain, reason, teach, plan, and ask questions while maintaining one automatically selected or user-specified Markdown file as a self-contained cross-session handoff. Without an explicit destination, automatically save under ./discussion/ in the current working directory with a dated topic-based filename; never ask the user where or under what filename to save. Create missing tracker directories automatically and, when the tracker is inside a Git repository, automatically update the repository's .gitignore to exclude the tracker directory. By default, allow no other mutation beyond this tracker housekeeping; however, the user may explicitly authorize scoped non-source-code mutations without exiting the mode. Never modify source code while the mode remains active.
 ---
 
 # Discussion Only
@@ -49,7 +49,7 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 
 ## Markdown Tracker Requirement
 
-Before starting any substantive discussion, automatically resolve and create the Markdown tracker. Never ask the user about its save location, directory, filename, reuse, or overwrite behavior.
+Before starting any substantive discussion, automatically resolve and establish the Markdown tracker. Never ask the user about its save location, directory, filename, reuse, or overwrite behavior.
 
 - Capture the current working directory when the skill starts and resolve every relative destination against it.
 - Classify a user-provided destination without asking: an existing directory, a path ending in a separator, or explicit directory wording is a directory; otherwise treat it as a file path.
@@ -57,14 +57,54 @@ Before starting any substantive discussion, automatically resolve and create the
 - If the user provides a directory, generate the tracker filename inside it.
 - If the user provides no destination, use `./discussion/` relative to the current working directory at the time the skill starts.
 - For an agent-generated filename, derive `<discussion-name>` from the discussion topic or goal. Use `discussion` only when no meaningful slug can be derived.
-- If the selected file or a symlink at that path already exists and the user explicitly says to reuse, continue, update, append, or overwrite it, follow that instruction after applying the same path-safety checks. Otherwise, preserve the existing path and automatically choose the lowest available numbered sibling for that basename, such as `YYYY-MM-DD-<discussion-name>-2.md`, then `YYYY-MM-DD-<discussion-name>-3.md`.
+- If the selected file or a symlink at that path already exists and the user explicitly says to reuse, continue, update, append, or overwrite it, follow that instruction after applying the same path-safety checks.
+- Also treat an existing Markdown file presented as the tracker for this discussion, a handoff from an earlier session, or the state to read and resume as an instruction to adopt and update that exact file in place. Read the complete tracker before substantive work. Do not create a numbered sibling merely because the user said `read`, `resume`, `pick up`, or `continue the discussion` instead of `reuse the file`.
+- For any other existing destination, preserve it and automatically choose the lowest available numbered sibling for that basename, such as `YYYY-MM-DD-<discussion-name>-2.md`, then `YYYY-MM-DD-<discussion-name>-3.md`.
 - Create the selected parent directory and all missing ancestors automatically. Do not ask for permission.
 - For a new tracker, reserve the selected file with exclusive creation and retry with the next numbered sibling if another writer wins the same path. Freeze the successfully reserved or explicitly reused path for the rest of the discussion so later turns keep updating the same tracker.
 - For an agent-generated filename, use the format `YYYY-MM-DD-<discussion-name>.md`.
 - For an agent-generated filename, use the current local date unless the user requests another date.
 - Slugify an agent-generated `<discussion-name>` with lowercase ASCII words joined by hyphens.
 
-Once the destination is resolved automatically, create its parent directories and exclusively reserve the final collision-free tracker path before generating any file-specific ignore rule. Then perform repository ignore handling, initialize the tracker content, and continue the discussion. Keep updating the same reserved tracker after meaningful discussion turns and tell the user where it was saved.
+Once the destination is resolved automatically, exclusively reserve a collision-free path only for a new tracker; for a handoff, adopt the existing file unchanged until it has been read completely. Freeze the selected path, perform repository ignore handling, initialize or update the tracker as applicable, and continue the discussion. Keep updating that same tracker after meaningful discussion turns and tell the user where it was saved.
+
+### Cross-Session Handoff
+
+Make the tracker self-contained enough that a future agent can resume safely without the original chat. Do not attempt to preserve every conversational detail; preserve the current actionable state, its authority, and the evidence needed to verify it.
+
+For every new tracker:
+
+- Record that `$discussion-only` is active, the source-code mutation boundary, and the explicit wording required to exit the mode.
+- Include this resume instruction near the top: `Invoke $discussion-only, read this tracker completely, and continue this exact file before substantive work.`
+- Record the captured working directory, containing repository root when applicable, current branch and commit when available, creation time, last-updated time, and local timezone. Mark unavailable values explicitly instead of inventing them.
+- Give the discussion a stable tracker ID that does not change when the file moves. Use a locally generated non-secret identifier; do not derive it from credentials or private data.
+- Tell the user the exact tracker path and an explicit fresh-session resume prompt such as `Use $discussion-only and continue the tracker at <path>`.
+
+When resuming an existing tracker:
+
+1. Read the complete file and adopt that exact path before substantive work.
+2. Confirm from its metadata whether `discussion-only` is `Active`, `Awaiting decision`, `Paused`, or `Exited`. If status is missing, treat the mutation boundary as active until the user explicitly resolves it. If the tracker says `Exited` but the user has now explicitly invoked `$discussion-only` to continue it, start a new active segment and record that re-entry before substantive work.
+3. Restore the goal, current scope, mutation boundary, accepted decisions, open questions, and resume checkpoint. Do not revive superseded decisions or answered questions.
+4. Compare recorded workspace, repository, branch, commit, and external-source revisions with current live state when those facts matter to the next action. Mark drift and revalidate affected claims before relying on them.
+5. If two trackers claim the same tracker ID or the supplied file conflicts with another apparent continuation, do not merge or choose silently. Record the conflict and apply `Immediate Decision Gate` when the correct lineage requires the user's choice.
+
+Treat every mutation authorization recorded by an earlier session as historical or pending context, never as executable permission in the current session. Before any new local or external mutation beyond tracker housekeeping, require a clear current-session user instruction for the exact remaining target and action. Mark completed or consumed authorization accordingly and never repeat a mutation merely because the tracker says it was previously authorized.
+
+When the user explicitly exits `discussion-only`, update the tracker status to `Exited`, record the exit instruction and time, and flush the final resume checkpoint before making any source-code mutation.
+
+### Tracker Authority and Evidence
+
+Treat the tracker as the source of truth for the recorded discussion state: the current goal, scope, accepted user decisions, requirements, constraints, recorded authorization status, open questions, and resume checkpoint. Recorded authorization status is historical context and does not grant executable permission in a later session. A later explicit user correction supersedes the recorded state and must be written back to the tracker.
+
+Do not treat the tracker as the live source of truth for repository behavior, tickets, documents, designs, APIs, databases, or other external systems. For each material factual claim, record the authoritative source for that domain and enough provenance to find and revalidate it. At minimum capture:
+
+- The claim or state being supported.
+- Whether it is verified, user-reported, inferred, proposed, or unknown.
+- The authoritative source type and exact locator, such as a repository-relative path and symbol, URL, ticket ID, document section, command, log, or artifact.
+- The relevant commit, revision, version, retrieval time, or observation time when available.
+- The observed result, any unresolved conflict, and the condition that requires revalidation.
+
+Higher-priority instructions and current live system state always override a stale tracker snapshot. Do not invent one universal precedence order for unrelated domains. Record which source is authoritative for each domain; when sources conflict, keep the conflict explicit and resolve it through safe inspection or `Immediate Decision Gate` rather than silently choosing.
 
 ### Repository Ignore Rule
 
@@ -84,14 +124,37 @@ Record any automatically created directories and the ignore rule added or reused
 
 If the resolved tracker directory or file cannot be created, stop before starting the substantive discussion and report the exact blocker without asking a storage-choice question or silently relocating an explicit destination. If only `.gitignore` maintenance fails, keep the resolved tracker destination, create or update the tracker there, and report that it could not be ignored; never relocate the tracker solely because of an ignore failure.
 
-Use a concise, resumable Markdown format. Prefer these sections, omitting empty ones:
+Use a concise, resumable Markdown format. The metadata, goal, scope, source-of-truth inventory, current state, assumptions and unknowns, decisions, requirements, constraints, open questions, and resume checkpoint are mandatory; write `None` or `Unknown` instead of omitting them. Omit only empty optional sections.
 
 ```markdown
 # Discussion Tracker
 
-## Context
+Tracker ID: <stable non-secret ID>
+Created: <timestamp and timezone>
+Last updated: <timestamp and timezone>
+Mode: $discussion-only
+Mode status: <Active | Awaiting decision | Paused | Exited>
+Resume instruction: Invoke $discussion-only, read this tracker completely, and continue this exact file before substantive work.
+Workspace: <captured working directory>
+Repository: <root, branch, and commit when available>
+Mutation boundary: <active boundary, or exit instruction and time when Exited>
 
-## Current Understanding
+## Goal
+
+## Scope
+
+### In Scope
+
+### Out of Scope
+
+## Context and Current State
+
+## Source of Truth and Evidence
+
+| ID | Claim or domain | Classification | Authoritative source and locator | Revision or observed at | Observation or conflict | Revalidate when |
+| --- | --- | --- | --- | --- | --- | --- |
+
+## Assumptions and Unknowns
 
 ## Existing Behavior Baseline
 
@@ -101,18 +164,40 @@ Use a concise, resumable Markdown format. Prefer these sections, omitting empty 
 
 ## Decisions
 
+| ID | Status | Decision | Rationale | Supersedes |
+| --- | --- | --- | --- | --- |
+
 ## Requirements
 
 ## Constraints
 
 ## Open Questions
 
+| ID | Status | Question and options | Blocks | Resolution |
+| --- | --- | --- | --- | --- |
+
 ## Next Steps
+
+## Resume Checkpoint
+
+- Last completed:
+- Current work:
+- Blocking decision or dependency:
+- Next safe action:
+- Deferred work:
+- Authorization record: <None, Completed, Expired, or Pending context requiring current-session authorization>
+- Revalidation required:
 
 ## Log
 ```
 
-Track the user goal, important context, decisions, requirements, constraints, options considered, open questions, and likely next steps. Keep the log concise; do not save a raw transcript, hidden chain-of-thought, unrelated chat, or implementation output.
+Track the user goal, important context, decisions, requirements, constraints, options considered, open questions, and exact next safe action. Give decisions and questions stable IDs and lifecycle states such as `Proposed`, `Accepted`, `Superseded`, `Open`, or `Answered`; link replacements through `Supersedes` instead of leaving contradictory entries current. Keep the log concise; do not save a raw transcript, hidden chain-of-thought, unrelated chat, secrets, or implementation output.
+
+### Tracker Durability Gate
+
+Before every user-facing response that follows substantive discussion, inspection, a user answer, a decision, a scope change, or an authorized mutation, persist all material deltas to the tracker and update `Last updated` plus `Resume Checkpoint`. Complete the tracker write before sending the response. This includes turns that do not trigger `Immediate Decision Gate`.
+
+If the tracker update fails, do not present unsaved conclusions as durable handoff state. Report the exact persistence blocker, identify what was not saved, and stop before further substantive work. An abrupt process or host failure cannot be made atomic with chat delivery; on the next available turn, reconcile the tracker against the visible conversation before continuing.
 
 ## Allowed Work
 
@@ -124,6 +209,7 @@ Track the user goal, important context, decisions, requirements, constraints, op
 - Use the minimal read-only inspection needed to establish existing behavior and regression safety when the requested discussion concerns changing an existing mechanism.
 - Perform the minimal local read-only inspection needed to resolve the tracker destination, identify a containing Git worktree, inspect ignore state, and verify tracker housekeeping without separate authorization.
 - Create or update the automatically selected or user-specified Markdown tracker file for this discussion.
+- Read and adopt an existing tracker supplied for cross-session continuation, and revalidate stale source references as required by `Cross-Session Handoff`.
 - Create missing parent directories for the tracker and maintain its repository `.gitignore` rule as built-in tracker housekeeping.
 - Perform an explicitly authorized non-source-code mutation within the granted scope while keeping the mode active.
 
@@ -197,14 +283,17 @@ When a user asks for something actionable while this mode is active:
 
 Apply `Immediate Decision Gate` throughout every step below. When it triggers, stop at the current step and do not advance until the user answers.
 
-1. Resolve the Markdown tracker destination automatically, defaulting to `./discussion/YYYY-MM-DD-<discussion-name>.md` and selecting a numbered variant on collision without asking.
-2. Create missing tracker directories, exclusively reserve the final collision-free path, and freeze it for the discussion.
-3. Identify any containing Git worktree from the reserved path's nearest existing ancestor and create or update the root `.gitignore` idempotently according to `Repository Ignore Rule`.
-4. Initialize or update the reserved Markdown tracker with the current discussion state and record the tracker housekeeping performed.
-5. If the discussion concerns changing an existing mechanism, establish and record the behavioral baseline, preservation requirements, regression risks, and evidence gaps before recommending the change.
-6. Determine whether the requested action would mutate source code.
-7. If it would mutate source code, explain that the user must explicitly exit `discussion-only`, then wait without making the change.
-8. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, verify it proportionately, and update the tracker with the result.
-9. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
-10. Clarify that `discussion-only` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
-11. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
+1. Resolve the Markdown tracker destination automatically. If an existing tracker is supplied as a handoff, adopt and freeze that exact path. Otherwise default to `./discussion/YYYY-MM-DD-<discussion-name>.md` and select a numbered variant on collision without asking.
+2. For a new tracker only, create missing parent directories and exclusively reserve the final collision-free path. For an existing handoff, validate the path without reserving, truncating, or replacing it.
+3. Identify any containing Git worktree from the selected path's nearest existing ancestor and create or update the root `.gitignore` idempotently according to `Repository Ignore Rule`.
+4. If the tracker is a handoff, read it completely, adopt the exact file, and restore its checkpoint under `Cross-Session Handoff` before changing its content.
+5. Initialize or update the selected tracker with the current discussion state and tracker housekeeping performed.
+6. For a handoff, revalidate material drift before relying on recorded external facts.
+7. If the discussion concerns changing an existing mechanism, establish and record the behavioral baseline, preservation requirements, regression risks, and evidence gaps before recommending the change.
+8. Determine whether the requested action would mutate source code.
+9. If it would mutate source code, explain that the user must explicitly exit `discussion-only`, then wait without making the change.
+10. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
+11. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
+12. Apply `Tracker Durability Gate` before every response after substantive work.
+13. Clarify that `discussion-only` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
+14. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
