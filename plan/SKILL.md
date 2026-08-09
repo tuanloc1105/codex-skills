@@ -1,9 +1,9 @@
 ---
-name: plan-mode
-description: Plan-first collaboration workflow for Codex. Use when the user asks to switch to Plan mode, says "len plan", "lap ke hoach", "thao luan truoc", "how to do it", wants to discuss and approve an implementation plan before code changes, or wants a detailed handoff plan saved to a file for a future Codex session. This skill requires Plan-mode behavior, explicit user approval before implementation, a discussion-only fallback when the session has no reliable clue or the agent is confused, and a final detailed "How to do it" plan file with context, dependency-aware phases, execution waves, subagent eligibility notes, touchpoints, intended logic, verification steps, and an explicit persistent $execute-plan resume marker so any future session that reads the plan adopts it even after implementation. Without an explicit destination, automatically save the approved plan under ./plans/ in the current working directory without asking about the path, filename, or collisions.
+name: plan
+description: Plan-first collaboration workflow for Codex. Use when the user explicitly invokes $plan, says "len plan", "lap ke hoach", "thao luan truoc", "how to do it", wants to discuss and approve an implementation plan before code changes, or wants a detailed handoff plan saved to a file for a future Codex session. This skill requires $plan behavior, explicit user approval before implementation, a $discuss fallback when the session has no reliable clue or the agent is confused, and a final detailed "How to do it" plan file with context, dependency-aware phases, execution waves, subagent eligibility notes, touchpoints, intended logic, verification steps, and an explicit persistent $execute resume marker so any future session that reads the plan adopts it even after implementation. Without an explicit destination, automatically save the approved plan under ./plans/ in the current working directory without asking about the path, filename, or collisions.
 ---
 
-# Plan Mode
+# Plan
 
 Use this skill to turn an ambiguous or important request into an approved execution plan and a durable handoff document.
 
@@ -12,13 +12,13 @@ Use this skill to turn an ambiguous or important request into an approved execut
 Immediately enter Plan mode.
 
 - If the runtime provides an actual mode-switch mechanism, use it before substantive work.
-- If the collaboration mode is controlled externally and cannot be changed by a skill, state this limitation once, then strictly follow Plan-mode behavior in this skill.
+- If the collaboration mode is controlled externally and cannot be changed by a skill, state this limitation once, then strictly follow `$plan` behavior in this skill.
 - Do not make production code edits, run destructive commands, commit, push, deploy, or implement the planned work while using this skill unless the user explicitly exits Plan mode and asks for execution.
 - Read and respect repository instructions, user rules, AGENTS.md, active developer instructions, and higher-priority safety constraints.
 
-## Discussion-Only Fallback
+## Discuss Fallback
 
-Follow the conversational restrictions and question style of `$discussion-only` before planning when the current session has no reliable clue about what the user wants, or when the agent is confused about the right direction. Do not activate its tracker lifecycle during this fallback; the Plan-mode handoff remains the only Markdown discussion artifact and is created after approval. Directory and `.gitignore` bookkeeping required to save it remains allowed.
+Follow the conversational restrictions and question style of `$discuss` before planning when the current session has no reliable clue about what the user wants, or when the agent is confused about the right direction. Do not activate its tracker lifecycle during this fallback; the `$plan` handoff remains the only Markdown discussion artifact and is created after approval. Directory and `.gitignore` bookkeeping required to save it remains allowed.
 
 Use this fallback when:
 
@@ -33,7 +33,7 @@ While in this fallback:
 - Do not edit files, create artifacts, implement changes, or mutate local or external state.
 - Ask concise clarifying questions and follow the mandatory `Question and Open-Issue Contract` below.
 - Help the user choose the target outcome, constraints, and preferred approach.
-- Summarize the agreed direction before returning to the Plan Mode workflow.
+- Summarize the agreed direction before returning to the `$plan` workflow.
 
 ## Conversation Workflow
 
@@ -59,7 +59,7 @@ While in this fallback:
    - Rollback or recovery for material behavior changes
 6. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Treat approval as required before writing the final handoff plan.
 7. After the plan is approved, resolve the save path automatically. Respect an explicit destination; otherwise use `./plans/` in the current working directory. Never ask about the save path, filename, overwrite behavior, or collisions.
-8. Save the approved "How to do it" plan as a Markdown file. Do not implement the plan in the same Plan-mode flow unless the user explicitly requests execution after saving.
+8. Save the approved "How to do it" plan as a Markdown file. Do not implement the plan in the same `$plan` flow unless the user explicitly requests execution after saving.
 
 ## Question and Open-Issue Contract
 
@@ -98,7 +98,7 @@ Treat `Depends on` as the source of truth and `Wave` as a derived scheduling aid
 
 Eligibility means the executing agent may delegate the phase to a separate subagent; it is not a requirement to do so. Runtime capacity, current repository state, newly discovered coupling, or delegation overhead may justify serial execution. The main executing agent remains responsible for plan progress, shared resources, integration, conflict resolution, and cross-phase verification.
 
-While using Plan Mode, document this execution structure but do not spawn subagents to implement production work.
+While using `$plan`, document this execution structure but do not spawn subagents to implement production work.
 
 ## Saving Rules
 
@@ -112,7 +112,7 @@ Resolve and create the approved plan file automatically. Never ask the user abou
 - For an agent-generated filename, derive `<plan-name>` from the approved plan title or goal. Use `plan` only when no meaningful slug can be derived.
 - Resolve the final candidate path before writing. If it or a symlink at that path already exists and the user did not explicitly request overwrite, preserve it and automatically choose the lowest available numbered sibling for that basename, such as `YYYY-MM-DD-<plan-name>-2.md`; do not ask. Overwrite only when the user explicitly instructed it and the resolved target passes the same path-safety checks.
 - Resolve the directory that will contain the plan. If that directory or any parent directory does not exist, create the missing directories automatically before saving; do not ask for separate confirmation.
-- For a new plan, reserve the selected file with exclusive creation and retry with the next numbered sibling if another writer wins the same path. Freeze the successfully reserved or explicitly overwritten path for the remainder of the Plan-mode flow.
+- For a new plan, reserve the selected file with exclusive creation and retry with the next numbered sibling if another writer wins the same path. Freeze the successfully reserved or explicitly overwritten path for the remainder of the `$plan` flow.
 - After the destination directory exists, determine whether it is inside a Git worktree. If it is, ensure the worktree root's `.gitignore` ignores the directory containing the plans:
   - Create the root `.gitignore` if it does not exist, preserve its existing contents, and add a root-relative anchored directory rule with a trailing slash.
   - Do not add a duplicate rule or modify `.gitignore` when the destination directory is already ignored.
@@ -122,9 +122,9 @@ Resolve and create the approved plan file automatically. Never ask the user abou
 - For an agent-generated filename, use the current local date unless the user requests another date.
 - Slugify an agent-generated `<plan-name>` with lowercase ASCII words joined by hyphens.
 - Keep the saved file self-contained. A future session should not need the original chat to understand the work.
-- Include the execute-plan mode marker, last-updated timestamp, and resume instruction from the handoff template. A future session asked to read or continue the file must invoke `$execute-plan`, adopt the exact path, and keep updating it until the user explicitly exits execute-plan, even when the implementation status is already `Implemented`.
+- Include the execute mode marker, last-updated timestamp, and resume instruction from the handoff template. A future session asked to read or continue the file must invoke `$execute`, adopt the exact path, and keep updating it until the user explicitly exits execute, even when the implementation status is already `Implemented`.
 - Tell the user the final path after saving.
-- Tell the user the fresh-session resume prompt: `Use $execute-plan and read the plan at <final-path>.`
+- Tell the user the fresh-session resume prompt: `Use $execute and read the plan at <final-path>.`
 - If the resolved plan directory or file cannot be created, report the exact blocker and stop without asking a storage-choice question or silently relocating an explicit destination. If only `.gitignore` maintenance fails, keep the resolved destination, save the plan there, and report that it could not be ignored; never relocate the plan solely because of an ignore failure.
 
 ## Handoff Plan Template
@@ -138,8 +138,8 @@ Date: <YYYY-MM-DD>
 Last updated: <timestamp and timezone>
 Timezone: <local timezone if known>
 Status: Approved plan, not yet implemented
-Execute-plan mode: Ready
-Resume instruction: Invoke $execute-plan, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute-plan.
+Execute mode: Ready
+Resume instruction: Invoke $execute, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute.
 
 ## Goal
 <Concrete outcome the user wants.>
@@ -209,7 +209,7 @@ Phase verification: <narrow checks and expected result.>
 <For each unresolved issue, include 2-4 options, a recommendation/default when applicable, and whether it blocks execution; otherwise write "None".>
 
 ## Amendments and Evidence
-<Keep this section for `$execute-plan`. Initially record "None at approval". While execute-plan mode is active, append stable-ID entries for material corrections, added work, decisions, evidence, out-of-scope handoffs, re-entry, and exit without rewriting the approved baseline.>
+<Keep this section for `$execute`. Initially record "None at approval". While execute mode is active, append stable-ID entries for material corrections, added work, decisions, evidence, out-of-scope handoffs, re-entry, and exit without rewriting the approved baseline.>
 
 | ID | Recorded at | Kind | Source | Change or evidence | Affected scope | Status |
 |---|---|---|---|---|---|---|
@@ -226,7 +226,7 @@ Phase verification: <narrow checks and expected result.>
 - Do not plan a change to an existing mechanism without recording the behavioral baseline, preservation requirements, supporting evidence, affected consumers, and material unknowns.
 - Treat preserved behavior as explicit acceptance criteria. Distinguish every approved behavior change from an accidental regression and pair material risks with targeted checks.
 - Include enough context for a fresh session to proceed accurately without rereading the whole chat.
-- Include the persistent execute-plan marker and exact resume instruction. Reading or adopting the saved plan in any future session must activate `$execute-plan` even when the plan is already implemented.
+- Include the persistent execute marker and exact resume instruction. Reading or adopting the saved plan in any future session must activate `$execute` even when the plan is already implemented.
 - Capture user-approved decisions, rejected alternatives, and tradeoffs that affect implementation.
 - Keep the document organized for execution: clear steps, clear verification, clear boundaries.
 - Use stable phase IDs for every dependency; never imply that phase number alone creates an ordering requirement.

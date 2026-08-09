@@ -1,19 +1,19 @@
 ---
-name: discussion-only
-description: Use when the user explicitly invokes $discussion-only or asks for a chat-only, planning-only, advisory-only, no-code-change, or discussion-only mode with a Markdown tracker. This skill makes Codex discuss, explain, reason, teach, plan, and ask questions while maintaining one automatically selected or user-specified Markdown file as a self-contained cross-session handoff. Without an explicit destination, automatically save under ./discussion/ in the current working directory with a dated topic-based filename; never ask the user where or under what filename to save. Create missing tracker directories automatically and, when the tracker is inside a Git repository, automatically update the repository's .gitignore to exclude the tracker directory. By default, allow no other mutation beyond this tracker housekeeping; however, the user may explicitly authorize scoped non-source-code mutations without exiting the mode. Never modify source code while the mode remains active.
+name: discuss
+description: Use when the user explicitly invokes $discuss or asks for a chat-only, planning-only, advisory-only, no-code-change, or discuss mode with a Markdown tracker. This skill makes Codex discuss, explain, reason, teach, plan, and ask questions while maintaining one automatically selected or user-specified Markdown file as a self-contained cross-session handoff. Without an explicit destination, automatically save under ./discussion/ in the current working directory with a dated topic-based filename; never ask the user where or under what filename to save. Create missing tracker directories automatically and, when the tracker is inside a Git repository, automatically update the repository's .gitignore to exclude the tracker directory. By default, allow no other mutation beyond this tracker housekeeping; however, the user may explicitly authorize scoped non-source-code mutations without exiting the mode. Never modify source code while the mode remains active.
 ---
 
-# Discussion Only
+# Discuss
 
 ## Core Contract
 
 Operate as a discussion partner and keep a Markdown tracker for the conversation. By default, the only allowed mutations are creating or updating the automatically selected or user-specified Markdown tracker, creating any missing parent directories, and maintaining the repository `.gitignore` entry required by the tracker.
 
-Keep the mode active until the user explicitly exits it with wording such as "exit discussion-only", "turn off discussion-only", "thoat che do chi thao luan", "bat dau sua code", or an equally clear instruction. The user may authorize a specific non-source-code mutation while keeping the mode active; such authorization is a scoped exception, not an exit from the mode.
+Keep the mode active until the user explicitly exits it with wording such as "exit discuss", "turn off discuss", "thoat che do chi thao luan", "bat dau sua code", or an equally clear instruction. The user may authorize a specific non-source-code mutation while keeping the mode active; such authorization is a scoped exception, not an exit from the mode.
 
 ## Scoped Mutation Authorization
 
-Treat a clear instruction to make a non-source-code change as authorization for that change. Do not require the user to disable `discussion-only`, use special wording, or approve every individual step.
+Treat a clear instruction to make a non-source-code change as authorization for that change. Do not require the user to disable `discuss`, use special wording, or approve every individual step.
 
 Treat automatic tracker path selection, collision handling, missing directory creation, and the repository ignore update described below as built-in tracker housekeeping. Perform them without separate user authorization; they are not scoped mutation exceptions.
 
@@ -29,11 +29,11 @@ Examples of mutations that may be authorized without leaving the mode include ed
 
 ## Protected Source Code
 
-Never create, edit, delete, move, rename, format, generate, or otherwise mutate source code while `discussion-only` remains active, even if the user asks for a code change. This includes application or library code, tests, executable scripts, migrations, and generated code.
+Never create, edit, delete, move, rename, format, generate, or otherwise mutate source code while `discuss` remains active, even if the user asks for a code change. This includes application or library code, tests, executable scripts, migrations, and generated code.
 
 If it is unclear whether a target counts as source code, treat it as protected and ask the user to clarify or exit the mode before mutating it. Read-only code inspection remains allowed only under the read-only rules below.
 
-Explicitly exiting `discussion-only` is required only before source-code mutation; it is not required for an explicitly authorized non-source-code mutation.
+Explicitly exiting `discuss` is required only before source-code mutation; it is not required for an explicitly authorized non-source-code mutation.
 
 ## Existing Behavior and Regression Safety
 
@@ -74,23 +74,23 @@ Make the tracker self-contained enough that a future agent can resume safely wit
 
 For every new tracker:
 
-- Record that `$discussion-only` is active, the source-code mutation boundary, and the explicit wording required to exit the mode.
-- Include this resume instruction near the top: `Invoke $discussion-only, read this tracker completely, and continue this exact file before substantive work.`
+- Record that `$discuss` is active, the source-code mutation boundary, and the explicit wording required to exit the mode.
+- Include this resume instruction near the top: `Invoke $discuss, read this tracker completely, and continue this exact file before substantive work.`
 - Record the captured working directory, containing repository root when applicable, current branch and commit when available, creation time, last-updated time, and local timezone. Mark unavailable values explicitly instead of inventing them.
 - Give the discussion a stable tracker ID that does not change when the file moves. Use a locally generated non-secret identifier; do not derive it from credentials or private data.
-- Tell the user the exact tracker path and an explicit fresh-session resume prompt such as `Use $discussion-only and continue the tracker at <path>`.
+- Tell the user the exact tracker path and an explicit fresh-session resume prompt such as `Use $discuss and continue the tracker at <path>`.
 
 When resuming an existing tracker:
 
 1. Read the complete file and adopt that exact path before substantive work.
-2. Confirm from its metadata whether `discussion-only` is `Active`, `Awaiting decision`, `Paused`, or `Exited`. If status is missing, treat the mutation boundary as active until the user explicitly resolves it. If the tracker says `Exited` but the user has now explicitly invoked `$discussion-only` to continue it, start a new active segment and record that re-entry before substantive work.
+2. Confirm from its metadata whether `discuss` is `Active`, `Awaiting decision`, `Paused`, or `Exited`. If status is missing, treat the mutation boundary as active until the user explicitly resolves it. If the tracker says `Exited` but the user has now explicitly invoked `$discuss` to continue it, start a new active segment and record that re-entry before substantive work.
 3. Restore the goal, current scope, mutation boundary, accepted decisions, open questions, and resume checkpoint. Do not revive superseded decisions or answered questions.
 4. Compare recorded workspace, repository, branch, commit, and external-source revisions with current live state when those facts matter to the next action. Mark drift and revalidate affected claims before relying on them.
 5. If two trackers claim the same tracker ID or the supplied file conflicts with another apparent continuation, do not merge or choose silently. Record the conflict and apply `Immediate Decision Gate` when the correct lineage requires the user's choice.
 
 Treat every mutation authorization recorded by an earlier session as historical or pending context, never as executable permission in the current session. Before any new local or external mutation beyond tracker housekeeping, require a clear current-session user instruction for the exact remaining target and action. Mark completed or consumed authorization accordingly and never repeat a mutation merely because the tracker says it was previously authorized.
 
-When the user explicitly exits `discussion-only`, update the tracker status to `Exited`, record the exit instruction and time, and flush the final resume checkpoint before making any source-code mutation.
+When the user explicitly exits `discuss`, update the tracker status to `Exited`, record the exit instruction and time, and flush the final resume checkpoint before making any source-code mutation.
 
 ### Tracker Authority and Evidence
 
@@ -132,9 +132,9 @@ Use a concise, resumable Markdown format. The metadata, goal, scope, source-of-t
 Tracker ID: <stable non-secret ID>
 Created: <timestamp and timezone>
 Last updated: <timestamp and timezone>
-Mode: $discussion-only
+Mode: $discuss
 Mode status: <Active | Awaiting decision | Paused | Exited>
-Resume instruction: Invoke $discussion-only, read this tracker completely, and continue this exact file before substantive work.
+Resume instruction: Invoke $discuss, read this tracker completely, and continue this exact file before substantive work.
 Workspace: <captured working directory>
 Repository: <root, branch, and commit when available>
 Mutation boundary: <active boundary, or exit instruction and time when Exited>
@@ -224,7 +224,7 @@ Do not perform:
 - Treating permission for one mutation as permission for later or unrelated mutations.
 - Treating discussion, analysis, a hypothetical request, or approval of a plan as authorization to apply it unless the user clearly asks for the change to be made.
 
-If the user clearly requests an in-scope non-source-code mutation, perform it without requiring an exit from the mode. If the requested task requires source-code mutation, explain the boundary and wait for the user to explicitly exit `discussion-only` before acting.
+If the user clearly requests an in-scope non-source-code mutation, perform it without requiring an exit from the mode. If the requested task requires source-code mutation, explain the boundary and wait for the user to explicitly exit `discuss` before acting.
 
 ## Tool Discipline
 
@@ -244,7 +244,7 @@ After completing required tracker housekeeping, work in bounded increments. As s
 - If one result exposes several material decisions, ask only the one that blocks the earliest next action; prioritize safety or irreversibility when tied. Record later decisions as deferred without asking them yet.
 - Keep inspection batches narrow enough that they do not knowingly cross a foreseeable decision gate.
 
-This gate applies only while full `discussion-only` mode is active. A `$plan-mode` discussion-only fallback inherits `Question Style`, but not this gate, unless that skill explicitly opts into it.
+This gate applies only while full `discuss` mode is active. A `$plan` discuss fallback inherits `Question Style`, but not this gate, unless that skill explicitly opts into it.
 
 ## Question Style
 
@@ -273,7 +273,7 @@ Prefer:
 
 ## Combining With Other Skills
 
-This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains the Markdown tracker, creates its missing parent directories, maintains its repository `.gitignore` rule, or the user explicitly authorizes a scoped non-source-code change. Source-code mutation remains suspended unconditionally until the user exits `discussion-only`.
+This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains the Markdown tracker, creates its missing parent directories, maintains its repository `.gitignore` rule, or the user explicitly authorizes a scoped non-source-code change. Source-code mutation remains suspended unconditionally until the user exits `discuss`.
 
 When combined with `$teach-for-understanding`, teach incrementally and verify understanding in chat. Put learning checkpoints in the Markdown tracker instead of creating or updating a separate `understanding-checklist.md`.
 
@@ -291,9 +291,9 @@ Apply `Immediate Decision Gate` throughout every step below. When it triggers, s
 6. For a handoff, revalidate material drift before relying on recorded external facts.
 7. If the discussion concerns changing an existing mechanism, establish and record the behavioral baseline, preservation requirements, regression risks, and evidence gaps before recommending the change.
 8. Determine whether the requested action would mutate source code.
-9. If it would mutate source code, explain that the user must explicitly exit `discussion-only`, then wait without making the change.
+9. If it would mutate source code, explain that the user must explicitly exit `discuss`, then wait without making the change.
 10. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
 11. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
 12. Apply `Tracker Durability Gate` before every response after substantive work.
-13. Clarify that `discussion-only` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
+13. Clarify that `discuss` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
 14. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.

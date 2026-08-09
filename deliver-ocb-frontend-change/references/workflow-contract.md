@@ -117,7 +117,7 @@ Use these transitions and record evidence at each transition:
 - Use `WAITING_EXTERNAL` from any state when an external credential, permission, approval, required design source, tool, or system is required. Record the prior state, blocked operation, owner, resume condition, and next command/check.
 - Resume from the recorded checkpoint after revalidating stale evidence and authorization.
 
-When `$execute-plan` owns execution, map `WAITING_EXTERNAL` to technical plan `Status: Blocked` only after its recovery paths are exhausted and the condition meets its genuine-blocker definition. Otherwise remain `MR_PREPARED` and record the unavailable path. Never change a cooperating skill's completion semantics.
+When `$execute` owns execution, map `WAITING_EXTERNAL` to technical plan `Status: Blocked` only after its recovery paths are exhausted and the condition meets its genuine-blocker definition. Otherwise remain `MR_PREPARED` and record the unavailable path. Never change a cooperating skill's completion semantics.
 
 ## Readiness definitions
 

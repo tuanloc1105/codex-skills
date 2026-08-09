@@ -1,4 +1,0 @@
-interface:
-  display_name: "Execute Plan"
-  short_description: "Persistently execute and update plan files"
-  default_prompt: "Use $execute-plan to read and adopt the plan at /path/to/plan.md, keep that exact file updated with all amendments and evidence across follow-ups, and remain active until I explicitly exit execute-plan."

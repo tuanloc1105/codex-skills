@@ -1,6 +1,6 @@
 ---
 name: discussion-summary
-description: "Summarize an active discussion and save it to a Markdown file. Use when the user explicitly invokes $discussion-summary or asks to capture, save, export, or hand off the current discussion, decisions, plan, requirements, assumptions, or open questions as Markdown, especially while $discussion-only is active. If the user has not provided an explicit destination path or filename, stop and ask where to save before creating or editing any file."
+description: "Summarize an active discussion and save it to a Markdown file. Use when the user explicitly invokes $discussion-summary or asks to capture, save, export, or hand off the current discussion, decisions, plan, requirements, assumptions, or open questions as Markdown, especially while $discuss is active. If the user has not provided an explicit destination path or filename, stop and ask where to save before creating or editing any file."
 ---
 
 # Discussion Summary
@@ -9,9 +9,9 @@ description: "Summarize an active discussion and save it to a Markdown file. Use
 
 Summarize the current conversation context into one Markdown file. This skill is for capturing discussion state, not for implementing the plan being discussed.
 
-When combined with `$discussion-only`, treat the user's explicit invocation of `$discussion-summary` as permission for exactly one narrow mutation: creating or updating the requested Markdown summary file. After that file operation, return to the `discussion-only` constraints.
+When combined with `$discuss`, treat the user's explicit invocation of `$discussion-summary` as permission for exactly one narrow mutation: creating or updating the requested Markdown summary file. After that file operation, return to the `discuss` constraints.
 
-If the active `discussion-only` instructions in the current session are stricter and do not allow this narrow exception, explain the conflict and ask the user to explicitly exit `discussion-only` before saving.
+If the active `discuss` instructions in the current session are stricter and do not allow this narrow exception, explain the conflict and ask the user to explicitly exit `discuss` before saving.
 
 ## Destination Rule
 

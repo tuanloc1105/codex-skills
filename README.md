@@ -13,7 +13,7 @@ Requires `rsync`.
 
 ```sh
 ./scripts/sync-skills.sh
-./scripts/sync-skills.sh data-debug plan-mode
+./scripts/sync-skills.sh data-debug plan
 ```
 
 ### Windows
@@ -23,7 +23,7 @@ and PowerShell 7+.
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\sync-skills.ps1
-pwsh -File .\scripts\sync-skills.ps1 data-debug plan-mode
+pwsh -File .\scripts\sync-skills.ps1 data-debug plan
 ```
 
 The scripts update and add files but intentionally leave destination-only
