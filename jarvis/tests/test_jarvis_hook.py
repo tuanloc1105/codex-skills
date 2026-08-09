@@ -12,6 +12,7 @@ import unittest
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 HOOK = PLUGIN_ROOT / "scripts" / "jarvis_hook.py"
 CONTROL = PLUGIN_ROOT / "scripts" / "jarvis_control.py"
+HOOKS_CONFIG = PLUGIN_ROOT / "hooks" / "hooks.json"
 MARKER = "jarvis-explicit-v1"
 
 
@@ -70,6 +71,24 @@ class JarvisHookTests(unittest.TestCase):
         self.assertIsNone(output)
         output = self.run_hook("UserPromptSubmit", prompt="Tell me about Jarvis")
         self.assertIsNone(output)
+
+    def test_additional_context_limit_only_targets_supported_events(self) -> None:
+        hooks = json.loads(HOOKS_CONFIG.read_text(encoding="utf-8"))["hooks"]
+
+        post_compact_command = hooks["PostCompact"][0]["hooks"][0]
+        self.assertNotIn("additionalContextLimit", post_compact_command)
+
+        for event in ("UserPromptSubmit", "PreToolUse", "PostToolUse"):
+            command = hooks[event][0]["hooks"][0]
+            self.assertEqual(command["additionalContextLimit"], 800)
+
+    def test_post_compact_restores_supervision_with_system_message(self) -> None:
+        self.activate()
+
+        output = self.run_hook("PostCompact")
+
+        self.assertIn("systemMessage", output)
+        self.assertNotIn("additionalContext", json.dumps(output))
 
     def test_baseline_checkpoint_gates_mutation(self) -> None:
         self.activate()

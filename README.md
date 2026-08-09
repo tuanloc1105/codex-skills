@@ -41,6 +41,11 @@ least the complete `jarvis/` directory) to the target machine; `install.py`
 is not a standalone payload. Its Python 3.8+ installer copies the whole
 bundle to the current user's personal plugin directory, safely updates the
 personal marketplace, and asks Codex CLI to install or refresh the plugin.
+Rerun the same command with a newer complete `jarvis/` bundle and a new manifest
+version/cachebuster to update an existing installation. The installer replaces
+the installed source before refreshing Codex's versioned plugin cache. It is
+idempotent for identical bundles and rejects changed bundles that reuse the
+installed version, preventing Codex from silently retaining stale cached hooks.
 
 On macOS or Linux, run:
 

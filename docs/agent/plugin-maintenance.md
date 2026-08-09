@@ -47,3 +47,5 @@ Preserve these invariants:
 - `jarvis/scripts/install.py` remains Python-standard-library-only, installs the complete bundle on Windows, Linux, and macOS, and never bypasses hook trust.
 - The installer requires the explicit-only agent config and supervisor prompt, rejects bundle and destination symlinks, retains replaced copies as timestamped backups, and rolls back the bundle if marketplace writing fails.
 - A `codex plugin add` failure leaves the new source and marketplace entry in place for a safe rerun; do not report installation success until the CLI exits successfully.
+- `PostCompact` must not declare `additionalContextLimit`; that event returns `systemMessage` and Codex warns that it cannot emit `additionalContext`.
+- Rerunning the installer with a newer complete bundle and a new manifest cachebuster must replace the previous installed source, preserve it as a backup, and refresh the versioned Codex cache through `codex plugin add`. Changed bundles that reuse the installed version must fail clearly instead of claiming a cache refresh.

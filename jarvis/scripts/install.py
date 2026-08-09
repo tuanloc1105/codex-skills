@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -59,6 +60,42 @@ def validate_bundle(root: Path) -> None:
             f"Jarvis bundle is incomplete at {root}. Missing: {', '.join(missing)}"
         )
     reject_symlinks(root)
+    plugin_version(root)
+
+
+def plugin_version(root: Path) -> str:
+    """Read and validate the Jarvis plugin version used by Codex caching."""
+    manifest_path = root / ".codex-plugin" / "plugin.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise InstallError(f"Cannot read plugin manifest {manifest_path}: {exc}") from exc
+    if not isinstance(manifest, dict) or manifest.get("name") != PLUGIN_NAME:
+        raise InstallError(f"Plugin manifest must declare name '{PLUGIN_NAME}'")
+    version = manifest.get("version")
+    if not isinstance(version, str) or not version.strip():
+        raise InstallError("Plugin manifest must declare a non-empty version")
+    return version
+
+
+def bundle_fingerprint(root: Path) -> str:
+    """Hash distributable paths and contents while ignoring generated files."""
+    digest = hashlib.sha256()
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix()):
+        relative = path.relative_to(root)
+        if any(part in EXCLUDED_DIRECTORIES for part in relative.parts):
+            continue
+        if path.name in EXCLUDED_FILES or path.name.endswith((".pyc", ".pyo")):
+            continue
+        if not path.is_file():
+            continue
+        digest.update(relative.as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        digest.update(b"\0")
+    return digest.hexdigest()
 
 
 def ignored_bundle_entries(_directory: str, names: Iterable[str]) -> set[str]:
@@ -93,6 +130,24 @@ def install_bundle(source: Path, destination: Path) -> BundleInstallResult:
         raise InstallError(f"Jarvis destination must not be a symlink: {destination}")
     if source == destination.resolve():
         return BundleInstallResult(changed=False)
+    if destination.exists():
+        try:
+            reject_symlinks(destination)
+            installed_version = plugin_version(destination)
+        except InstallError:
+            installed_version = None
+        if installed_version is not None:
+            source_fingerprint = bundle_fingerprint(source)
+            installed_fingerprint = bundle_fingerprint(destination)
+            if source_fingerprint == installed_fingerprint:
+                return BundleInstallResult(changed=False)
+            source_version = plugin_version(source)
+            if source_version == installed_version:
+                raise InstallError(
+                    "Jarvis source differs from the installed copy but both use version "
+                    f"{source_version}. Publish the bundle with a new cachebuster before "
+                    "rerunning the installer."
+                )
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging_root = Path(

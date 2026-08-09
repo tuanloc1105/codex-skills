@@ -23,7 +23,13 @@ class JarvisInstallerTests(unittest.TestCase):
         for relative_path in installer.REQUIRED_PATHS:
             path = bundle / relative_path
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"fixture: {relative_path}\n", encoding="utf-8")
+            if relative_path == Path(".codex-plugin/plugin.json"):
+                path.write_text(
+                    json.dumps({"name": "jarvis", "version": "0.1.0"}) + "\n",
+                    encoding="utf-8",
+                )
+            else:
+                path.write_text(f"fixture: {relative_path}\n", encoding="utf-8")
         return bundle
 
     def test_install_bundle_copies_complete_plugin_and_excludes_generated_files(self):
@@ -60,6 +66,7 @@ class JarvisInstallerTests(unittest.TestCase):
                 (result.backup / "old.txt").read_text(encoding="utf-8"), "old\n"
             )
             installer.validate_bundle(destination)
+            self.assertFalse((destination / "old.txt").exists())
 
     def test_install_bundle_restores_existing_copy_when_swap_fails(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -193,6 +200,34 @@ class JarvisInstallerTests(unittest.TestCase):
             self.assertFalse(result.changed)
             installer.validate_bundle(source)
 
+    def test_identical_versioned_bundle_is_an_idempotent_update(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = self.make_bundle(root)
+            destination = root / "home" / "plugins" / "jarvis"
+            first = installer.install_bundle(source, destination)
+
+            second = installer.install_bundle(source, destination)
+
+            self.assertTrue(first.changed)
+            self.assertFalse(second.changed)
+            self.assertEqual(
+                list((destination.parent).glob("jarvis.backup-*")), []
+            )
+
+    def test_changed_bundle_with_same_version_requires_new_cachebuster(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = self.make_bundle(root)
+            destination = root / "home" / "plugins" / "jarvis"
+            installer.install_bundle(source, destination)
+            (source / "hooks" / "hooks.json").write_text(
+                "changed without version bump\n", encoding="utf-8"
+            )
+
+            with self.assertRaisesRegex(installer.InstallError, "new cachebuster"):
+                installer.install_bundle(source, destination)
+
     def test_add_plugin_uses_argument_list_without_shell(self):
         completed = mock.Mock(returncode=0)
         with mock.patch.object(installer.subprocess, "run", return_value=completed) as run:
@@ -227,6 +262,43 @@ class JarvisInstallerTests(unittest.TestCase):
             write_json.assert_not_called()
             add_plugin.assert_not_called()
             self.assertFalse((fake_home / "plugins").exists())
+
+    def test_main_updates_existing_installation_and_refreshes_codex(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            fake_home = Path(temporary_directory)
+            destination = fake_home / "plugins" / "jarvis"
+            destination.mkdir(parents=True)
+            manifest = destination / ".codex-plugin" / "plugin.json"
+            manifest.parent.mkdir(parents=True)
+            manifest.write_text(
+                json.dumps({"name": "jarvis", "version": "0.0.1"}) + "\n",
+                encoding="utf-8",
+            )
+            (destination / "obsolete.txt").write_text("old\n", encoding="utf-8")
+
+            with (
+                mock.patch.object(installer.Path, "home", return_value=fake_home),
+                mock.patch.object(
+                    installer, "find_codex_cli", return_value="codex.cmd"
+                ),
+                mock.patch.object(installer, "add_plugin") as add_plugin,
+            ):
+                exit_code = installer.main([])
+
+            self.assertEqual(exit_code, 0)
+            installer.validate_bundle(destination)
+            self.assertFalse((destination / "obsolete.txt").exists())
+            self.assertEqual(
+                len(list((fake_home / "plugins").glob("jarvis.backup-*"))), 1
+            )
+            installed_hooks = json.loads(
+                (destination / "hooks" / "hooks.json").read_text(encoding="utf-8")
+            )["hooks"]
+            self.assertNotIn(
+                "additionalContextLimit",
+                installed_hooks["PostCompact"][0]["hooks"][0],
+            )
+            add_plugin.assert_called_once_with("codex.cmd", "personal")
 
 
 if __name__ == "__main__":

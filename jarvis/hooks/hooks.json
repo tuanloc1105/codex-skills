@@ -47,8 +47,7 @@
             "type": "command",
             "command": "python3 \"$PLUGIN_ROOT/scripts/jarvis_hook.py\"",
             "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\jarvis_hook.py\"",
-            "timeout": 3,
-            "additionalContextLimit": 800
+            "timeout": 3
           }
         ]
       }
