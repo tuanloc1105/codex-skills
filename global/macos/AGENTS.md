@@ -98,7 +98,6 @@ Oracle:
 - After changing code, update the agent documentation whenever the change affects knowledge that future sessions need. This update is mandatory and must use the `update-agent-docs` skill.
 - Always communicate with the user in the language used in their prompt. Do not reply in English unless the user prompted in English.
 - Golden rule: Do not use workarounds. Identify and pursue a thorough solution; if blocked, stop and present the blocker to the user so they can decide the next step.
-- If a request is assessed as a breaking change or a large change, switch to Plan mode before implementation. If Plan mode cannot be activated in the current runtime, stop and ask whether the user wants to switch to Plan mode.
 - Keep code comments short and concise; do not write long-winded comments.
 
 ## Skill Self-Recovery
