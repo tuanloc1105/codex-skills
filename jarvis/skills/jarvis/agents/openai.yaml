@@ -1,0 +1,7 @@
+interface:
+  display_name: "Jarvis"
+  short_description: "Keep the primary agent grounded and unstuck"
+  default_prompt: "Use $jarvis to supervise this task, correct drift, and help when the primary agent gets stuck."
+
+policy:
+  allow_implicit_invocation: false

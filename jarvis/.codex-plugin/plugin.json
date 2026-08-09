@@ -1,0 +1,24 @@
+{
+  "name": "jarvis",
+  "version": "0.1.0+codex.20260809082502",
+  "description": "Explicitly supervise a Codex task, correct drift, and guide the primary agent out of dead ends.",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Jarvis",
+    "shortDescription": "Keep the primary agent grounded and unstuck.",
+    "longDescription": "Jarvis launches a frontier supervisor for an explicitly selected task. Dormant lifecycle hooks enforce baseline, recovery, scope, and final-review checkpoints without activating the skill implicitly.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Task supervision",
+      "Drift detection",
+      "Stuck recovery"
+    ],
+    "defaultPrompt": [
+      "Use $jarvis to supervise this task."
+    ]
+  }
+}
