@@ -1,4 +1,4 @@
 interface:
   display_name: "Plan Mode"
   short_description: "Discuss, approve, and auto-save execution plans"
-  default_prompt: "Use $plan-mode to establish the existing-behavior baseline, preservation requirements, and regression checks before finalizing and auto-saving a detailed How to do it plan."
+  default_prompt: "Use $plan-mode to establish the baseline and regression checks, then auto-save a detailed How to do it plan with a persistent $execute-plan resume marker for future sessions."

@@ -1,24 +1,60 @@
 ---
 name: execute-plan
-description: Execute an approved Markdown plan file produced by $plan-mode. Use when the user gives a path to a plan and wants Codex to implement the whole plan, schedule dependency-ready phases, optionally delegate parallel-safe phases to separate subagents, keep the plan updated in place including later user-requested work and commit records, run the required integration and final verification, double-check the resulting diff with $simplify, update agent docs when substantial current-diff changes add missing agent-facing guidance, and then optionally offer a $security-review limited to the current git working-tree diff.
+description: Persistent execution and evidence-tracking mode for an approved Markdown plan produced by $plan-mode. Use whenever the user supplies or references such a plan and asks Codex to read, adopt, resume, continue, execute, amend, or record follow-up work against it, including in a fresh session and when the plan is already Implemented. Keep the exact plan file active as the source of execution truth across later turns, record material corrections, added work, out-of-scope handoffs, evidence, and commit records in place, and remain in execute-plan mode until the user explicitly exits it. During implementation, schedule dependency-ready phases, run integration and final verification, use $simplify, update agent docs when required, and optionally offer a current-diff $security-review.
 ---
 
 # Execute Plan
 
-Use this skill to turn an approved `$plan-mode` handoff plan into completed work while keeping the plan file itself as the source of execution truth.
+Use this skill to adopt an approved `$plan-mode` handoff plan as a persistent execution and evidence record.
+
+## Persistent Mode Contract
+
+Enter execute-plan mode immediately when the user explicitly invokes `$execute-plan` or asks to read, adopt, resume, continue, execute, or amend a `$plan-mode` handoff plan. Activate the mode in a fresh session and regardless of whether the plan status is approved, in progress, blocked, paused, implemented, or previously exited. Supplying the plan again or asking to read it is an explicit re-entry.
+
+- Bind the mode to the exact adopted plan path. Keep that file as the sole execution source of truth unless the user explicitly switches to another plan.
+- Keep execute-plan mode active across later turns, completion reports, and `Status: Implemented`. Completing the baseline plan does not end the mode.
+- Exit only when the user clearly says to exit or turn off execute-plan, such as `exit execute-plan`, `turn off execute-plan`, `thoat execute-plan`, or equivalent explicit wording.
+- Treat requests to handle work separately, keep it outside the approved scope, or avoid changing the baseline as scope instructions, not as a mode exit. Record the boundary and material handoff or evidence in the adopted plan while the mode remains active.
+- Do not treat reading or adopting a plan as authorization to implement code, mutate external systems, commit, push, or deploy. Wait for a clear current-session request authorizing the relevant action.
+
+On every adoption or re-entry, read the complete plan before substantive work and ensure it contains or backfill these metadata lines near the top:
+
+```markdown
+Execute-plan mode: Active
+Last updated: <timestamp and timezone>
+Resume instruction: Invoke $execute-plan, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute-plan.
+```
+
+Preserve the implementation `Status` independently from the execute-plan mode. An implemented plan may remain `Status: Implemented` while `Execute-plan mode: Active`; reopen the implementation status only when new executable work starts.
 
 ## Completion Contract
 
 Execute the entire approved plan, not only the current phase or execution wave.
 
-Treat explicit follow-up work the user adds while continuing the same plan-based task as an amendment to the plan and therefore as in-scope work, unless the user explicitly says to handle it separately or not to update the plan.
+Treat every material correction, added deliverable, decision, evidence item, or out-of-scope handoff the user provides while execute-plan mode is active as an amendment or evidence record. Update the adopted plan even when its approved baseline is already complete. Only an explicit execute-plan exit stops this recording contract.
 
 Do not send the final response while any in-scope plan item remains pending `[ ]` or in progress `[~]`, unless a genuine blocker requires user input or an external state change. Progress reports, completed phases, failed checks, subagent results, context pressure, tool failures, and unavailable delegation are intermediate states, not completion conditions. Continue recovering and executing within the current task.
 
-Before sending the final response, ensure exactly one of these conditions is true:
+Before claiming that implementation is complete, blocked, or intentionally paused, ensure exactly one of these conditions is true:
 
 1. Every in-scope plan item is completed `[x]`, final verification has been attempted, and the plan status is `Implemented`.
 2. All safe independent work is complete, at least one item has a documented genuine blocker `[!]`, and the plan status is `Blocked`.
+3. The user explicitly exited execute-plan with unfinished work, the incomplete checklist remains accurate, the plan status is `Paused`, and the execute-plan mode is `Exited`.
+
+A final response for a completed implementation is a checkpoint, not a mode exit. State that execute-plan remains active and name the adopted plan path unless the user explicitly exited it.
+
+For a read-, inspection-, summary-, or adoption-only turn without implementation authorization, preserve the existing implementation status and checklist, persist the mode metadata plus any material evidence, and send a checkpoint response stating that no implementation was performed. This response does not need to satisfy an implementation completion condition and does not exit execute-plan.
+
+## Mode Exit
+
+When the user explicitly exits execute-plan:
+
+1. Stop accepting new amendments under this mode after the exit instruction.
+2. Persist all material current-turn deltas, evidence, checklist state, and verification results first.
+3. Set `Execute-plan mode: Exited` and update `Last updated`.
+4. Add an `Exit` entry under `## Amendments and Evidence` with the instruction and timestamp.
+5. Keep `Status: Implemented` or `Status: Blocked` when accurate; use `Status: Paused` when executable items remain unfinished without a genuine blocker.
+6. Report the exact plan path and remaining work. Do not treat exit as authorization to discard or complete pending work.
 
 ## Genuine Blocker Definition
 
@@ -43,15 +79,16 @@ The following are not blockers by themselves:
 
 ## Required Input
 
-Require a path to the plan file.
+Require a path to the plan file unless an exact adopted path is already active in the current task.
 
 - If the user supplied a plan path, resolve it before doing implementation work.
+- If the current task already has one adopted plan path, reuse it for later turns without asking again.
 - If the user did not supply a plan path, ask where the plan file is and stop until they answer.
 - If the path does not exist or is not readable, report that clearly and ask for the correct path.
 
 ## Plan Intake
 
-Read the full plan before editing code.
+Read the full plan before any substantive response or implementation work, adopt the exact path, and apply the `Persistent Mode Contract` metadata update.
 
 Verify these basics:
 
@@ -60,7 +97,7 @@ Verify these basics:
 - The plan status is approved or the user explicitly asked to execute it.
 - For a phased plan, read `## Execution Structure` and capture each phase's ID, dependencies, wave, subagent eligibility, owned scope, produced output, and verification or integration requirements.
 
-Treat an explicit user request to execute the supplied plan as execution approval even when the plan status is missing or still says `Draft`, `Ready`, or `Awaiting execution`.
+Treat an explicit user request to execute the supplied plan as execution approval even when the plan status is missing or still says `Draft`, `Ready`, or `Awaiting execution`. A request only to read, inspect, summarize, or adopt the plan activates execute-plan mode and its bookkeeping but does not authorize implementation.
 
 Ask for confirmation only when the plan explicitly says not to implement, an unresolved choice materially changes the desired outcome, repository drift invalidates the approved goal or requires materially different scope, or two authoritative requirements cannot both be satisfied. Do not invent a materially different plan.
 
@@ -136,20 +173,44 @@ Also update the plan status line when present:
 - Before implementation: `Status: In progress`
 - After implementation and verification: `Status: Implemented`
 - If blocked: `Status: Blocked`
+- After an explicit mode exit with unfinished non-blocked work: `Status: Paused`
 
 When checks are run, update `## Verification` directly with checkboxes or short result notes. Include skipped checks and residual risk in the existing `## Verification` or `## Handoff Notes` sections.
 
+### Amendment and Evidence Gate
+
+Before substantive work or a user-facing response, persist every material user correction, added request, changed decision, discovered fact, verification result, external handoff, or out-of-scope item received while execute-plan mode is active.
+
+Use or create `## Amendments and Evidence` in the original plan. Remove the initial `None at approval` placeholder when adding the first real entry. Give entries stable IDs such as `A001` and record:
+
+- Timestamp and timezone
+- Kind: `Additive`, `Corrective`, `Superseding`, `Evidence`, `Out-of-scope handoff`, `Re-entry`, or `Exit`
+- Source: user request, repository path and symbol, command or check, commit, artifact, ticket, URL, or other exact locator
+- The change, decision, handoff, or evidence
+- Affected goal, scope, phase, checklist item, verification, rollback, or external consumer
+- Current status and any result that a future session must revalidate
+
+Apply these rules:
+
+1. Write the amendment or evidence entry before starting related implementation. If the plan write fails, report the persistence blocker and do not perform the unrecorded work.
+2. For executable work, also add or revise the corresponding checklist item, dependency, ownership, integration, verification, and rollback details before implementation.
+3. For a corrective or superseding request, preserve completed history, mark obsolete pending work as superseded by the amendment ID, and add corrective items for already completed behavior that must change. Update `Goal`, `Scope`, `Desired Logic and Behavior`, or acceptance criteria when they are no longer accurate.
+4. For evidence-only updates or handoffs that require no execution, keep the implementation `Status` unchanged.
+5. If the plan is `Implemented`, `Blocked`, or `Paused` and new executable work can proceed, change it to `In progress` before starting.
+6. A request to keep work separate or outside the approved baseline still requires an `Out-of-scope handoff` record. If the agent performs that work while the mode remains active, add an amendment checklist item so its execution and verification remain auditable.
+7. Do not save a raw transcript, hidden reasoning, secrets, or unrelated conversation. Persist only actionable context and evidence needed for handoff.
+
 ### User-Requested Follow-Up Work
 
-When the user asks for implementation, fixes, tests, documentation, cleanup, or another deliverable that is not represented in the plan while continuing the same plan-based task:
+When the user asks for implementation, fixes, tests, documentation, cleanup, or another deliverable not represented in the approved baseline while execute-plan mode is active:
 
-1. Add the request to `## Step-by-Step Plan` before starting it. Use a new pending checklist item and a concise note such as `Added by user on <YYYY-MM-DD>` so the scope change is distinguishable from the approved baseline.
+1. Pass the request through the `Amendment and Evidence Gate`, then add it to `## Step-by-Step Plan` before starting it. Reference its amendment ID and use a concise note such as `Added by user on <YYYY-MM-DD>` so the scope change is distinguishable from the approved baseline.
 2. Add or adjust dependency, ownership, integration, and verification notes when the new work affects them. Do not rewrite completed history merely to make the addition look original.
-3. If the plan was already `Implemented`, change its status back to `In progress` before doing the added work.
+3. If the plan was `Implemented`, `Blocked`, or `Paused`, change its status back to `In progress` before doing work that can proceed.
 4. Mark the new item in progress, execute it under the same recovery and verification rules, then mark it completed or genuinely blocked.
 5. Return the plan to `Implemented` only after the added work and its required verification are complete.
 
-Do not silently perform user-requested follow-up work outside the plan. If the user explicitly wants the work kept separate, honor that instruction and add a short handoff note only when the separation matters for understanding what the plan did and did not cover.
+Do not silently perform user-requested follow-up work outside the plan record. If the user wants the work kept separate from the approved baseline, preserve that boundary while still recording the handoff, evidence, and any work performed. Only an explicit execute-plan exit disables this requirement.
 
 ### Commit Records
 
@@ -164,7 +225,7 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 
 ## Implementation Workflow
 
-1. Resolve and read the plan path.
+1. Resolve, adopt, and read the complete plan path; activate or re-enter execute-plan mode and persist its metadata.
 2. Inspect enough repository context to execute safely.
 3. Build the dependency and ownership map, validate declared waves, and identify the current ready set.
 4. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
@@ -180,8 +241,8 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 14. Re-run the narrowest meaningful checks after any simplify-driven fixes.
 15. If the current git working-tree diff contains substantial agent-facing changes that are not already covered in agent docs, use `$update-agent-docs` with the current-diff-only scope in this skill.
 16. Re-run the narrowest meaningful checks after any agent-doc updates.
-17. Update the plan status, checklist, verification notes, execution decisions, and residual risks.
-18. If the user adds follow-up work or requests a commit, amend the plan and resume the applicable workflow before treating the task as complete.
+17. Update the plan status, checklist, amendments and evidence, verification notes, execution decisions, `Last updated`, and residual risks.
+18. If the user adds follow-up work, changes an earlier decision, provides a material handoff or evidence item, or requests a commit, pass it through the amendment gate and resume the applicable workflow before treating the task as complete.
 19. Apply the final completion gate and continue working if any requirement fails.
 
 ## Recovery Before Blocking
@@ -251,7 +312,7 @@ If the user says yes, use `$security-review` with this scope constraint:
 
 ## Final Completion Gate
 
-Before sending the final response:
+Before sending a response that claims implementation completion, a genuine blocker, or an explicit-exit pause:
 
 - Re-read the plan checklist and confirm no in-scope `[ ]` or `[~]` item remains.
 - Confirm every `[!]` item satisfies the Genuine Blocker Definition.
@@ -259,15 +320,17 @@ Before sending the final response:
 - Confirm final verification was run or its unavailability and residual risk were documented.
 - Confirm the required simplify review was completed through the skill or locally.
 - Confirm optional agent-doc limitations did not prevent plan completion.
-- Confirm every user-requested follow-up deliverable in the same plan-based task was added to the plan and completed or genuinely blocked.
+- Confirm every material user correction, follow-up deliverable, decision, evidence item, and out-of-scope handoff received while execute-plan mode was active was recorded under `## Amendments and Evidence`.
+- Confirm every executable amendment was reflected in the checklist and completed, paused by explicit exit, or genuinely blocked.
 - If commits were created, confirm their SHA, subject, and branch were recorded in `## Handoff Notes`, and disclose any post-commit plan-only working-tree change.
-- Persist the final checklist, status, verification results, execution decisions, and residual risks to the plan file.
+- Confirm `Execute-plan mode: Active` remains set unless the user explicitly exited; implementation completion alone must not change it.
+- Persist the final checklist, status, amendments and evidence, verification results, execution decisions, `Last updated`, and residual risks to the plan file.
 
 If any requirement above is false, continue working instead of responding finally.
 
 ## Final Response
 
-Summarize:
+After implementation reaches `Implemented`, `Blocked`, or an explicit-exit `Paused` state, summarize:
 
 - What was implemented
 - Which plan steps are completed or blocked
@@ -277,7 +340,10 @@ Summarize:
 - `$simplify` result and any fixes it caused
 - Whether `$update-agent-docs` was run, skipped, or unavailable, and any docs it changed
 - Whether the plan file was updated
-- Which user-requested follow-up items were appended to the plan
+- Which user-requested corrections, follow-up items, evidence, or out-of-scope handoffs were appended to the plan
+- Whether execute-plan mode remains active or was explicitly exited, plus the exact adopted plan path
 - Commit SHA, subject, and branch for commits created during execution, plus whether recording them left a plan-only working-tree change
 
-Then ask whether the user wants `$security-review` on the current git working-tree diff, unless they already answered that question in the current turn.
+Then ask whether the user wants `$security-review` on the current git working-tree diff when implementation reached `Implemented`, unless they already answered that question in the current turn.
+
+For a read-, inspection-, summary-, adoption-, or evidence-only checkpoint, report the exact adopted plan path, what metadata or evidence was updated, that no implementation was performed unless separately authorized, and that execute-plan remains active until explicit exit. Do not offer a security review solely because the plan was read or adopted.
