@@ -1,17 +1,17 @@
 ---
 name: execute
-description: Persistent execution and evidence-tracking mode for an approved Markdown plan produced by $plan. Use whenever the user supplies or references such a plan and asks Codex to read, adopt, resume, continue, execute, amend, or record follow-up work against it, including in a fresh session and when the plan is already Implemented. Keep the exact plan file active as the source of execution truth across later turns, record material corrections, added work, out-of-scope handoffs, evidence, and commit records in place, and remain in execute mode until the user explicitly exits it. During implementation, schedule dependency-ready phases, run integration and final verification, use $simplify, update agent docs when required, and optionally offer a current-diff $security-review.
+description: Persistent execution and evidence-tracking mode for an approved Markdown execution record produced by $plan or by an execution-ready $discuss tracker. Use whenever the user supplies or references such a file and asks Codex to read, adopt, resume, continue, execute, amend, or record follow-up work against it, including in a fresh session and when its implementation is already complete. Keep the exact file active as the source of execution truth across later turns, record material corrections, added work, out-of-scope handoffs, evidence, and commit records in place, and remain in execute mode until the user explicitly exits it. During implementation, schedule dependency-ready phases, run integration and final verification, use $simplify, update agent docs when required, and optionally offer a current-diff $security-review.
 ---
 
 # Execute
 
-Use this skill to adopt an approved `$plan` handoff plan as a persistent execution and evidence record.
+Use this skill to adopt either an approved `$plan` handoff or an execution-ready `$discuss` tracker as a persistent execution and evidence record. In the rules below, “plan” means the exact adopted execution record regardless of which skill produced it.
 
 ## Persistent Mode Contract
 
-Enter execute mode immediately when the user explicitly invokes `$execute` or asks to read, adopt, resume, continue, execute, or amend a `$plan` handoff plan. Activate the mode in a fresh session and regardless of whether the plan status is approved, in progress, blocked, paused, implemented, or previously exited. Supplying the plan again or asking to read it is an explicit re-entry.
+Enter execute mode immediately when the user explicitly invokes `$execute` or asks to read, adopt, resume, continue, execute, or amend an accepted execution record. Accepted records are `$plan` handoffs and `$discuss` trackers that passed `Direct Execute Handoff`. Activate the mode in a fresh session and regardless of whether the implementation status is approved, in progress, blocked, paused, implemented, or previously exited. Supplying the record again or asking to read it is an explicit re-entry.
 
-- Bind the mode to the exact adopted plan path. Keep that file as the sole execution source of truth unless the user explicitly switches to another plan.
+- Bind the mode to the exact adopted execution-record path. Keep that file as the sole execution source of truth unless the user explicitly switches to another record.
 - Keep execute mode active across later turns, completion reports, and `Status: Implemented`. Completing the baseline plan does not end the mode.
 - Exit only when the user clearly says to exit or turn off execute, such as `exit execute`, `turn off execute`, `thoat execute`, or equivalent explicit wording.
 - Treat requests to handle work separately, keep it outside the approved scope, or avoid changing the baseline as scope instructions, not as a mode exit. Record the boundary and material handoff or evidence in the adopted plan while the mode remains active.
@@ -41,7 +41,7 @@ Before claiming that implementation is complete, blocked, or intentionally pause
 2. All safe independent work is complete, at least one item has a documented genuine blocker `[!]`, and the plan status is `Blocked`.
 3. The user explicitly exited execute with unfinished work, the incomplete checklist remains accurate, the plan status is `Paused`, and the execute mode is `Exited`.
 
-A final response for a completed implementation is a checkpoint, not a mode exit. State that execute remains active and name the adopted plan path unless the user explicitly exited it.
+A final response for a completed implementation is a checkpoint, not a mode exit. State that execute remains active and name the adopted execution-record path unless the user explicitly exited it.
 
 For a read-, inspection-, summary-, or adoption-only turn without implementation authorization, preserve the existing implementation status and checklist, persist the mode metadata plus any material evidence, and send a checkpoint response stating that no implementation was performed. This response does not need to satisfy an implementation completion condition and does not exit execute.
 
@@ -54,7 +54,7 @@ When the user explicitly exits execute:
 3. Set `Execute mode: Exited` and update `Last updated`.
 4. Add an `Exit` entry under `## Amendments and Evidence` with the instruction and timestamp.
 5. Keep `Status: Implemented` or `Status: Blocked` when accurate; use `Status: Paused` when executable items remain unfinished without a genuine blocker.
-6. Report the exact plan path and remaining work. Do not treat exit as authorization to discard or complete pending work.
+6. Report the exact execution-record path and remaining work. Do not treat exit as authorization to discard or complete pending work.
 
 ## Genuine Blocker Definition
 
@@ -79,27 +79,32 @@ The following are not blockers by themselves:
 
 ## Required Input
 
-Require a path to the plan file unless an exact adopted path is already active in the current task.
+Require a path to the Markdown execution record unless an exact adopted plan or discussion-tracker path is already active in the current task. A successful direct handoff from `$discuss` supplies its active tracker path automatically.
 
-- If the user supplied a plan path, resolve it before doing implementation work.
-- If the current task already has one adopted plan path, reuse it for later turns without asking again.
-- If the user did not supply a plan path, ask where the plan file is and stop until they answer.
+- If the user supplied a plan or tracker path, resolve it before doing implementation work.
+- If the current task already has one adopted execution-record path, reuse it for later turns without asking again.
+- If the user did not supply a path and no exact active path exists, ask where the execution record is and stop until they answer.
 - If the path does not exist or is not readable, report that clearly and ask for the correct path.
 
-## Plan Intake
+## Plan and Tracker Intake
 
-Read the full plan before any substantive response or implementation work, adopt the exact path, and apply the `Persistent Mode Contract` metadata update.
+Read the full execution record before any substantive response or implementation work, adopt the exact path, and apply the `Persistent Mode Contract` metadata update. Never copy a direct discussion handoff into a separate plan file; preserve the tracker history and keep updating that same path.
 
 Verify these basics:
 
-- The plan is a Markdown handoff plan, ideally with `# How to do it: ...`.
-- The plan has a concrete `## Goal`, `## Step-by-Step Plan`, and `## Verification`.
-- The plan status is approved or the user explicitly asked to execute it.
+- The file is either a Markdown plan, ideally with `# How to do it: ...`, or a `# Discussion Tracker` with `Execution readiness: Ready` and `Mode status: Exited`.
+- The record has a concrete `## Goal`, `## Step-by-Step Plan`, and `## Verification`.
+- No unresolved entry under `## Open Questions` is marked as blocking execution.
+- The record status is approved or the user explicitly asked to execute it.
 - For a phased plan, read `## Execution Structure` and capture each phase's ID, dependencies, wave, subagent eligibility, owned scope, produced output, and verification or integration requirements.
 
-Treat an explicit user request to execute the supplied plan as execution approval even when the plan status is missing or still says `Draft`, `Ready`, or `Awaiting execution`. A request only to read, inspect, summarize, or adopt the plan activates execute mode and its bookkeeping but does not authorize implementation.
+Reject an active or not-ready discussion tracker as an execution input. Do not silently finish its discussion, choose unresolved options, or manufacture a plan inside execute mode. In the same task, keep `$discuss` active and complete its `Direct Execute Handoff`; in a fresh task, tell the user to resume `$discuss` on that exact tracker before trying `$execute` again.
 
-Ask for confirmation only when the plan explicitly says not to implement, an unresolved choice materially changes the desired outcome, repository drift invalidates the approved goal or requires materially different scope, or two authoritative requirements cannot both be satisfied. Do not invent a materially different plan.
+For an accepted discussion tracker, preserve `Mode status: Exited`, set `Execute mode: Active`, apply the standard execute resume instruction, and use the tracker as the sole execution source of truth. Missing scheduling metadata remains subject to the sequential backward-compatibility rule below.
+
+Treat an explicit user request to execute the supplied record as execution approval even when its status is missing or still says `Draft`, `Ready`, or `Awaiting execution`. A request only to read, inspect, summarize, or adopt the record activates execute mode and its bookkeeping but does not authorize implementation.
+
+Ask for confirmation only when the record explicitly says not to implement, an unresolved choice materially changes the desired outcome, repository drift invalidates the approved goal or requires materially different scope, or two authoritative requirements cannot both be satisfied. Do not invent a materially different plan.
 
 Treat `Depends on` as authoritative and any declared wave as a scheduling hint that must agree with it. Revalidate phase independence against the current repository and runtime before dispatch. An eligibility note never overrides overlapping files, shared mutable state, unstable contracts, or newly discovered dependencies.
 
@@ -124,7 +129,7 @@ If delegation is unavailable, unsafe, or not worthwhile, execute the eligible ph
 
 ## Coordinator and Subagent Ownership
 
-The main agent is the coordinator and remains the sole writer of the original plan file. It owns dependency scheduling, shared or cross-phase files, integration, conflict resolution, final verification, the `$simplify` pass, the agent-doc decision, and the final response.
+The main agent is the coordinator and remains the sole writer of the original execution record. It owns dependency scheduling, shared or cross-phase files, integration, conflict resolution, final verification, the `$simplify` pass, the agent-doc decision, and the final response.
 
 Assume subagents share the current workspace unless the runtime explicitly guarantees isolation. Enforce one writer per file or mutable touchpoint within a wave.
 
@@ -134,7 +139,7 @@ Before dispatch, mark the phase in progress and give the subagent a bounded task
 - Allowed files, modules, services, or mutable resources, plus explicit exclusions
 - Required repository instructions and read-before-write context
 - The expected output or handoff contract and phase-local checks
-- A requirement not to edit the plan file, broaden scope, or run commits, pushes, deployments, destructive commands, broad formatters, or other operations outside its ownership unless separately authorized
+- A requirement not to edit the execution record, broaden scope, or run commits, pushes, deployments, destructive commands, broad formatters, or other operations outside its ownership unless separately authorized
 - A return contract covering summary, files or resources changed, checks and results, assumptions, risks, and blockers
 
 Require a subagent to stop and report before touching an unassigned or overlapping resource or materially changing the approved approach. Review its reported output and actual changes before accepting the phase; never treat a successful agent status as sufficient verification.
@@ -153,7 +158,7 @@ Follow the plan as written, subject to higher-priority instructions and current 
 
 ## Updating The Plan
 
-Update the original plan file in place as work progresses. Do not create a separate execution-progress section unless the user asks for one.
+Update the original execution record in place as work progresses. Do not create a separate execution-progress section unless the user asks for one.
 
 In `## Step-by-Step Plan`, convert steps to a checklist if needed and update each item directly:
 
@@ -181,7 +186,7 @@ When checks are run, update `## Verification` directly with checkboxes or short 
 
 Before substantive work or a user-facing response, persist every material user correction, added request, changed decision, discovered fact, verification result, external handoff, or out-of-scope item received while execute mode is active.
 
-Use or create `## Amendments and Evidence` in the original plan. Remove the initial `None at approval` placeholder when adding the first real entry. Give entries stable IDs such as `A001` and record:
+Use or create `## Amendments and Evidence` in the original execution record. Remove the initial `None at approval` placeholder when adding the first real entry. Give entries stable IDs such as `A001` and record:
 
 - Timestamp and timezone
 - Kind: `Additive`, `Corrective`, `Superseding`, `Evidence`, `Out-of-scope handoff`, `Re-entry`, or `Exit`
@@ -214,7 +219,7 @@ Do not silently perform user-requested follow-up work outside the plan record. I
 
 ### Commit Records
 
-When the user explicitly asks for one or more commits during the plan-based task:
+When the user explicitly asks for one or more commits during the execution-record-based task:
 
 1. Add a commit checklist item to `## Step-by-Step Plan` before committing, unless an existing plan item already covers the requested commit. Mark it in progress while preparing and verifying the commit scope.
 2. Follow the active repository's commit workflow and preserve unrelated pre-existing user changes.
@@ -225,7 +230,7 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 
 ## Implementation Workflow
 
-1. Resolve, adopt, and read the complete plan path; activate or re-enter execute mode and persist its metadata.
+1. Resolve, adopt, and read the complete execution-record path; activate or re-enter execute mode and persist its metadata.
 2. Inspect enough repository context to execute safely.
 3. Build the dependency and ownership map, validate declared waves, and identify the current ready set.
 4. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
@@ -324,7 +329,7 @@ Before sending a response that claims implementation completion, a genuine block
 - Confirm every executable amendment was reflected in the checklist and completed, paused by explicit exit, or genuinely blocked.
 - If commits were created, confirm their SHA, subject, and branch were recorded in `## Handoff Notes`, and disclose any post-commit plan-only working-tree change.
 - Confirm `Execute mode: Active` remains set unless the user explicitly exited; implementation completion alone must not change it.
-- Persist the final checklist, status, amendments and evidence, verification results, execution decisions, `Last updated`, and residual risks to the plan file.
+- Persist the final checklist, status, amendments and evidence, verification results, execution decisions, `Last updated`, and residual risks to the execution record.
 
 If any requirement above is false, continue working instead of responding finally.
 
@@ -339,11 +344,11 @@ After implementation reaches `Implemented`, `Blocked`, or an explicit-exit `Paus
 - Integration-gate results for parallel waves
 - `$simplify` result and any fixes it caused
 - Whether `$update-agent-docs` was run, skipped, or unavailable, and any docs it changed
-- Whether the plan file was updated
-- Which user-requested corrections, follow-up items, evidence, or out-of-scope handoffs were appended to the plan
-- Whether execute mode remains active or was explicitly exited, plus the exact adopted plan path
+- Whether the execution record was updated
+- Which user-requested corrections, follow-up items, evidence, or out-of-scope handoffs were appended to the record
+- Whether execute mode remains active or was explicitly exited, plus the exact adopted execution-record path
 - Commit SHA, subject, and branch for commits created during execution, plus whether recording them left a plan-only working-tree change
 
 Then ask whether the user wants `$security-review` on the current git working-tree diff when implementation reached `Implemented`, unless they already answered that question in the current turn.
 
-For a read-, inspection-, summary-, adoption-, or evidence-only checkpoint, report the exact adopted plan path, what metadata or evidence was updated, that no implementation was performed unless separately authorized, and that execute remains active until explicit exit. Do not offer a security review solely because the plan was read or adopted.
+For a read-, inspection-, summary-, adoption-, or evidence-only checkpoint, report the exact adopted execution-record path, what metadata or evidence was updated, that no implementation was performed unless separately authorized, and that execute remains active until explicit exit. Do not offer a security review solely because the record was read or adopted.

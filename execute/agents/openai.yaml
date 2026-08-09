@@ -1,4 +1,4 @@
 interface:
   display_name: "Execute"
-  short_description: "Persistently execute and update plan files"
-  default_prompt: "Use $execute to read and adopt the plan at /path/to/plan.md, keep that exact file updated with all amendments and evidence across follow-ups, and remain active until I explicitly exit execute."
+  short_description: "Execute and update plans or ready discussion trackers"
+  default_prompt: "Use $execute to read and adopt the execution record at /path/to/record.md, whether it is a $plan handoff or an execution-ready $discuss tracker. Keep that exact file updated with all amendments and evidence across follow-ups, and remain active until I explicitly exit execute."

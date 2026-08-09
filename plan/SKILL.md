@@ -16,6 +16,10 @@ Immediately enter Plan mode.
 - Do not make production code edits, run destructive commands, commit, push, deploy, or implement the planned work while using this skill unless the user explicitly exits Plan mode and asks for execution.
 - Read and respect repository instructions, user rules, AGENTS.md, active developer instructions, and higher-priority safety constraints.
 
+## Relationship to Direct Discuss Handoffs
+
+`$plan` remains the full plan-first workflow when the user invokes it or wants a separate reviewed handoff. It is not a mandatory formatting hop between `$discuss` and `$execute`: a `$discuss` tracker that passes that skill's `Direct Execute Handoff` may be adopted directly by `$execute` as the single execution record. Do not create a duplicate plan file when the user explicitly chose the direct tracker route; return to `$discuss` only when its execution-readiness gate still has blocking decisions or missing accepted state.
+
 ## Discuss Fallback
 
 Follow the conversational restrictions and question style of `$discuss` before planning when the current session has no reliable clue about what the user wants, or when the agent is confused about the right direction. Do not activate its tracker lifecycle during this fallback; the `$plan` handoff remains the only Markdown discussion artifact and is created after approval. Directory and `.gitignore` bookkeeping required to save it remains allowed.

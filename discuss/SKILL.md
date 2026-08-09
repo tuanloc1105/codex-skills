@@ -1,6 +1,6 @@
 ---
 name: discuss
-description: Use when the user explicitly invokes $discuss or asks for a chat-only, planning-only, advisory-only, no-code-change, or discuss mode with a Markdown tracker. This skill makes Codex discuss, explain, reason, teach, plan, and ask questions while maintaining one automatically selected or user-specified Markdown file as a self-contained cross-session handoff. Without an explicit destination, automatically save under ./discussion/ in the current working directory with a dated topic-based filename; never ask the user where or under what filename to save. Create missing tracker directories automatically and, when the tracker is inside a Git repository, automatically update the repository's .gitignore to exclude the tracker directory. By default, allow no other mutation beyond this tracker housekeeping; however, the user may explicitly authorize scoped non-source-code mutations without exiting the mode. Never modify source code while the mode remains active.
+description: Use when the user invokes $discuss or requests chat-only, planning-only, advisory-only, or no-code-change work with a Markdown tracker. Maintain one automatically selected or user-specified file as a self-contained cross-session handoff. Without a destination, save under ./discussion/ with a dated topic filename and never ask where to save it. Create missing tracker directories and maintain the repository .gitignore entry automatically. By default, allow no mutation beyond tracker housekeeping and explicitly authorized scoped non-source-code changes; never modify source code while discuss is active. When the user invokes $execute against the active tracker, finalize that same file as an execution-ready handoff, exit discuss only after it is durable, and let $execute adopt it without a separate $plan file.
 ---
 
 # Discuss
@@ -9,7 +9,7 @@ description: Use when the user explicitly invokes $discuss or asks for a chat-on
 
 Operate as a discussion partner and keep a Markdown tracker for the conversation. By default, the only allowed mutations are creating or updating the automatically selected or user-specified Markdown tracker, creating any missing parent directories, and maintaining the repository `.gitignore` entry required by the tracker.
 
-Keep the mode active until the user explicitly exits it with wording such as "exit discuss", "turn off discuss", "thoat che do chi thao luan", "bat dau sua code", or an equally clear instruction. The user may authorize a specific non-source-code mutation while keeping the mode active; such authorization is a scoped exception, not an exit from the mode.
+Keep the mode active until the user explicitly exits it with wording such as "exit discuss", "turn off discuss", "thoat che do chi thao luan", "bat dau sua code", or an equally clear instruction. Treat an explicit `$execute` invocation against the active tracker as a request to transition that tracker out of discuss under `Direct Execute Handoff`; it becomes an exit only after the handoff gate succeeds and is persisted. The user may authorize a specific non-source-code mutation while keeping the mode active; such authorization is a scoped exception, not an exit from the mode.
 
 ## Scoped Mutation Authorization
 
@@ -76,6 +76,7 @@ For every new tracker:
 
 - Record that `$discuss` is active, the source-code mutation boundary, and the explicit wording required to exit the mode.
 - Include this resume instruction near the top: `Invoke $discuss, read this tracker completely, and continue this exact file before substantive work.`
+- Initialize `Execution readiness: Not ready` and `Execute mode: Inactive`; these markers change only through `Direct Execute Handoff`.
 - Record the captured working directory, containing repository root when applicable, current branch and commit when available, creation time, last-updated time, and local timezone. Mark unavailable values explicitly instead of inventing them.
 - Give the discussion a stable tracker ID that does not change when the file moves. Use a locally generated non-secret identifier; do not derive it from credentials or private data.
 - Tell the user the exact tracker path and an explicit fresh-session resume prompt such as `Use $discuss and continue the tracker at <path>`.
@@ -90,7 +91,35 @@ When resuming an existing tracker:
 
 Treat every mutation authorization recorded by an earlier session as historical or pending context, never as executable permission in the current session. Before any new local or external mutation beyond tracker housekeeping, require a clear current-session user instruction for the exact remaining target and action. Mark completed or consumed authorization accordingly and never repeat a mutation merely because the tracker says it was previously authorized.
 
-When the user explicitly exits `discuss`, update the tracker status to `Exited`, record the exit instruction and time, and flush the final resume checkpoint before making any source-code mutation.
+When the user explicitly exits `discuss`, including through a successful `Direct Execute Handoff`, update the tracker status to `Exited`, record the exit instruction and time, and flush the final resume checkpoint before making any source-code mutation.
+
+### Direct Execute Handoff
+
+When the user invokes `$execute`, says to execute or implement the settled discussion, or otherwise clearly requests execution against the active tracker, use that same tracker as the execution record. Do not create a duplicate file under `./plans/` and do not require `$plan` merely to reformat settled discussion state.
+
+Before exiting discuss or allowing source-code mutation, make the tracker execution-ready and persist it. The handoff gate requires:
+
+- A concrete `## Goal`, in-scope and out-of-scope boundaries, requirements, constraints, and accepted decisions.
+- No unresolved open question marked as blocking execution.
+- An existing-behavior baseline, preservation requirements, and regression risks or an explicit truthful `None` when they do not apply.
+- A concrete `## Step-by-Step Plan` checklist and `## Verification` section derived only from accepted discussion state and verified evidence.
+- `## Execution Structure` with dependency, ownership, output, and integration metadata when phases are materially useful; small linear work may omit it.
+- `## Amendments and Evidence` initialized with `None at approval` and `## Handoff Notes` initialized with the exact tracker path and next safe action.
+
+If a missing choice materially changes the outcome, apply `Immediate Decision Gate`, record the blocker, and keep discuss active. Do not mark the tracker ready, synthesize an arbitrary choice, or start implementation.
+
+After the gate passes, update the same tracker atomically before handing control to `$execute`:
+
+```markdown
+Mode status: Exited
+Status: Approved for execution
+Execution readiness: Ready
+Execute mode: Ready
+Resume instruction: Invoke $execute, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute.
+Mutation boundary: $discuss exited by direct execute handoff at <timestamp and timezone>
+```
+
+Record the user's transition instruction and timestamp in `## Log`, update `Last updated` and `## Resume Checkpoint`, and complete `Tracker Durability Gate`. Only then may `$execute` adopt the exact path, set `Execute mode: Active`, and begin work under its own authorization and verification rules. A bare `$execute` transition is an implementation request when the active tracker already defines concrete executable work; an explicit read-, inspect-, summarize-, or adopt-only qualifier activates execute without authorizing implementation.
 
 ### Tracker Authority and Evidence
 
@@ -134,6 +163,8 @@ Created: <timestamp and timezone>
 Last updated: <timestamp and timezone>
 Mode: $discuss
 Mode status: <Active | Awaiting decision | Paused | Exited>
+Execution readiness: <Not ready | Ready>
+Execute mode: <Inactive | Ready | Active | Exited>
 Resume instruction: Invoke $discuss, read this tracker completely, and continue this exact file before substantive work.
 Workspace: <captured working directory>
 Repository: <root, branch, and commit when available>
@@ -177,6 +208,22 @@ Mutation boundary: <active boundary, or exit instruction and time when Exited>
 | --- | --- | --- | --- | --- |
 
 ## Next Steps
+
+## Step-by-Step Plan
+
+<Add only when preparing a direct execute handoff. Use `[ ]` checklist items.>
+
+## Verification
+
+<Add only when preparing a direct execute handoff.>
+
+## Amendments and Evidence
+
+<Add only when preparing a direct execute handoff. Initially record `None at approval`.>
+
+## Handoff Notes
+
+<Add only when preparing a direct execute handoff.>
 
 ## Resume Checkpoint
 
@@ -273,7 +320,7 @@ Prefer:
 
 ## Combining With Other Skills
 
-This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains the Markdown tracker, creates its missing parent directories, maintains its repository `.gitignore` rule, or the user explicitly authorizes a scoped non-source-code change. Source-code mutation remains suspended unconditionally until the user exits `discuss`.
+This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains the Markdown tracker, creates its missing parent directories, maintains its repository `.gitignore` rule, or the user explicitly authorizes a scoped non-source-code change. Source-code mutation remains suspended unconditionally until the user exits `discuss`. A direct `$execute` invocation uses `Direct Execute Handoff`: `$execute` must not mutate source code until the tracker is durably marked ready and discuss is exited.
 
 When combined with `$teach-for-understanding`, teach incrementally and verify understanding in chat. Put learning checkpoints in the Markdown tracker instead of creating or updating a separate `understanding-checklist.md`.
 
@@ -290,10 +337,12 @@ Apply `Immediate Decision Gate` throughout every step below. When it triggers, s
 5. Initialize or update the selected tracker with the current discussion state and tracker housekeeping performed.
 6. For a handoff, revalidate material drift before relying on recorded external facts.
 7. If the discussion concerns changing an existing mechanism, establish and record the behavioral baseline, preservation requirements, regression risks, and evidence gaps before recommending the change.
-8. Determine whether the requested action would mutate source code.
-9. If it would mutate source code, explain that the user must explicitly exit `discuss`, then wait without making the change.
-10. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
-11. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
-12. Apply `Tracker Durability Gate` before every response after substantive work.
-13. Clarify that `discuss` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
-14. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
+8. Determine whether the user requested a direct `$execute` transition for the active tracker.
+9. If so, apply `Direct Execute Handoff`; remain in discuss when its gate cannot pass, otherwise persist the exit and hand the exact path to `$execute` without creating a separate plan file.
+10. Otherwise determine whether the requested action would mutate source code.
+11. If it would mutate source code, explain that the user must explicitly exit `discuss`, then wait without making the change.
+12. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
+13. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
+14. Apply `Tracker Durability Gate` before every response after substantive work.
+15. Clarify that `discuss` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
+16. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
