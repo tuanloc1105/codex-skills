@@ -15,6 +15,7 @@
 ## Read On Demand
 
 - Before adding, updating, syncing, or validating a skill, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) for the exact workflow, checks, and nested-repository handling.
+- For database inspection or troubleshooting, use [data-debug/SKILL.md](data-debug/SKILL.md); keep database operations read-only by default and use only its bundled `db-debug:latest` image workflow.
 - Before changing `jarvis/` or another plugin, read [docs/agent/plugin-maintenance.md](docs/agent/plugin-maintenance.md). For Jarvis behavior or distribution, read [jarvis/skills/jarvis/SKILL.md](jarvis/skills/jarvis/SKILL.md), [jarvis/hooks/hooks.json](jarvis/hooks/hooks.json), [jarvis/scripts/install.py](jarvis/scripts/install.py), and its focused tests before editing.
 - Before changing a skill-specific workflow under `.github/workflows/`, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) and the corresponding skill manifest and test scripts.
 - For OCB Jira-to-MR delivery, use [deliver-ocb-frontend-change/SKILL.md](deliver-ocb-frontend-change/SKILL.md) for web frontend work and [deliver-ocb-backend-change/SKILL.md](deliver-ocb-backend-change/SKILL.md) for backend work.

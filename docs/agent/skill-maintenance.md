@@ -52,19 +52,14 @@
 
 ## Skill-Specific Checks
 
-- When changing `data-debug/scripts/data-debug/`, read its `package.json` and `.github/workflows/data-debug.yml`, then run:
+- When changing `data-debug/`, read `data-debug/SKILL.md` and `data-debug/Dockerfile`. Validate the skill structure, then lint the Dockerfile when Hadolint is already available:
 
   ```sh
-  cd data-debug/scripts/data-debug
-  npm ci
-  npm run check
-  npm test
-  node ./bin/data-debug.js --help
+  python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py ./data-debug
+  hadolint data-debug/Dockerfile
   ```
 
-- For adapter or platform changes, use `test/adapters-platform.test.js` as the focused portability check. Run `npm run test:integration` against the relevant live database when available; the smoke script and workflow own the required environment contract. If the live service is unavailable locally, report the skipped check and let `.github/workflows/data-debug.yml` run the complete database matrix.
-- Keep `.github/workflows/data-debug.yml` aligned with the engines exported by `src/adapters/index.js`. The workflow is the source of truth for runtime, runner, action, and temporary database-service versions; do not duplicate them in agent docs.
-- Keep tests for read-only classification and the `mutation preview` → chat approval → `mutation execute --plan <id> --approved <hash>` boundary aligned with `data-debug/SKILL.md`. Mutation tests must reject unsupported DDL/admin operations, changed or expired plans, wrong hashes, and reused plans.
-- When GitHub CI verification is required, push the branch, inspect the exact `data-debug.yml` run with `gh run list --workflow data-debug.yml --branch <branch>`, then use `gh run view <run-id>` and `gh run view <run-id> --log-failed` as needed. A local green run does not substitute for the requested GitHub Actions result.
+- Do not build or pull `db-debug:latest` merely to validate documentation changes. When the Dockerfile changes and the user requests image verification, build the exact local tag, run the client-version smoke command from `data-debug/SKILL.md`, and report any database integration checks that remain unrun.
+- Keep the Dockerfile's installed clients, the client-version smoke command, client selection guidance, and read-only examples in `data-debug/SKILL.md` aligned.
 
 - For every other skill, inspect its scripts and manifests and run the narrowest relevant validation. Do not invent a repository-wide test command when none exists.

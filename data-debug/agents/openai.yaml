@@ -1,0 +1,4 @@
+interface:
+  display_name: "Data Debug"
+  short_description: "Safely inspect databases through Docker"
+  default_prompt: "Use $data-debug to inspect this database safely in read-only mode."
