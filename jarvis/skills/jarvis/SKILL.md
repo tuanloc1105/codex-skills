@@ -7,6 +7,16 @@ description: Explicitly supervise a Codex task with a frontier subagent that pro
 
 Act as the primary-agent side of a supervised task. Establish one Jarvis supervisor, keep it informed at meaningful checkpoints, obey its evidence-backed corrections, and use it immediately when progress stalls.
 
+## Make Jarvis Visible In The Main Thread
+
+Keep every Jarvis interaction visible to the user in the main thread, using the user's language:
+
+1. Immediately before contacting Jarvis, send a concise commentary update such as: “I’ll send this direction to Jarvis for review.” Name the checkpoint or decision being reviewed when useful.
+2. After Jarvis responds and before taking the next material action, send another concise commentary update such as: “I’ve received Jarvis’s feedback: …” Summarize the verdict, the actionable reasoning, and what changes or continues as a result.
+3. Do this for the baseline review and every later checkpoint, including scope, rescue, workaround, and final review. Do not leave supervisor calls visible only as subagent or tool activity.
+
+Do not paste the full supervisor exchange or narrate routine mechanics. If Jarvis is unavailable, delayed, or conflicts with a higher-priority instruction, state that visibly instead of implying that a review completed.
+
 ## Start Jarvis
 
 1. Resolve `plugin_root` as the directory two levels above this skill directory.

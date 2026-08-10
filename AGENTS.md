@@ -11,6 +11,7 @@
 - In the same task that adds or updates a standalone `<skill-name>/`, mirror the complete skill directory to `~/.codex/skills/<skill-name>/` before finishing. Include `SKILL.md`, `agents/`, `references/`, `scripts/`, and assets; exclude only VCS metadata, local-tool metadata, and generated caches. Never update only the installed mirror.
 - Validate both copies and verify all non-excluded paths and contents match after syncing.
 - Install plugin-owned skills through the complete plugin; do not separately mirror a nested `<plugin>/skills/<skill-name>/` unless the skill is intentionally published in both forms.
+- Jarvis exception: after changing `jarvis/`, do not mirror `jarvis/skills/jarvis/` to `~/.codex/skills/jarvis/`; keep the repository plugin as the source of truth and synchronize it only when the user explicitly requests installation or distribution.
 
 ## Read On Demand
 
