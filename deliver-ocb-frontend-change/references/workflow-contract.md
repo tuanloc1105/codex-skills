@@ -23,8 +23,8 @@ Workflow State: JIRA_UNVERIFIED
 - Username: <resolved value and source, or unresolved>
 - Site/account status: <verified, ambiguous, unavailable, or unresolved>
 - Working issue type: <Task, Subtask, local mapped type, or unresolved>
-- Representative issue: <direct-parent Story/Task key, type, source, or unresolved>
-- Parent relationship: <verified direct relationship and source, or unresolved>
+- Representative issue: <Story for a Task, or direct-parent Task for a Subtask; key, type, source, or unresolved>
+- Representative relationship: <verified parent or explicit Jira development/implementation relationship and source, or unresolved>
 - Epic evidence: <key/source or unresolved>
 - Acceptance criteria: <source and verified summary, or unresolved>
 - Design source: <URL/path/version, not applicable with reason, or unresolved>
@@ -42,7 +42,7 @@ Workflow State: JIRA_UNVERIFIED
 | --- | --- | --- | --- | --- | --- |
 | Jira identity and hierarchy | Required | Hard | <evidence> | Frontend Developer | Pending |
 | UI acceptance and design source | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Product/Design/Frontend | Pending |
-| Two-level branch and MR traceability | Required | Hard | <Pilot, representative, working ancestry, and MR target evidence> | Frontend Developer | Pending |
+| Representative branch and MR traceability | Required | Hard | <applicable dev -> Story -> Task -> Subtask ancestry and representative-issue MR target evidence> | Frontend Developer | Pending |
 | Commit message prefix | Required for commit | Hard | <resolved `{jira_id}_{username}_{task_name}` prefix> | Frontend Developer | Pending |
 | Reviewable work slice | Required | Advisory | <evidence> | Frontend Developer | Pending |
 | Repository-mandated checks | Required | Hard | <evidence> | Frontend Developer | Pending |
@@ -65,12 +65,13 @@ Workflow State: JIRA_UNVERIFIED
 
 ### Delivery Contract
 
-- Pilot base branch: <Pilot and verified SHA, or unresolved>
+- Integration base branch: <dev and verified remote SHA, absent with owner/resume condition, or unresolved>
 - Representative issue and branch: <Story/Task key and branch, or unresolved>
 - Working issue and source branch: <Task/Subtask key and branch, or unresolved>
-- Branch ancestry: <Pilot -> representative -> working evidence, or unresolved>
+- Branch ancestry: <applicable dev -> Story -> Task -> Subtask evidence, or unresolved>
 - Remote: <remote and repository identity or unresolved>
 - MR target branch: <representative branch or unresolved>
+- Story integration MR: <Story source -> dev target, authorization and prerequisite external approval/merge evidence, not applicable with reason, or unresolved>
 - MR title: <resolved title or pattern>
 - Commit username source: <current request, approved/current plan, authoritative repository evidence, or unresolved>
 - Commit message: <resolved `{jira_id}_{username}_{task_name} <commit content>`>
@@ -80,12 +81,13 @@ Workflow State: JIRA_UNVERIFIED
 ### Git Delivery Authorization
 
 - Repository: <exact absolute path and GitLab project identity>
-- Exact actions: <create representative branch, create working branch, commit, push, create MR; list only authorized actions>
-- Pilot base branch: <exact Pilot ref and SHA>
-- Representative branch: <exact branch created from Pilot>
+- Exact actions: <create representative branch, create working branch, commit, push, create working MR, create Story-to-dev MR; list only authorized actions>
+- Integration base branch: <exact remote dev ref and SHA>
+- Representative branch: <exact representative-issue branch; Story created from dev or Task created from its verified representative Story branch>
 - Working source branch: <exact branch created from representative branch>
 - Remote: <exact remote>
 - MR target branch: <exact representative branch>
+- Story integration source/target: <exact Story branch -> exact dev ref, or not authorized>
 - Diff boundary: <exact paths or reviewed diff identity>
 - Authorized: no
 
@@ -117,7 +119,7 @@ Use only `Pending`, `Passed`, `Failed`, `Overridden`, `Deferred`, or `Not applic
 
 An override must identify the failed gate, missing evidence, affected action, warning and risk, explicit user authorization, repository and state scope, reason, and residual risk. Revalidate it when the repository, state, target, or action changes. Never apply an override to higher-priority instructions, an ambiguous repository/diff target, secret exposure, destructive recovery, exact Git-action authorization, or a `Hard boundary`.
 
-The Git delivery authorization is valid only when every field is exact and `Authorized: yes` is explicitly approved in the current plan context. Validate both the absolute checkout and GitLab project identity. Branch creation must be listed explicitly when applicable. Invalidate authorization if the repository, action set, `Pilot` ref or SHA, representative branch, working source branch, remote, MR target, or diff boundary changes. Plan approval alone is not Git delivery authorization.
+The Git delivery authorization is valid only when every field is exact and `Authorized: yes` is explicitly approved in the current plan context. Validate both the absolute checkout and GitLab project identity. Branch creation must be listed explicitly when applicable. Invalidate authorization if the repository, action set, `dev` ref or SHA, representative branch, working source branch, remote, MR target, or diff boundary changes. Plan approval alone is not Git delivery authorization.
 
 ## State updates
 
@@ -137,9 +139,11 @@ When `$execute` owns execution, map `WAITING_EXTERNAL` to technical plan `Status
 
 ## Readiness definitions
 
-`MR_PREPARED` requires verified Jira context or a recorded Jira override, a Task-to-Story or Subtask-to-Task direct-parent relationship, acceptance-source status or override, intended `Pilot` base and representative and working branches, the representative branch as the intended MR target, completed implementation, repository-mandated checks or recorded check overrides, reviewed UI evidence or recorded exceptions, reviewed session diff boundary, and an English proposed MR handoff. Use it when authorization, credentials, permissions, tooling, or another external condition prevents branch creation, push, or MR creation.
+`MR_PREPARED` requires verified Jira context or a recorded Jira override, a verified Task-to-representative-Story relationship or Subtask-to-Task direct-parent relationship whose Task-to-Story relationship is verified, acceptance-source status or override, intended `dev` base and representative and working branches, the representative branch as the intended MR target, completed implementation, repository-mandated checks or recorded check overrides, reviewed UI evidence or recorded exceptions, reviewed session diff boundary, and an English proposed MR handoff. Use it when authorization, credentials, permissions, tooling, or another external condition prevents branch creation, push, or MR creation. An absent required remote `dev` branch is an external prerequisite owned by Repository Owner/Lead; record the exact resume check and never substitute `Pilot`.
 
-`MR_READY` additionally requires evidence that the representative branch descends from `Pilot`, the working source branch descends from the representative branch and was pushed under matching, still-valid Git delivery authorization, and the MR exists in the correct GitLab repository with that representative branch as its target. Source/target, title, description, and observable pipeline/check expectations must either pass or have a recorded user override. Never use an override to claim missing evidence was verified; an unauthorized, uncreated, incorrectly targeted, or repository-ambiguous MR is never `MR_READY`.
+`MR_READY` additionally requires evidence for the complete applicable ancestry: the Story branch descends from `dev`, a Task branch descends from its verified representative Story branch, and a Subtask branch descends from its Task branch. The working source branch must be pushed under matching, still-valid Git delivery authorization, and the MR must exist in the correct GitLab repository with its representative issue branch as target. Source/target, title, description, and observable pipeline/check expectations must either pass or have a recorded user override. Never use an override to claim missing evidence was verified; an unauthorized, uncreated, incorrectly targeted, hierarchy-skipping, or repository-ambiguous MR is never `MR_READY`.
+
+When the authorized delivery scope includes a Story-to-dev integration MR, apply the same evidence standard separately: verify that all required Task changes were externally approved and merged into the Story source branch, the Story branch and `dev` target are exact and current, and the integration MR exists with that explicit source/target under still-valid authorization. Story integration `MR_READY` is a Reviewer/Lead handoff state, not approval or merge. Do not begin a dependent Story wave from `dev` until the integration is externally completed and the updated `dev` ref is revalidated. Promotion from `dev` through UAT and later into `Pilot` is outside this skill.
 
 ## Handoff format
 
