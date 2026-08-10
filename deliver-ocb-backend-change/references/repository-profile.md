@@ -51,14 +51,14 @@ All sections except `version` are optional. Within a present section, allow only
 4. Fill omitted optional values from the canonical bundled defaults.
 5. Record the resolved values and evidence in the `Backend Workflow Contract`.
 
-Stop before source or Git mutation when:
+Warn before source or Git mutation when:
 
 - The version is unsupported.
 - The profile has unknown keys, invalid placeholders, or invalid value types.
 - A profile value weakens a hard Jira, authorization, evidence, or ownership gate.
 - The profile conflicts with observed repository state or higher-priority policy.
 
-Report the conflict as configuration drift. Do not silently ignore the profile or substitute an inferred value.
+Report the conflict as configuration drift. Do not silently ignore the profile or substitute an inferred value. Continue with bundled defaults only after the user explicitly overrides the affected profile gate; record the rejected profile value, warning, override scope, and residual risk. Do not override a higher-priority instruction, ambiguous repository/diff target, unsafe path, or ownership boundary.
 
 ## Example: repository with a local Jira type name
 
