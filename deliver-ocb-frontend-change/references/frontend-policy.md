@@ -21,14 +21,17 @@ Use `{jira_id} {task-title}` as the default MR title pattern. Put the Jira link,
 
 Start every commit message with `{jira_id}_{username}_{task_name}` followed by the descriptive commit content. Resolve `username` from an explicit value in the current request, the approved or current plan, or authoritative repository policy/profile evidence, in that order. Do not infer it from `git config user.name`, an email address, or another unverified identity source. If it remains missing, ambiguous, or conflicting, warn the user and ask for the value or an explicit override. Resolve all three prefix values before committing by default; a missing, guessed, or mismatched value is a user-overridable **Hard** gate for the commit.
 
-Verify the issue ancestry before source or Git mutation:
+Verify the issue ancestry and two-level branch topology before source or Git mutation:
 
 - A Story belongs to an Epic.
 - A Task belongs to a Story that belongs to an Epic.
 - A Subtask belongs to a Task whose ancestry reaches a Story and Epic.
-- Create the branch from the smallest issue that has a verifiable output and fits the intended work slice.
+- The working issue must be either a Task with a direct-parent Story or a Subtask with a direct-parent Task.
+- Create the representative branch for that direct-parent Story or Task from `Pilot`.
+- Create the working branch for the child Task or Subtask from the representative branch.
+- Implement and commit only on the working branch. Create its MR with the working branch as source and the representative branch as target; never target `Pilot` directly for this working MR.
 
-Jira identity and hierarchy are **Hard** gates. Branch naming, commit naming, MR naming, and Jira traceability are **Hard** gates for Git delivery.
+Jira identity and hierarchy are **Hard** gates. The `Pilot` base, representative-to-working branch ancestry, branch naming, commit naming, MR naming, MR target, and Jira traceability are **Hard** gates for Git delivery.
 
 Prefer a change that can be completed in one to two working days. Treat an MR above 400 changed lines as an **Advisory** exception: explain review and rollback risk and propose a smaller vertical UI slice when reasonable. Do not block an otherwise valid delivery solely because of line count.
 
