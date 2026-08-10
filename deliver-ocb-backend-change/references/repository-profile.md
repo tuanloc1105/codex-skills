@@ -39,8 +39,8 @@ All sections except `version` are optional. Within a present section, allow only
 - Patterns may use only the documented placeholders: `{jira_id}`, `{username}`, `{task-slug}`, and `{task-title}`. Every branch pattern must contain `{jira_id}`. Resolve the pattern separately with the representative issue fields and the working issue fields; the profile cannot collapse the required two branches into one.
 - `permitted_prefixes` may narrow branch prefixes, but the resolved pattern must still contain Jira traceability.
 - `advisory_changed_line_limit` must be a positive integer and remains advisory.
-- `project_mapping` maps local Jira type labels only. The canonical Story-to-Epic, Task-to-Story-to-Epic, and Subtask-to-Task-to-Story-to-Epic ancestry is fixed and may not be reconfigured.
-- `Pilot` remains the fixed base of the representative branch, and the representative branch remains the fixed base and MR target of the working branch. The profile cannot override this topology.
+- `project_mapping` maps local Jira type labels only. The canonical Story-to-Epic hierarchy, verified Task-to-representative-Story relationship within the same Epic, and Subtask-to-Task hierarchy are fixed and may not be reconfigured. A Jira schema may express the Task-to-Story relationship through a supported parent or an explicit development/implementation relationship.
+- `Pilot` remains the fixed base of Story branches. Task branches remain based on and targeted to their verified representative Story branches; Subtask branches remain based on and targeted to their direct-parent Task branches. A Task branch may be reused as the representative branch for its direct Subtasks. The profile cannot override this topology.
 - `ai_attribution.mechanism` describes a repository-sanctioned mechanism or `none`. Resolve the details from `instruction_path`; never invent a trailer.
 - `evidence.paths` contains repository-relative paths only. It points to evidence and grants no mutation authority.
 
