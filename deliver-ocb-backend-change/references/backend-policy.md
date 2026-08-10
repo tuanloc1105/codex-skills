@@ -14,8 +14,8 @@ Treat every gate labeled **Hard** as warning-first. By default, do not perform i
 
 Use these default branch patterns:
 
-- `feature/{jira_id}_{username}_{task-slug}`
-- `hotfix/{jira_id}_{username}_{task-slug}`
+- `feature/{jira_id}_{task-slug}`
+- `hotfix/{jira_id}_{task-slug}`
 
 Use `{jira_id} {task-title}` as the default MR title pattern. Put the Jira link and implementation context in the MR description.
 

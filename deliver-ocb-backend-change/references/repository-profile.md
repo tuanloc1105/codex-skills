@@ -36,7 +36,7 @@ All sections except `version` are optional. Within a present section, allow only
 
 ## Field rules
 
-- Patterns may use only the documented placeholders: `{jira_id}`, `{username}`, `{task-slug}`, and `{task-title}`. Every branch pattern must contain `{jira_id}`. Resolve the pattern separately with the representative issue fields and the working issue fields; the profile cannot collapse the required two branches into one.
+- Branch patterns may use only `{jira_id}`, `{task-slug}`, and `{task-title}`; they must not include a username. Every branch pattern must contain `{jira_id}`. Resolve the pattern separately with the representative issue fields and the working issue fields; the profile cannot collapse the required two branches into one.
 - `permitted_prefixes` may narrow branch prefixes, but the resolved pattern must still contain Jira traceability.
 - `advisory_changed_line_limit` must be a positive integer and remains advisory.
 - `project_mapping` maps local Jira type labels only. The canonical Story-to-Epic hierarchy, verified Task-to-representative-Story relationship within the same Epic, and Subtask-to-Task hierarchy are fixed and may not be reconfigured. A Jira schema may express the Task-to-Story relationship through a supported parent or an explicit development/implementation relationship.
