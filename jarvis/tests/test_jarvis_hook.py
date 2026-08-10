@@ -59,6 +59,15 @@ class JarvisHookTests(unittest.TestCase):
             tool_input={"command": self.control_command("checkpoint", detail)},
         )
 
+    def exec_control(
+        self, action: str, detail: str | None = None
+    ) -> dict[str, object] | None:
+        return self.run_hook(
+            "PreToolUse",
+            tool_name="exec_command",
+            tool_input={"cmd": self.control_command(action, detail)},
+        )
+
     def patch_payload(self, paths: list[str]) -> dict[str, object]:
         command = "\n".join(f"*** Update File: {path}" for path in paths)
         return {
@@ -98,6 +107,26 @@ class JarvisHookTests(unittest.TestCase):
         self.assertIn("baseline checkpoint", json.dumps(checkpoint))
         allowed = self.run_hook("PreToolUse", **self.patch_payload(["a.py"]))
         self.assertIsNone(allowed)
+
+    def test_exec_command_schema_records_lifecycle_controls(self) -> None:
+        self.activate()
+        checkpoint = self.exec_control("checkpoint", "baseline")
+        self.assertIn("baseline checkpoint", json.dumps(checkpoint))
+        approval = self.exec_control("approve-final")
+        self.assertIn("final approval", json.dumps(approval))
+        allowed = self.run_hook(
+            "Stop", stop_hook_active=False, last_assistant_message="Done"
+        )
+        self.assertIsNone(allowed)
+
+    def test_exec_command_schema_cannot_bypass_baseline_gate(self) -> None:
+        self.activate()
+        blocked = self.run_hook(
+            "PreToolUse",
+            tool_name="exec_command",
+            tool_input={"cmd": "mkdir changed"},
+        )
+        self.assertIn("JARVIS_BASELINE_REQUIRED", json.dumps(blocked))
 
     def test_repeated_failures_trigger_rescue_gate(self) -> None:
         self.activate()

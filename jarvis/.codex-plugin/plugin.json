@@ -1,6 +1,6 @@
 {
   "name": "jarvis",
-  "version": "0.1.0+codex.20260809113847",
+  "version": "0.1.0+codex.20260810032811",
   "description": "Explicitly supervise a Codex task, correct drift, and guide the primary agent out of dead ends.",
   "author": {
     "name": "Local developer"

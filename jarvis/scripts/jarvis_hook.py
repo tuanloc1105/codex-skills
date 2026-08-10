@@ -191,13 +191,22 @@ def add_event(state: dict[str, Any], event: dict[str, Any]) -> None:
 def tool_command(payload: dict[str, Any]) -> str:
     tool_input = payload.get("tool_input")
     if isinstance(tool_input, dict):
-        command = tool_input.get("command")
-        return command if isinstance(command, str) else ""
+        for key in ("command", "cmd"):
+            command = tool_input.get(key)
+            if isinstance(command, str):
+                return command
     return ""
 
 
+def is_shell_tool(payload: dict[str, Any]) -> bool:
+    name = str(payload.get("tool_name", "")).lower()
+    return name == "bash" or bool(
+        re.search(r"(?:^|[.:/_-])exec_command$", name)
+    )
+
+
 def parse_control_call(payload: dict[str, Any]) -> tuple[str, str | None] | None:
-    if str(payload.get("tool_name", "")).lower() != "bash":
+    if not is_shell_tool(payload):
         return None
     command = tool_command(payload)
     try:
@@ -256,7 +265,7 @@ def is_mutating_tool(payload: dict[str, Any]) -> bool:
         return False
     if lowered == "apply_patch":
         return True
-    if lowered == "bash":
+    if is_shell_tool(payload):
         return bool(MUTATING_SHELL.search(tool_command(payload)))
     parts = {part for part in re.split(r"[_\W]+", lowered) if part}
     return bool(parts & MUTATING_TOOL_VERBS)
