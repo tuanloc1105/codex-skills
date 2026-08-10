@@ -1,9 +1,3 @@
-## Token Routing
-- Prefer `context-mode` MCP for command output, file analysis, web fetches, search, logs, and batch exploration.
-- Do not use raw `curl` or `wget` in shell. Use `ctx_fetch_and_index` or a sandboxed `ctx_execute` fetch.
-- Do not dump large shell output into context. If output may exceed 20 lines, route through `ctx_batch_execute` or `ctx_execute`.
-- Do not run a build through context-mode when it is expected to take a long time. Run it directly with the native command execution tool so progress, timeout, and process control remain visible.
-
 ## Codebase Retrieval
 - Use raw file reads only when editing or when symbolic/search summaries are insufficient.
 

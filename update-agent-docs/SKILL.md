@@ -33,7 +33,6 @@ Keep `AGENTS.md` as the token-efficient routing index. Put longer detail under `
 3. **Use repository-aware retrieval.**
    - Activate the repo with Serena when available and read Serena initial instructions if not already done.
    - Use Serena symbolic tools for source-code structure.
-   - Use context-mode for large command output, broad searches, logs, and generated analysis.
    - Use `rg`/`rg --files` through the repo's command wrapper when direct command output will stay small.
 
 4. **Launch multiple agents in parallel.**
