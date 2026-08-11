@@ -48,7 +48,7 @@ All sections except `version` are optional. Within a present section, allow only
 
 ## Field rules
 
-- Branch patterns may use only `{jira_id}`, `{task-slug}`, and `{task-title}`; they must not include a username. Every working-branch pattern must contain `{jira_id}`.
+- Branch patterns may use only `{jira_id}`, `{username}`, `{task-slug}`, and `{task-title}`. Every working-branch pattern must contain both `{jira_id}` and `{username}`. Resolve `username` through [frontend-policy.md](frontend-policy.md); do not infer or silently normalize it.
 - `permitted_prefixes` may narrow branch prefixes, but the resolved pattern must still contain Jira traceability.
 - `advisory_changed_line_limit` must be a positive integer and remains advisory.
 - `project_mapping` maps local Jira type labels only. Story and Task remain peers directly under an Epic; a Subtask remains the direct child of a Task whose Epic is the delivery Epic. The profile cannot reconfigure this Jira hierarchy.

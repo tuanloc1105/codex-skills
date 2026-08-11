@@ -14,12 +14,12 @@ Treat every gate labeled **Hard** as warning-first. By default, do not perform i
 
 Use these default branch patterns:
 
-- `feature/{jira_id}_{task-slug}`
-- `hotfix/{jira_id}_{task-slug}`
+- `feature/{jira_id}_{username}_{task-slug}`
+- `hotfix/{jira_id}_{username}_{task-slug}`
 
 Use `{jira_id} {task-title}` as the default MR title pattern. Put the Jira link, implementation context, UI impact, and verification evidence in the MR description.
 
-Start every commit message with `{jira_id}_{username}_{task_name}` followed by the descriptive commit content. Resolve `username` from an explicit value in the current request, the approved or current plan, or authoritative repository policy/profile evidence, in that order. Do not infer it from `git config user.name`, an email address, or another unverified identity source. If it remains missing, ambiguous, or conflicting, warn the user and ask for the value or an explicit override. Resolve all three prefix values before committing by default; a missing, guessed, or mismatched value is a user-overridable **Hard** gate for the commit.
+Include the resolved `username` in every Story, Task, or Subtask working branch. Start every commit message with `{jira_id}_{username}_{task_name}` followed by the descriptive commit content. Resolve `username` from an explicit value in the current request, the approved or current plan, or authoritative repository policy/profile evidence, in that order. Do not infer it from `git config user.name`, an email address, or another unverified identity source. Require a branch-safe value and do not silently normalize an ambiguous identity. If it remains missing, unsafe, ambiguous, or conflicting, warn the user and ask for the value or an explicit override. Resolve the Jira key, username, and task name before working-branch creation and commit by default; a missing, guessed, unsafe, or mismatched value is a user-overridable **Hard** gate for each affected action.
 
 Verify the issue ancestry and Epic-based branch topology before planning, source mutation, or Git mutation:
 

@@ -42,7 +42,7 @@ Workflow State: JIRA_UNVERIFIED
 | Jira identity and hierarchy | Required | Hard | <evidence> | Backend Developer | Pending |
 | New Subtask for post-completion bug | <Required/Not applicable> | Hard boundary | <completed Task, exact Jira creation authorization, created Subtask, parent and post-write verification, or reason> | User/Backend Developer | Pending |
 | Epic base branch before plan | Required | Hard boundary | <exact existing remote branch, SHA, repository, Epic mapping, and Tech Lead ownership evidence> | Tech Lead | Pending |
-| Working branch and MR traceability | Required | Hard | <exact Epic base -> Story/Task/Subtask ancestry and Epic-base MR target evidence> | Backend Developer | Pending |
+| Working branch naming and MR traceability | Required | Hard | <resolved `{jira_id}_{username}_{task-slug}`, exact Epic base -> Story/Task/Subtask ancestry, and Epic-base MR target evidence> | Backend Developer | Pending |
 | Commit message prefix | Required for commit | Hard | <resolved `{jira_id}_{username}_{task_name}` prefix> | Backend Developer | Pending |
 | Reviewable work slice | Required | Advisory | <evidence> | Backend Developer | Pending |
 | AI attribution | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Backend Developer | Pending |
@@ -64,12 +64,12 @@ Workflow State: JIRA_UNVERIFIED
 ### Delivery Contract
 
 - Epic base branch: <exact remote branch, verified SHA, repository, Epic mapping, and Tech Lead ownership source, or unresolved>
-- Working issue and source branch: <Story/Task/Subtask key and branch, or unresolved>
+- Working issue and source branch: <Story/Task/Subtask key and resolved `{prefix}/{jira_id}_{username}_{task-slug}` branch, or unresolved>
 - Branch ancestry: <exact Epic base -> working issue evidence, or unresolved>
 - Remote: <remote and repository identity or unresolved>
 - MR target branch: <exact Epic base branch or unresolved>
 - MR title: <resolved title or pattern>
-- Commit username source: <current request, approved/current plan, authoritative repository evidence, or unresolved>
+- Naming username source: <current request, approved/current plan, authoritative repository evidence, or unresolved>
 - Commit message: <resolved `{jira_id}_{username}_{task_name} <commit content>`>
 - MR description requirements: context, Jira link, implementation, verification, risks, handoff
 - AI attribution state: <mechanism, AI_ATTRIBUTION_UNAVAILABLE, or unresolved>
@@ -79,7 +79,7 @@ Workflow State: JIRA_UNVERIFIED
 - Repository: <exact absolute path and GitLab project identity>
 - Exact actions: <create working branch, commit, push, create working MR; list only authorized actions>
 - Epic base branch: <exact existing remote ref and SHA>
-- Working source branch: <exact Story/Task/Subtask branch created from the Epic base branch>
+- Working source branch: <exact Story/Task/Subtask `{prefix}/{jira_id}_{username}_{task-slug}` branch created from the Epic base branch>
 - Remote: <exact remote>
 - MR target branch: <exact Epic base branch>
 - Diff boundary: <exact paths or reviewed diff identity>
