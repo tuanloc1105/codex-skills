@@ -22,10 +22,12 @@ Workflow State: JIRA_UNVERIFIED
 - Working Jira key: <Task/Subtask key or unresolved>
 - Username: <resolved value and source, or unresolved>
 - Site/account status: <verified, ambiguous, unavailable, or unresolved>
-- Working issue type: <Task, Subtask, local mapped type, or unresolved>
-- Representative issue: <Story for a Task, or direct-parent Task for a Subtask; key, type, source, or unresolved>
-- Representative relationship: <verified parent or explicit Jira development/implementation relationship and source, or unresolved>
+- Working issue type: <Story, Task, Subtask, local mapped type, or unresolved>
+- Direct parent: <Task key/type/source for a Subtask, not applicable for Story/Task with reason, or unresolved>
 - Epic evidence: <key/source or unresolved>
+- Delivery mode: <new work, post-completion bug fix, or unresolved>
+- Completed Task and bug-fix Subtask: <original Task key/completed-state evidence, authorized creation fields, created Subtask key/post-write verification, not applicable with reason, or unresolved>
+- Epic base branch: <exact remote branch, SHA, existence evidence, and Tech Lead ownership source, or unresolved>
 - Acceptance criteria: <source and verified summary, or unresolved>
 - Design source: <URL/path/version, not applicable with reason, or unresolved>
 
@@ -41,8 +43,10 @@ Workflow State: JIRA_UNVERIFIED
 | Gate | Applicability | Type | Evidence | Owner | State |
 | --- | --- | --- | --- | --- | --- |
 | Jira identity and hierarchy | Required | Hard | <evidence> | Frontend Developer | Pending |
+| New Subtask for post-completion bug | <Required/Not applicable> | Hard boundary | <completed Task, exact Jira creation authorization, created Subtask, parent and post-write verification, or reason> | User/Frontend Developer | Pending |
 | UI acceptance and design source | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Product/Design/Frontend | Pending |
-| Representative branch and MR traceability | Required | Hard | <applicable dev -> Story -> Task -> Subtask ancestry and representative-issue MR target evidence> | Frontend Developer | Pending |
+| Epic base branch before plan | Required | Hard boundary | <exact existing remote branch, SHA, repository, Epic mapping, and Tech Lead ownership evidence> | Tech Lead | Pending |
+| Working branch and MR traceability | Required | Hard | <exact Epic base -> Story/Task/Subtask ancestry and Epic-base MR target evidence> | Frontend Developer | Pending |
 | Commit message prefix | Required for commit | Hard | <resolved `{jira_id}_{username}_{task_name}` prefix> | Frontend Developer | Pending |
 | Reviewable work slice | Required | Advisory | <evidence> | Frontend Developer | Pending |
 | Repository-mandated checks | Required | Hard | <evidence> | Frontend Developer | Pending |
@@ -65,13 +69,11 @@ Workflow State: JIRA_UNVERIFIED
 
 ### Delivery Contract
 
-- Integration base branch: <dev and verified remote SHA, absent with owner/resume condition, or unresolved>
-- Representative issue and branch: <Story/Task key and branch, or unresolved>
-- Working issue and source branch: <Task/Subtask key and branch, or unresolved>
-- Branch ancestry: <applicable dev -> Story -> Task -> Subtask evidence, or unresolved>
+- Epic base branch: <exact remote branch, verified SHA, repository, Epic mapping, and Tech Lead ownership source, or unresolved>
+- Working issue and source branch: <Story/Task/Subtask key and branch, or unresolved>
+- Branch ancestry: <exact Epic base -> working issue evidence, or unresolved>
 - Remote: <remote and repository identity or unresolved>
-- MR target branch: <representative branch or unresolved>
-- Story integration MR: <Story source -> dev target, authorization and prerequisite external approval/merge evidence, not applicable with reason, or unresolved>
+- MR target branch: <exact Epic base branch or unresolved>
 - MR title: <resolved title or pattern>
 - Commit username source: <current request, approved/current plan, authoritative repository evidence, or unresolved>
 - Commit message: <resolved `{jira_id}_{username}_{task_name} <commit content>`>
@@ -81,13 +83,11 @@ Workflow State: JIRA_UNVERIFIED
 ### Git Delivery Authorization
 
 - Repository: <exact absolute path and GitLab project identity>
-- Exact actions: <create representative branch, create working branch, commit, push, create working MR, create Story-to-dev MR; list only authorized actions>
-- Integration base branch: <exact remote dev ref and SHA>
-- Representative branch: <exact representative-issue branch; Story created from dev or Task created from its verified representative Story branch>
-- Working source branch: <exact branch created from representative branch>
+- Exact actions: <create working branch, commit, push, create working MR; list only authorized actions>
+- Epic base branch: <exact existing remote ref and SHA>
+- Working source branch: <exact Story/Task/Subtask branch created from the Epic base branch>
 - Remote: <exact remote>
-- MR target branch: <exact representative branch>
-- Story integration source/target: <exact Story branch -> exact dev ref, or not authorized>
+- MR target branch: <exact Epic base branch>
 - Diff boundary: <exact paths or reviewed diff identity>
 - Authorized: no
 
@@ -119,31 +119,35 @@ Use only `Pending`, `Passed`, `Failed`, `Overridden`, `Deferred`, or `Not applic
 
 An override must identify the failed gate, missing evidence, affected action, warning and risk, explicit user authorization, repository and state scope, reason, and residual risk. Revalidate it when the repository, state, target, or action changes. Never apply an override to higher-priority instructions, an ambiguous repository/diff target, secret exposure, destructive recovery, exact Git-action authorization, or a `Hard boundary`.
 
-The Git delivery authorization is valid only when every field is exact and `Authorized: yes` is explicitly approved in the current plan context. Validate both the absolute checkout and GitLab project identity. Branch creation must be listed explicitly when applicable. Invalidate authorization if the repository, action set, `dev` ref or SHA, representative branch, working source branch, remote, MR target, or diff boundary changes. Plan approval alone is not Git delivery authorization.
+For a bug discovered after a Task is complete, `$interact-with-jira` must create and re-read exactly one new bug-fix Subtask under that Task before `$plan`. Record the specific Jira write authorization and resulting key. The new Subtask becomes the working issue. Reusing any old Task branch, commit chain, or MR is outside the authorized delivery path and cannot be overridden within this skill.
+
+The Epic-base prerequisite is satisfied only when the exact remote branch already exists in the target repository, maps to the verified Epic, and is identified as Tech Lead owned. It is a hard boundary before `$plan`: do not begin plan generation or create a plan artifact while it is unresolved, missing, or ambiguous, and do not override it or create the branch within this skill.
+
+The Git delivery authorization is valid only when every field is exact and `Authorized: yes` is explicitly approved in the current plan context. Validate both the absolute checkout and GitLab project identity. Working-branch creation must be listed explicitly when applicable. Invalidate authorization if the repository, action set, Epic base ref or SHA, working source branch, remote, MR target, or diff boundary changes. Plan approval alone is not Git delivery authorization.
 
 ## State updates
 
 Use these transitions and record evidence at each transition:
 
-`JIRA_UNVERIFIED` -> `JIRA_VERIFIED` -> `PLAN_APPROVED` -> `IMPLEMENTING` -> `CODE_READY` -> `MR_PREPARED` -> `MR_READY`
+`JIRA_UNVERIFIED` -> `JIRA_VERIFIED` -> `EPIC_BASE_VERIFIED` -> `PLAN_APPROVED` -> `IMPLEMENTING` -> `CODE_READY` -> `MR_PREPARED` -> `MR_READY`
 
-- Stay at `JIRA_UNVERIFIED` until site/account, issue identity, required ancestry, and acceptance-source status are verified.
-- Enter `JIRA_VERIFIED` only after those Jira checks pass. A Jira override permits scoped work to continue but does not relabel unverified evidence as verified.
+- Stay at `JIRA_UNVERIFIED` until site/account, issue identity, required ancestry, and acceptance-source status are verified. For a post-completion bug fix, remain there until the completed Task is verified, the new Subtask is created through `$interact-with-jira`, and its parent, fields, and acceptance criteria are re-read successfully.
+- Enter `JIRA_VERIFIED` only after those Jira checks pass. A Jira override permits scoped read-only work to continue but does not relabel unverified evidence as verified or permit `$plan` to begin without an Epic base branch.
+- Enter `EPIC_BASE_VERIFIED` only after the exact Tech-Lead-owned remote branch exists in the target repository and its Epic mapping and SHA are verified. This prerequisite is not user-overridable within the skill.
 - Enter `PLAN_APPROVED` only with an approved implementation plan and complete contract.
 - Enter `IMPLEMENTING` after all source-mutation hard gates pass or receive valid scoped overrides.
 - Enter `CODE_READY` after acceptance criteria are met and planned checks run, or after the user explicitly overrides unmet criteria or unavailable/failed checks and the residual risk is recorded.
 - Use `WAITING_EXTERNAL` from any state when an external credential, permission, approval, required design source, tool, or system is required. Record the prior state, blocked operation, owner, resume condition, and next command/check.
+- Use `WAITING_EXTERNAL` before `$plan` when the Epic base branch is missing or cannot be verified; name Tech Lead as owner and record the exact remote-branch existence check required to resume.
 - Resume from the recorded checkpoint after revalidating stale evidence and authorization.
 
 When `$execute` owns execution, map `WAITING_EXTERNAL` to technical plan `Status: Blocked` only after its recovery paths are exhausted and the condition meets its genuine-blocker definition. Otherwise remain `MR_PREPARED` and record the unavailable path. Never change a cooperating skill's completion semantics.
 
 ## Readiness definitions
 
-`MR_PREPARED` requires verified Jira context or a recorded Jira override, a verified Task-to-representative-Story relationship or Subtask-to-Task direct-parent relationship whose Task-to-Story relationship is verified, acceptance-source status or override, intended `dev` base and representative and working branches, the representative branch as the intended MR target, completed implementation, repository-mandated checks or recorded check overrides, reviewed UI evidence or recorded exceptions, reviewed session diff boundary, and an English proposed MR handoff. Use it when authorization, credentials, permissions, tooling, or another external condition prevents branch creation, push, or MR creation. An absent required remote `dev` branch is an external prerequisite owned by Repository Owner/Lead; record the exact resume check and never substitute `Pilot`.
+`MR_PREPARED` requires verified Jira context, a Story or Task mapped directly to the delivery Epic or a Subtask whose direct-parent Task maps to that Epic, and, for a post-completion bug fix, verified creation of a new bug-fix Subtask with no reuse of the completed Task branch. It also requires acceptance-source status or override, the verified existing Tech-Lead-owned Epic base branch, the intended working branch, the Epic base branch as the intended MR target, completed implementation, repository-mandated checks or recorded check overrides, reviewed UI evidence or recorded exceptions, reviewed session diff boundary, and an English proposed MR handoff. Use it when authorization, credentials, permissions, tooling, or another external condition prevents working-branch creation, push, or MR creation.
 
-`MR_READY` additionally requires evidence for the complete applicable ancestry: the Story branch descends from `dev`, a Task branch descends from its verified representative Story branch, and a Subtask branch descends from its Task branch. The working source branch must be pushed under matching, still-valid Git delivery authorization, and the MR must exist in the correct GitLab repository with its representative issue branch as target. Source/target, title, description, and observable pipeline/check expectations must either pass or have a recorded user override. Never use an override to claim missing evidence was verified; an unauthorized, uncreated, incorrectly targeted, hierarchy-skipping, or repository-ambiguous MR is never `MR_READY`.
-
-When the authorized delivery scope includes a Story-to-dev integration MR, apply the same evidence standard separately: verify that all required Task changes were externally approved and merged into the Story source branch, the Story branch and `dev` target are exact and current, and the integration MR exists with that explicit source/target under still-valid authorization. Story integration `MR_READY` is a Reviewer/Lead handoff state, not approval or merge. Do not begin a dependent Story wave from `dev` until the integration is externally completed and the updated `dev` ref is revalidated. Promotion from `dev` through UAT and later into `Pilot` is outside this skill.
+`MR_READY` additionally requires evidence that the Story, Task, or Subtask working branch descends directly from the verified Epic base branch. The working source branch must be pushed under matching, still-valid Git delivery authorization, and the MR must exist in the correct GitLab repository with the Epic base branch as target. Source/target, title, description, and observable pipeline/check expectations must either pass or have a recorded user override. Never use an override to claim missing evidence was verified; an unauthorized, uncreated, incorrectly targeted, non-Epic-based, or repository-ambiguous MR is never `MR_READY`.
 
 ## Handoff format
 

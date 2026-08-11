@@ -21,19 +21,24 @@ Use `{jira_id} {task-title}` as the default MR title pattern. Put the Jira link 
 
 Start every commit message with `{jira_id}_{username}_{task_name}` followed by the descriptive commit content. Resolve `username` from an explicit value in the current request, the approved or current plan, or authoritative repository policy/profile evidence, in that order. Do not infer it from `git config user.name`, an email address, or another unverified identity source. If it remains missing, ambiguous, or conflicting, warn the user and ask for the value or an explicit override. Resolve all three prefix values before committing by default; a missing, guessed, or mismatched value is a user-overridable **Hard** gate for the commit.
 
-Verify the issue ancestry and direct-parent branch topology before source or Git mutation:
+Verify the issue ancestry and Epic-based branch topology before planning, source mutation, or Git mutation:
 
 - A Story belongs to an Epic.
-- A Task maps to exactly one representative Story through either a supported direct-parent relationship or an explicit Jira relationship whose verified semantics establish that the Task develops or implements the Story. The Task and Story must belong to the same Epic. Do not use a description-only key mention as relationship evidence.
-- A Subtask belongs to a direct-parent Task; that Task must map to exactly one representative Story by the rule above.
-- The working issue must be either a Task with a verified representative Story or a Subtask with a direct-parent Task whose representative Story is verified.
-- Create a Story branch from `Pilot`.
-- Create a Task branch from its verified representative Story branch. Reuse that same Task branch as the representative branch for any direct Subtasks; do not create a second Task branch or rebase it directly on `Pilot`.
-- Create a Subtask branch from its direct-parent Task branch.
-- A branch is the working branch for its own Jira issue and may also be the representative branch for that issue's direct children. Implement and commit only on the current working branch. Create its MR with that branch as source and its representative issue branch as target; never skip a level or target `Pilot` directly for a Task or Subtask MR.
-- After every required Task branch is externally approved and verified as merged into its Story branch, the Backend Developer may create a separate Story roll-up MR from that Story branch to `Pilot` only under exact authorization naming that source, target, repository, remote, and diff boundary. Story roll-up creation does not authorize approval or merge. Hand it to Reviewer/Lead and wait for verified integration before basing a dependent Story wave on the updated `Pilot`.
+- A Task belongs to an Epic at the same Jira hierarchy level as a Story; a Task does not require a representative Story.
+- A Subtask belongs to a direct-parent Task, and that Task belongs to the delivery Epic. The Jira parent relationship does not make the Task branch a Git base or MR target.
+- The working issue may be a Story, Task, or Subtask with verified ancestry to exactly one delivery Epic. Do not use a description-only key mention as relationship evidence.
+- The Tech Lead creates the Epic base branch. Resolve and verify that exact remote branch before `$plan` begins. Its absence or ambiguity is a non-overridable ownership prerequisite: do not create it, substitute `Pilot` or another integration branch, or create a plan artifact while waiting.
+- Create every Story, Task, or Subtask working branch directly from the verified Epic base branch.
+- Implement and commit only on the current working branch. Create its MR with that branch as source and the Epic base branch as target. Do not target a Story, Task, Subtask, `Pilot`, or another integration branch.
 
-Jira identity, hierarchy, and representative-relationship evidence are **Hard** gates. The complete applicable `Pilot -> Story -> Task -> Subtask` branch ancestry, branch naming, commit naming, representative-issue MR target, Story-roll-up source/target, and Jira traceability are **Hard** gates for Git delivery.
+When a bug is discovered after a Task is complete, treat the fix as new traceable work rather than a continuation of the completed delivery:
+
+- Verify the original Task, its completed state, and its Epic before planning the fix.
+- Invoke `$interact-with-jira` and follow its specific-target write rules to create exactly one new bug-fix Subtask whose direct parent is the completed Task. The bug-fix request may authorize that one creation, but do not invent an ambiguous summary, project, parent, issue type, or required field.
+- Re-read the created Subtask and use its key, fields, parent, and Epic ancestry as the new working Jira evidence.
+- Create a new working branch directly from the verified Epic base branch and target the Epic base branch with the new MR. Never check out, reopen, append commits to, force-update, or create another MR from the completed Task's old working branch.
+
+Jira identity and Epic ancestry are **Hard** gates. For a post-completion bug fix, verified creation and re-read of the new Subtask are **Hard** gates before `$plan`. Verified existence of the Tech-Lead-owned Epic base branch is a **Hard boundary** before `$plan`. The exact `Epic base -> working issue` branch ancestry, branch naming, commit naming, Epic-base MR target, and Jira traceability are **Hard** gates for Git delivery.
 
 Prefer a change that can be completed in one to two working days. Treat an MR above 400 changed lines as an **Advisory** exception: explain review and rollback risk and propose a smaller split when reasonable. Do not block an otherwise valid delivery solely because of line count.
 

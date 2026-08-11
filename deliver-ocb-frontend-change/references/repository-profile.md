@@ -48,11 +48,11 @@ All sections except `version` are optional. Within a present section, allow only
 
 ## Field rules
 
-- Branch patterns may use only `{jira_id}`, `{task-slug}`, and `{task-title}`; they must not include a username. Every branch pattern must contain `{jira_id}`. Resolve the pattern separately with the representative issue fields and the working issue fields; the profile cannot collapse the required two branches into one.
+- Branch patterns may use only `{jira_id}`, `{task-slug}`, and `{task-title}`; they must not include a username. Every working-branch pattern must contain `{jira_id}`.
 - `permitted_prefixes` may narrow branch prefixes, but the resolved pattern must still contain Jira traceability.
 - `advisory_changed_line_limit` must be a positive integer and remains advisory.
-- `project_mapping` maps local Jira type labels only. The canonical Story-to-Epic hierarchy, verified Task-to-representative-Story relationship within the same Epic, and Subtask-to-Task hierarchy are fixed and may not be reconfigured. A Jira schema may express the Task-to-Story relationship through a supported parent or an explicit development/implementation relationship.
-- `dev` remains the fixed base and integration target of Story branches. Task branches remain based on and targeted to their verified representative Story branches; Subtask branches remain based on and targeted to their direct-parent Task branches. A Task branch may be reused as the representative branch for its direct Subtasks. `Pilot` remains post-UAT and outside Frontend Developer delivery. The profile cannot override this topology.
+- `project_mapping` maps local Jira type labels only. Story and Task remain peers directly under an Epic; a Subtask remains the direct child of a Task whose Epic is the delivery Epic. The profile cannot reconfigure this Jira hierarchy.
+- The Tech-Lead-owned Epic base branch remains the required base and MR target for every Story, Task, or Subtask working branch. The profile cannot name `dev`, `Pilot`, or another global integration branch as a substitute, authorize creation of an absent Epic base branch, or override this topology.
 - `application_roots`, `design_system_paths`, `generated_paths`, `ui_evidence`, `instruction_path`, and `evidence.paths` contain repository-relative paths only. They grant no mutation authority.
 - `required_commands` must match commands owned by repository manifests, scripts, CI, or documentation. The profile may select applicable checks but may not disable a higher-priority required check.
 - `ai_attribution.mechanism` describes a repository-sanctioned mechanism or `none`. Resolve the details from `instruction_path`; never invent a trailer.
