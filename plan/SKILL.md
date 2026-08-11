@@ -7,13 +7,12 @@ description: Plan-first collaboration workflow for Codex. Use when the user expl
 
 Use this skill to turn an ambiguous or important request into an approved execution plan and a durable handoff document.
 
-## Mode Requirement
+## Plan-First Boundary
 
-Immediately enter Plan mode.
+Follow the `$plan` workflow directly without attempting to switch or discuss the runtime's collaboration mode.
 
-- If the runtime provides an actual mode-switch mechanism, use it before substantive work.
-- If the collaboration mode is controlled externally and cannot be changed by a skill, state this limitation once, then strictly follow `$plan` behavior in this skill.
-- Do not make production code edits, run destructive commands, commit, push, deploy, or implement the planned work while using this skill unless the user explicitly exits Plan mode and asks for execution.
+- Do not make production code edits, run destructive commands, commit, push, deploy, or implement the planned work while using this skill.
+- After saving the approved plan, begin implementation only when the user explicitly requests execution; hand the saved plan to `$execute` for that work.
 - Read and respect repository instructions, user rules, AGENTS.md, active developer instructions, and higher-priority safety constraints.
 
 ## Relationship to Direct Discuss Handoffs
@@ -67,7 +66,7 @@ While in this fallback:
 
 ## Question and Open-Issue Contract
 
-Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, approval, or a change in mode. Never ask a storage-choice question for the plan file.
+Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan file.
 
 - Present each distinct issue as a separate question block. Do not combine unrelated decisions under one option list.
 - Provide 2-4 practical, mutually distinguishable options that answer that question.
@@ -167,7 +166,7 @@ Resume instruction: Invoke $execute, read this file completely, keep this exact 
 <What the next session should not do unless separately requested.>
 
 ## Rules and Constraints
-<User rules, AGENTS.md instructions, mode requirements, tooling constraints, style conventions, safety constraints.>
+<User rules, AGENTS.md instructions, plan-first boundaries, tooling constraints, style conventions, safety constraints.>
 
 ## Touchpoints
 <Files, modules, components, commands, data stores, APIs, screens, routes, tests, docs, or external systems likely involved.>
