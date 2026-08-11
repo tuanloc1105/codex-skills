@@ -7,7 +7,7 @@
 - Authenticate and identify the target
 - Read data
 - Mutate data
-- Fall back to ACLI
+- Request ACLI fallback
 - Troubleshoot
 
 ## Discover and select an MCP client
@@ -91,12 +91,12 @@ Common write capabilities include creating/editing work items, comments, worklog
 
 If a tool times out or returns an uncertain result, do not immediately invoke it again through MCP or ACLI. Read the target first to avoid a duplicate mutation.
 
-## Fall back to ACLI
+## Request ACLI fallback
 
-- If MCP is unconfigured, unauthenticated, blocked by policy, or does not expose the capability, use ACLI when ACLI is available and supports the task.
-- If ACLI lacks the command/capability but MCP has a suitable tool, use MCP.
-- One operational tool is enough; do not require configuration of the other merely to finish the task.
-- When switching tools between preflight and mutation, verify the site/account/target again and repeat the preview if the command/tool or impact changes.
+- If MCP is unconfigured, unavailable, disconnected, unauthenticated, or blocked by policy, stop and tell the user which MCP condition was observed. Ask whether they want to use ACLI instead; do not inspect or invoke ACLI before they approve.
+- If MCP is connected and authenticated but does not expose the required capability, explain the limitation and ask whether the user wants to try ACLI.
+- Treat approval as scoped to the current Jira task. Do not make ACLI the default for later tasks.
+- After approval, follow `references/command-workflows.md`, verify the ACLI site/account/target, and repeat any mutation preview when the execution tool or impact changes.
 
 ## Troubleshoot
 
@@ -104,5 +104,5 @@ If a tool times out or returns an uncertain result, do not immediately invoke it
 - `enabled` but tools cannot be called: run a live read-only check; inspect OAuth, token expiration, organization permissions, domain/IP allowlists, and network access.
 - OAuth does not open or the callback fails: retry login after checking browser/callback behavior and the domain allowlist; do not automatically switch to a token.
 - `Access denied`: verify the user's Jira permissions and Read/Write/Search groups in Atlassian Administration.
-- Expected tool is absent: check the official tool list and current tool schema; use ACLI if it has the corresponding capability.
+- Expected tool is absent: check the official tool list and current tool schema; ask whether the user wants to try ACLI if it may have the corresponding capability.
 - Multiple sites or incorrect `cloudId`: repeat resource discovery and ask the user to select the target.
