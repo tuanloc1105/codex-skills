@@ -168,7 +168,9 @@ RUN set -eux; \
         openjdk-17-jre-headless \
         postgresql-client-18 \
         redis-tools; \
-    ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools18; \
+    ACCEPT_EULA=Y apt-get install --yes --no-install-recommends \
+        mssql-tools \
+        mssql-tools18; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=vendor-assets /opt/oracle /opt/oracle
@@ -249,6 +251,8 @@ RUN set -eux; \
     echo /opt/oracle/instantclient > /etc/ld.so.conf.d/oracle-instantclient.conf; \
     ldconfig; \
     ln -s /opt/sqlcl/bin/sql /usr/local/bin/sql; \
+    ln -s /opt/mssql-tools/bin/sqlcmd /usr/local/bin/sqlcmd17; \
+    ln -s /opt/mssql-tools/bin/bcp /usr/local/bin/bcp17; \
     usermod --login agent --home /home/agent --move-home ubuntu; \
     groupmod --new-name agent ubuntu; \
     usermod --groups '' agent; \
@@ -276,6 +280,8 @@ RUN set -eux; \
     mongo-connect --modern --version; \
     redis-cli --version; \
     sqlcmd -? >/dev/null; \
-    bcp -v
+    bcp -v; \
+    sqlcmd17 -? >/dev/null; \
+    bcp17 -v
 
 CMD ["bash"]

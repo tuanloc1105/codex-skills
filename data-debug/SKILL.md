@@ -21,7 +21,7 @@ Use only the `db-debug:latest` image for supported database work. Treat the data
 3. If client availability is uncertain, run:
 
    ```sh
-   docker run --rm db-debug:latest bash -lc 'sql -version && sqlplus -v && psql --version && mysql --version && mongosh --version && mongo-legacy --version && redis-cli --version && sqlcmd -? >/dev/null && bcp -v'
+   docker run --rm db-debug:latest bash -lc 'sql -version && sqlplus -v && psql --version && mysql --version && mongosh --version && mongo-legacy --version && redis-cli --version && sqlcmd -? >/dev/null && bcp -v && sqlcmd17 -? >/dev/null && bcp17 -v'
    ```
 
 4. Classify the requested operation before execution:
@@ -74,7 +74,7 @@ Do not silently downgrade a connection. State the selected mode, configure it ex
 - MySQL: use `--ssl-mode=DISABLED` for plaintext or `--ssl-mode=REQUIRED` for encrypted transport without CA or hostname verification.
 - MongoDB: set `tls=false` for plaintext, or set `tls=true`, `tlsAllowInvalidCertificates=true`, and/or `tlsAllowInvalidHostnames=true` in the URI as narrowly as needed.
 - Redis: omit `--tls` for plaintext; use `--tls --insecure` for encrypted transport without certificate verification.
-- Microsoft SQL Server: use `-C` to trust the server certificate or `-No` to make encryption optional with the installed `sqlcmd` version.
+- Microsoft SQL Server: use `-C` to trust the server certificate or `-No` to make encryption optional with the default ODBC Driver 18 `sqlcmd`. The ODBC Driver 17 `sqlcmd17` compatibility client makes encryption optional by default; use `-N -C` when encrypted transport with an unverified certificate is required.
 - Oracle: select a non-TLS connect descriptor for plaintext. For TCPS, relax certificate or distinguished-name matching only in task-owned client configuration and do not overwrite an existing Oracle network configuration.
 
 Treat these transport relaxations separately from authentication. Do not disable or bypass authentication unless the user explicitly requests that distinct action and the target is intentionally configured for it.
@@ -86,7 +86,7 @@ Treat these transport relaxations separately from authentication. Do not disable
 - Modern MongoDB: `mongo-connect`
 - MongoDB 3.4: `mongo-connect --server-version 3.4`
 - Redis: `redis-cli`
-- Microsoft SQL Server: `sqlcmd`; use `bcp` only for an explicitly requested bulk transfer
+- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` by default. After a confirmed Driver 18 TLS/pre-login compatibility failure, use `sqlcmd17` and report the fallback. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
 - Oracle: prefer `sqlplus`; use `sql` only when SQLcl features are required
 
 Always use `mongo-connect`, not `mongosh` or `mongo-legacy` directly.
@@ -127,6 +127,12 @@ Microsoft SQL Server:
 
 ```sh
 docker run --rm --env-file db.env db-debug:latest bash -lc 'sqlcmd -S "$MSSQL_HOST,$MSSQL_PORT" -U "$MSSQL_USER" -d "$MSSQL_DATABASE" -K ReadOnly -Q "SELECT DB_NAME(), SUSER_SNAME();"'
+```
+
+Microsoft SQL Server compatibility fallback after a confirmed Driver 18 TLS/pre-login failure:
+
+```sh
+docker run --rm --env-file db.env db-debug:latest bash -lc 'sqlcmd17 -S "$MSSQL_HOST,$MSSQL_PORT" -U "$MSSQL_USER" -d "$MSSQL_DATABASE" -K ReadOnly -Q "SELECT DB_NAME(), SUSER_SNAME();"'
 ```
 
 Oracle:
