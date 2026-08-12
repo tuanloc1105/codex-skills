@@ -38,10 +38,10 @@ Use only the `db-debug:latest` image for supported database work. Treat the data
 - Do not run stored procedures, user-defined functions, triggers, `EXPLAIN ANALYZE` on mutating statements, or commands with unclear side effects as read-only work.
 - Never place connection URIs, passwords, tokens, certificates, or other secrets in chat, source files, shell command arguments, or captured logs. Pass connection settings through a user-provided environment file with `docker run --env-file`.
 - Keep environment files outside the repository, restrict their permissions, never print them, and delete temporary credential files after use when their lifecycle is owned by the task.
-- Never disable TLS, certificate verification, hostname verification, or authentication checks. Stop and report certificate or network failures instead of bypassing them.
+- TLS is optional. Prefer a verified TLS connection when the endpoint supports it, but allow plaintext transport, unverified certificates, or disabled hostname verification when required by the target or requested by the user. Use the narrowest relaxation that works, do not disable authentication as part of this allowance, and report the resulting transport security mode.
 - Always use `--rm`. Do not mount the Docker socket, mount database data directories, use `--privileged`, or add capabilities. Avoid host filesystem mounts unless a user-requested import or export requires a specific path.
 - Prefer explicit timeouts supported by the selected client or server. Avoid unbounded scans, full collection reads, keyspace-wide Redis commands, and production query-plan execution that could create material load.
-- Do not switch MongoDB clients to work around TLS, authentication, DNS, or networking failures.
+- Do not switch MongoDB clients to work around authentication, DNS, or networking failures. Configure the selected client explicitly when plaintext transport or relaxed TLS verification is required.
 - Report the database identity and scope before substantive diagnostics when a wrong-target connection would be risky.
 
 ## Connection Pattern
@@ -59,6 +59,25 @@ Network routing:
 - For a database in another container, attach this container to the same explicit Docker network.
 
 Do not expand secret-bearing environment variables in the host shell. Expand them only inside the container's quoted `bash -lc` command.
+
+## Transport Security
+
+Verified TLS is preferred but not required. Connections may use one of these modes:
+
+- Verified TLS: encrypt traffic and verify both the certificate chain and hostname.
+- Relaxed TLS: keep encryption while trusting an unverified certificate, skipping hostname verification, or both.
+- Plaintext: disable TLS when the server does not support it or the diagnostic context requires it.
+
+Do not silently downgrade a connection. State the selected mode, configure it explicitly through the client or the user-provided environment file, and preserve authentication. Common client controls include:
+
+- PostgreSQL: set `PGSSLMODE=disable` for plaintext or `PGSSLMODE=require` for encrypted transport without certificate or hostname verification.
+- MySQL: use `--ssl-mode=DISABLED` for plaintext or `--ssl-mode=REQUIRED` for encrypted transport without CA or hostname verification.
+- MongoDB: set `tls=false` for plaintext, or set `tls=true`, `tlsAllowInvalidCertificates=true`, and/or `tlsAllowInvalidHostnames=true` in the URI as narrowly as needed.
+- Redis: omit `--tls` for plaintext; use `--tls --insecure` for encrypted transport without certificate verification.
+- Microsoft SQL Server: use `-C` to trust the server certificate or `-No` to make encryption optional with the installed `sqlcmd` version.
+- Oracle: select a non-TLS connect descriptor for plaintext. For TCPS, relax certificate or distinguished-name matching only in task-owned client configuration and do not overwrite an existing Oracle network configuration.
+
+Treat these transport relaxations separately from authentication. Do not disable or bypass authentication unless the user explicitly requests that distinct action and the target is intentionally configured for it.
 
 ## Client Selection
 
