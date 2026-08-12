@@ -21,7 +21,7 @@ Use only the `db-debug:latest` image for supported database work. Treat the data
 3. If client availability is uncertain, run:
 
    ```sh
-   docker run --rm db-debug:latest bash -lc 'sql -version && sqlplus -v && psql --version && mysql --version && mongosh --version && mongo-legacy --version && redis-cli --version && sqlcmd -? >/dev/null && bcp -v && if command -v sqlcmd17 >/dev/null; then sqlcmd17 -? >/dev/null && bcp17 -v; fi'
+   docker run --rm db-debug:latest bash -lc 'sql -version && sqlplus -v && psql --version && mysql --version && mongosh --version && mongo-legacy --version && redis-cli --version && sqlcmd -? >/dev/null && bcp -v && mssql-connect --version && if command -v sqlcmd17 >/dev/null; then sqlcmd17 -? >/dev/null && bcp17 -v; fi'
    ```
 
 4. Classify the requested operation before execution:
@@ -86,7 +86,7 @@ Treat these transport relaxations separately from authentication. Do not disable
 - Modern MongoDB: `mongo-connect`
 - MongoDB 3.4: `mongo-connect --server-version 3.4`
 - Redis: `redis-cli`
-- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` by default. On AMD64, after a confirmed Driver 18 TLS/pre-login compatibility failure, use the Ubuntu 20.04/OpenSSL 1.1 compatibility runtime through `sqlcmd17` and report the fallback. Driver 17 is unavailable in the ARM64 image. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
+- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` by default. After a confirmed ODBC TLS/pre-login compatibility failure, use the Microsoft JDBC `mssql-connect` client and report the fallback. It reads SQL from standard input, requires an environment-variable prefix, requests `applicationIntent=ReadOnly`, enables verified TLS, limits results to 100 rows, and applies 10-second login, socket, and query timeouts. On AMD64, `sqlcmd17` remains available for legacy ODBC compatibility. Driver 17 is unavailable in the ARM64 image. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
 - Oracle: prefer `sqlplus`; use `sql` only when SQLcl features are required
 
 Always use `mongo-connect`, not `mongosh` or `mongo-legacy` directly.
@@ -133,6 +133,12 @@ Microsoft SQL Server compatibility fallback on AMD64 after a confirmed Driver 18
 
 ```sh
 docker run --rm --env-file db.env db-debug:latest bash -lc 'sqlcmd17 -S "$MSSQL_HOST,$MSSQL_PORT" -U "$MSSQL_USER" -d "$MSSQL_DATABASE" -K ReadOnly -Q "SELECT DB_NAME(), SUSER_SNAME();"'
+```
+
+Microsoft SQL Server JDBC fallback after a confirmed ODBC TLS/pre-login failure:
+
+```sh
+printf 'SELECT DB_NAME(), SUSER_SNAME();' | docker run --rm --interactive --env-file db.env db-debug:latest mssql-connect MSSQL
 ```
 
 Oracle:

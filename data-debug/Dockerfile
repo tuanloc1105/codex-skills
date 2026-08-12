@@ -61,6 +61,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG TARGETARCH
 ARG MONGO_LEGACY_VERSION=4.4.31
 ARG ORACLE_INSTANTCLIENT_VERSION=19.31.0.0.0dbru
+ARG MSSQL_JDBC_VERSION=13.4.0.jre11
+ARG MSSQL_JDBC_SHA256=e36f5237c1267983e5b88dc2169f6b9d7e50eceec6dc1ca31018e3877e14af66
 ARG SQLCL_DOWNLOAD_URL=https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip
 ARG SQLCL_SHA256=""
 
@@ -165,7 +167,11 @@ RUN set -eux; \
     curl --fail --location --show-error --silent \
         https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb \
         --output /tmp/packages-microsoft-prod.deb; \
-    test -s /tmp/packages-microsoft-prod.deb
+    test -s /tmp/packages-microsoft-prod.deb; \
+    curl --fail --location --show-error --silent \
+        "https://repo.maven.apache.org/maven2/com/microsoft/sqlserver/mssql-jdbc/${MSSQL_JDBC_VERSION}/mssql-jdbc-${MSSQL_JDBC_VERSION}.jar" \
+        --output /tmp/mssql-jdbc.jar; \
+    echo "${MSSQL_JDBC_SHA256}  /tmp/mssql-jdbc.jar" | sha256sum --check --strict -
 
 COPY --from=mongo-legacy-runtime /opt/mongo-legacy/lib /opt/mongo-legacy/lib
 COPY --from=mssql-legacy-runtime /opt/mssql-legacy /opt/mssql-legacy
@@ -183,6 +189,7 @@ ENV LANG=C.UTF-8 \
 COPY --from=vendor-assets /tmp/mongodb-server-8.0.gpg /usr/share/keyrings/mongodb-server-8.0.gpg
 COPY --from=vendor-assets /tmp/postgresql.gpg /usr/share/keyrings/postgresql.gpg
 COPY --from=vendor-assets /tmp/packages-microsoft-prod.deb /tmp/packages-microsoft-prod.deb
+COPY --from=vendor-assets /tmp/mssql-jdbc.jar /opt/mssql-jdbc/mssql-jdbc.jar
 
 RUN set -eux; \
     apt-get update; \
@@ -306,6 +313,105 @@ export ODBCINSTINI=odbcinst.ini
 exec /opt/mssql-legacy/tools/bin/bcp "$@"
 EOF
 
+COPY <<'EOF' /opt/mssql-jdbc/MssqlConnect.java
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.Properties;
+import java.util.stream.Collectors;
+
+public final class MssqlConnect {
+    private static final String VERSION = "Microsoft JDBC Driver 13.4.0.jre11";
+
+    private MssqlConnect() {}
+
+    public static void main(String[] args) throws Exception {
+        if (args.length == 1 && "--version".equals(args[0])) {
+            System.out.println(VERSION);
+            return;
+        }
+        if (args.length != 1 || !args[0].matches("[A-Z][A-Z0-9_]*")) {
+            System.err.println("Usage: printf 'SELECT ...' | mssql-connect ENV_PREFIX");
+            System.exit(2);
+        }
+
+        String prefix = args[0];
+        String host = requiredEnv(prefix + "_HOST");
+        String port = requiredEnv(prefix + "_PORT");
+        String database = requiredEnv(prefix + "_DATABASE");
+        String sql = new BufferedReader(new InputStreamReader(System.in))
+            .lines().collect(Collectors.joining("\n")).trim();
+        if (sql.isEmpty()) {
+            throw new IllegalArgumentException("SQL must be provided on standard input");
+        }
+        String normalizedSql = sql.replaceFirst(";\\s*$", "").trim();
+        if (!normalizedSql.matches("(?is)^SELECT\\b.*")
+                || normalizedSql.contains(";")
+                || normalizedSql.matches("(?is).*\\b(INTO|OPENROWSET|OPENQUERY)\\b.*")) {
+            throw new IllegalArgumentException("Only one bounded SELECT statement is allowed");
+        }
+
+        Properties properties = new Properties();
+        properties.setProperty("user", requiredEnv(prefix + "_USERNAME"));
+        properties.setProperty("password", requiredEnv(prefix + "_PASSWORD"));
+        properties.setProperty("databaseName", database);
+        properties.setProperty("applicationIntent", "ReadOnly");
+        properties.setProperty("encrypt", "true");
+        properties.setProperty("trustServerCertificate", "false");
+        properties.setProperty("loginTimeout", "10");
+        properties.setProperty("socketTimeout", "10000");
+
+        String url = "jdbc:sqlserver://" + host + ":" + port;
+        try (Connection connection = DriverManager.getConnection(url, properties)) {
+            connection.setReadOnly(true);
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(10);
+                statement.setMaxRows(100);
+                try (ResultSet results = statement.executeQuery(normalizedSql)) {
+                ResultSetMetaData metadata = results.getMetaData();
+                int columns = metadata.getColumnCount();
+                for (int column = 1; column <= columns; column++) {
+                    if (column > 1) System.out.print('|');
+                    System.out.print(clean(metadata.getColumnLabel(column)));
+                }
+                System.out.println();
+                while (results.next()) {
+                    for (int column = 1; column <= columns; column++) {
+                        if (column > 1) System.out.print('|');
+                        System.out.print(clean(results.getString(column)));
+                    }
+                    System.out.println();
+                }
+                }
+            }
+        }
+    }
+
+    private static String requiredEnv(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Missing environment variable: " + name);
+        }
+        return value;
+    }
+
+    private static String clean(String value) {
+        return value == null ? "NULL" : value.replace('|', ' ').replace('\r', ' ').replace('\n', ' ');
+    }
+}
+EOF
+
+COPY --chmod=0755 <<'EOF' /usr/local/bin/mssql-connect
+#!/bin/sh
+set -eu
+
+exec java -cp /opt/mssql-jdbc/mssql-jdbc.jar /opt/mssql-jdbc/MssqlConnect.java "$@"
+EOF
+
 RUN set -eux; \
     libaio_t64="$(find /usr/lib -name libaio.so.1t64 -print -quit)"; \
     test -n "${libaio_t64}"; \
@@ -345,6 +451,7 @@ RUN set -eux; \
     redis-cli --version; \
     sqlcmd -? >/dev/null; \
     bcp -v; \
+    mssql-connect --version; \
     if command -v sqlcmd17 >/dev/null; then \
         sqlcmd17 -? >/dev/null; \
         bcp17 -v; \
