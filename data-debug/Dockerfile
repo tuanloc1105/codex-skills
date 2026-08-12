@@ -29,12 +29,12 @@ RUN set -eux; \
     apt-get update; \
     ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools; \
     install --directory \
-        /opt/mssql-legacy/driver/lib64 \
+        /opt/mssql-legacy/driver \
         /opt/mssql-legacy/lib \
         /opt/mssql-legacy/odbc \
         /opt/mssql-legacy/tools/bin; \
     cp -L /opt/mssql-tools/bin/bcp /opt/mssql-tools/bin/sqlcmd /opt/mssql-legacy/tools/bin/; \
-    cp -L /opt/microsoft/msodbcsql17/lib64/libmsodbcsql-*.so* /opt/mssql-legacy/driver/lib64/; \
+    cp -a /opt/microsoft/msodbcsql17/. /opt/mssql-legacy/driver/; \
     cp -L /usr/lib/*/libcrypto.so.1.1 /usr/lib/*/libssl.so.1.1 /opt/mssql-legacy/lib/; \
     sed 's#/opt/microsoft/msodbcsql17#/opt/mssql-legacy/driver#' \
         /opt/microsoft/msodbcsql17/etc/odbcinst.ini \
