@@ -2,6 +2,7 @@
 
 ARG UBUNTU_VERSION=24.04
 ARG MONGO_LEGACY_RUNTIME_UBUNTU_VERSION=20.04
+ARG TARGETARCH
 
 FROM ubuntu:${MONGO_LEGACY_RUNTIME_UBUNTU_VERSION} AS mongo-legacy-runtime
 
@@ -13,6 +14,38 @@ RUN set -eux; \
     install --directory /opt/mongo-legacy/lib; \
     cp -L /usr/lib/*/libcrypto.so.1.1 /usr/lib/*/libssl.so.1.1 /opt/mongo-legacy/lib/; \
     rm -rf /var/lib/apt/lists/*
+
+FROM ubuntu:20.04 AS mssql-legacy-runtime-amd64
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --yes --no-install-recommends ca-certificates curl; \
+    curl --fail --location --show-error --silent \
+        https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
+        --output /tmp/packages-microsoft-prod.deb; \
+    dpkg --install /tmp/packages-microsoft-prod.deb; \
+    apt-get update; \
+    ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools; \
+    install --directory \
+        /opt/mssql-legacy/driver/lib64 \
+        /opt/mssql-legacy/lib \
+        /opt/mssql-legacy/odbc \
+        /opt/mssql-legacy/tools/bin; \
+    cp -L /opt/mssql-tools/bin/bcp /opt/mssql-tools/bin/sqlcmd /opt/mssql-legacy/tools/bin/; \
+    cp -L /opt/microsoft/msodbcsql17/lib64/libmsodbcsql-*.so* /opt/mssql-legacy/driver/lib64/; \
+    cp -L /usr/lib/*/libcrypto.so.1.1 /usr/lib/*/libssl.so.1.1 /opt/mssql-legacy/lib/; \
+    sed 's#/opt/microsoft/msodbcsql17#/opt/mssql-legacy/driver#' \
+        /opt/microsoft/msodbcsql17/etc/odbcinst.ini \
+        > /opt/mssql-legacy/odbc/odbcinst.ini; \
+    rm -rf /var/lib/apt/lists/* /tmp/packages-microsoft-prod.deb
+
+FROM ubuntu:${UBUNTU_VERSION} AS mssql-legacy-runtime-arm64
+
+RUN install --directory /opt/mssql-legacy
+
+FROM mssql-legacy-runtime-${TARGETARCH} AS mssql-legacy-runtime
 
 FROM ubuntu:${UBUNTU_VERSION} AS vendor-assets
 
@@ -127,6 +160,7 @@ RUN set -eux; \
     test -s /tmp/packages-microsoft-prod.deb
 
 COPY --from=mongo-legacy-runtime /opt/mongo-legacy/lib /opt/mongo-legacy/lib
+COPY --from=mssql-legacy-runtime /opt/mssql-legacy /opt/mssql-legacy
 
 FROM ubuntu:${UBUNTU_VERSION}
 
@@ -170,9 +204,6 @@ RUN set -eux; \
         postgresql-client-18 \
         redis-tools; \
     ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools18; \
-    if [ "${TARGETARCH}" = amd64 ]; then \
-        ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools; \
-    fi; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=vendor-assets /opt/oracle /opt/oracle
@@ -246,6 +277,26 @@ fi
 exec mongosh "$@"
 EOF
 
+COPY --chmod=0755 <<'EOF' /opt/mssql-legacy/sqlcmd17
+#!/bin/sh
+set -eu
+
+export LD_LIBRARY_PATH="/opt/mssql-legacy/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export ODBCSYSINI=/opt/mssql-legacy/odbc
+export ODBCINSTINI=odbcinst.ini
+exec /opt/mssql-legacy/tools/bin/sqlcmd "$@"
+EOF
+
+COPY --chmod=0755 <<'EOF' /opt/mssql-legacy/bcp17
+#!/bin/sh
+set -eu
+
+export LD_LIBRARY_PATH="/opt/mssql-legacy/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export ODBCSYSINI=/opt/mssql-legacy/odbc
+export ODBCINSTINI=odbcinst.ini
+exec /opt/mssql-legacy/tools/bin/bcp "$@"
+EOF
+
 RUN set -eux; \
     libaio_t64="$(find /usr/lib -name libaio.so.1t64 -print -quit)"; \
     test -n "${libaio_t64}"; \
@@ -253,9 +304,9 @@ RUN set -eux; \
     echo /opt/oracle/instantclient > /etc/ld.so.conf.d/oracle-instantclient.conf; \
     ldconfig; \
     ln -s /opt/sqlcl/bin/sql /usr/local/bin/sql; \
-    if [ -x /opt/mssql-tools/bin/sqlcmd ]; then \
-        ln -s /opt/mssql-tools/bin/sqlcmd /usr/local/bin/sqlcmd17; \
-        ln -s /opt/mssql-tools/bin/bcp /usr/local/bin/bcp17; \
+    if [ "${TARGETARCH}" = amd64 ]; then \
+        ln -s /opt/mssql-legacy/sqlcmd17 /usr/local/bin/sqlcmd17; \
+        ln -s /opt/mssql-legacy/bcp17 /usr/local/bin/bcp17; \
     fi; \
     usermod --login agent --home /home/agent --move-home ubuntu; \
     groupmod --new-name agent ubuntu; \

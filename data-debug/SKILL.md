@@ -86,7 +86,7 @@ Treat these transport relaxations separately from authentication. Do not disable
 - Modern MongoDB: `mongo-connect`
 - MongoDB 3.4: `mongo-connect --server-version 3.4`
 - Redis: `redis-cli`
-- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` by default. On AMD64, after a confirmed Driver 18 TLS/pre-login compatibility failure, use `sqlcmd17` and report the fallback. Driver 17 is unavailable in the ARM64 image. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
+- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` by default. On AMD64, after a confirmed Driver 18 TLS/pre-login compatibility failure, use the Ubuntu 20.04/OpenSSL 1.1 compatibility runtime through `sqlcmd17` and report the fallback. Driver 17 is unavailable in the ARM64 image. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
 - Oracle: prefer `sqlplus`; use `sql` only when SQLcl features are required
 
 Always use `mongo-connect`, not `mongosh` or `mongo-legacy` directly.
