@@ -47,6 +47,14 @@ RUN install --directory /opt/mssql-legacy
 
 FROM mssql-legacy-runtime-${TARGETARCH} AS mssql-legacy-runtime
 
+ARG TARGETARCH
+
+RUN set -eux; \
+    if [ "${TARGETARCH}" = amd64 ]; then \
+        install --directory /opt/mssql-legacy/tools/share; \
+        cp -R /opt/mssql-tools/share/resources /opt/mssql-legacy/tools/share/; \
+    fi
+
 FROM ubuntu:${UBUNTU_VERSION} AS vendor-assets
 
 ARG DEBIAN_FRONTEND=noninteractive
@@ -209,6 +217,7 @@ RUN set -eux; \
 COPY --from=vendor-assets /opt/oracle /opt/oracle
 COPY --from=vendor-assets /opt/sqlcl /opt/sqlcl
 COPY --from=vendor-assets /opt/mongo-legacy /opt/mongo-legacy
+COPY --from=vendor-assets /opt/mssql-legacy /opt/mssql-legacy
 
 COPY --chmod=0755 <<'EOF' /usr/local/bin/mongo-legacy
 #!/bin/sh
