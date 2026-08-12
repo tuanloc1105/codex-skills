@@ -131,6 +131,7 @@ COPY --from=mongo-legacy-runtime /opt/mongo-legacy/lib /opt/mongo-legacy/lib
 FROM ubuntu:${UBUNTU_VERSION}
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
 
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
@@ -168,9 +169,10 @@ RUN set -eux; \
         openjdk-17-jre-headless \
         postgresql-client-18 \
         redis-tools; \
-    ACCEPT_EULA=Y apt-get install --yes --no-install-recommends \
-        mssql-tools \
-        mssql-tools18; \
+    ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools18; \
+    if [ "${TARGETARCH}" = amd64 ]; then \
+        ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools; \
+    fi; \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=vendor-assets /opt/oracle /opt/oracle
@@ -251,8 +253,10 @@ RUN set -eux; \
     echo /opt/oracle/instantclient > /etc/ld.so.conf.d/oracle-instantclient.conf; \
     ldconfig; \
     ln -s /opt/sqlcl/bin/sql /usr/local/bin/sql; \
-    ln -s /opt/mssql-tools/bin/sqlcmd /usr/local/bin/sqlcmd17; \
-    ln -s /opt/mssql-tools/bin/bcp /usr/local/bin/bcp17; \
+    if [ -x /opt/mssql-tools/bin/sqlcmd ]; then \
+        ln -s /opt/mssql-tools/bin/sqlcmd /usr/local/bin/sqlcmd17; \
+        ln -s /opt/mssql-tools/bin/bcp /usr/local/bin/bcp17; \
+    fi; \
     usermod --login agent --home /home/agent --move-home ubuntu; \
     groupmod --new-name agent ubuntu; \
     usermod --groups '' agent; \
@@ -281,7 +285,9 @@ RUN set -eux; \
     redis-cli --version; \
     sqlcmd -? >/dev/null; \
     bcp -v; \
-    sqlcmd17 -? >/dev/null; \
-    bcp17 -v
+    if command -v sqlcmd17 >/dev/null; then \
+        sqlcmd17 -? >/dev/null; \
+        bcp17 -v; \
+    fi
 
 CMD ["bash"]
