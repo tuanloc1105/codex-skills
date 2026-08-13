@@ -11,7 +11,7 @@ Review changed files for reuse, behavior preservation, quality, and efficiency. 
 
 ## Phase 1: Identify Changes
 
-Run `git status --short`, `git diff`, and `git diff --cached` to identify unstaged, staged, and untracked changes. Use `git diff HEAD` only when a single combined diff is useful. Include untracked files that were added for the current change. If there are no git changes, review the most recently modified files that the user mentioned or that you edited earlier in this conversation.
+Honor an explicit commit, branch, or commit-range scope from the caller. For a range such as `<session-start>..HEAD`, inspect that complete range with `git diff <session-start>..HEAD` and `git log --reverse --format=fuller <session-start>..HEAD`; do not reduce it to the latest commit or current working-tree diff. Also run `git status --short`, `git diff`, and `git diff --cached` to include unstaged, staged, and untracked changes in scope. Use `git diff HEAD` only when a single combined working-tree diff is useful. Include untracked files added for the current change. If the caller supplied no range and there are no git changes, review the most recently modified files that the user mentioned or that you edited earlier in this conversation.
 
 ## Scope Guardrails
 

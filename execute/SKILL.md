@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Persistent execution and evidence-tracking mode for an approved Markdown execution record produced by $plan or by an execution-ready $discuss tracker. Use whenever the user supplies or references such a file and asks Codex to read, adopt, resume, continue, execute, amend, or record follow-up work against it, including in a fresh session and when its implementation is already complete. Keep the exact file active as the source of execution truth across later turns, record material corrections, added work, out-of-scope handoffs, evidence, and commit records in place, and remain in execute mode until the user explicitly exits it. During implementation, schedule dependency-ready phases, run integration and final verification, use $simplify, update agent docs when required, and optionally offer a current-diff $security-review.
+description: Persistent execution and evidence-tracking mode for an approved Markdown execution record produced by $plan or by an execution-ready $discuss tracker. Use whenever the user supplies or references such a file and asks Codex to read, adopt, resume, continue, execute, amend, or record follow-up work against it, including in a fresh session and when its implementation is already complete. Keep the exact file active as the source of execution truth across later turns, record material corrections, added work, out-of-scope handoffs, evidence, and commit records in place, and remain in execute mode until the user explicitly exits it. During implementation, commit each verified unit of work, schedule dependency-ready phases, run integration and final verification, use $simplify across the session commit range, update agent docs when required, and optionally offer a current-change $security-review.
 ---
 
 # Execute
@@ -15,7 +15,7 @@ Enter execute mode immediately when the user explicitly invokes `$execute` or as
 - Keep execute mode active across later turns, completion reports, and `Status: Implemented`. Completing the baseline plan does not end the mode.
 - Exit only when the user clearly says to exit or turn off execute, such as `exit execute`, `turn off execute`, `thoat execute`, or equivalent explicit wording.
 - Treat requests to handle work separately, keep it outside the approved scope, or avoid changing the baseline as scope instructions, not as a mode exit. Record the boundary and material handoff or evidence in the adopted plan while the mode remains active.
-- Do not treat reading or adopting a plan as authorization to implement code, mutate external systems, commit, push, or deploy. Wait for a clear current-session request authorizing the relevant action.
+- Do not treat reading or adopting a plan as authorization to implement code, mutate external systems, commit, push, or deploy. Wait for a clear current-session request authorizing the relevant action. In a git repository, a clear request to implement the adopted record authorizes local incremental commits for that implementation unless the user or plan explicitly forbids commits; it does not authorize pushing or deploying.
 
 On every adoption or re-entry, read the complete plan before substantive work and ensure it contains or backfill these metadata lines near the top:
 
@@ -151,7 +151,8 @@ Follow the plan as written, subject to higher-priority instructions and current 
 - Read relevant project instructions, local conventions, callers, tests, and touched files before writing.
 - For non-trivial code edits, follow the active repository coding workflow and use any required coding skill or semantic retrieval tools available in the session.
 - Keep changes surgical and scoped to the plan.
-- Do not commit, push, deploy, run destructive commands, or broaden scope unless the plan or user explicitly says to.
+- After implementation is authorized, commit each accepted, independently coherent unit of work as soon as its focused checks pass. Treat phases as scheduling containers, never as the default commit boundary: one phase may produce several commits, and the same cadence applies when the current execution session covers only one phase. Preserve dependency order and do not wait until the phase or plan is complete. Do not commit when the user or plan forbids commits.
+- Do not push, deploy, run destructive commands, or broaden scope unless the plan or user explicitly says to.
 - If the plan references additional skills, tools, apps, or commands, use them when available.
 - Recover from failed attempts using the recovery workflow before considering a step blocked.
 - Allow unrelated dependency-ready phases to continue when one phase fails, but never start a dependent phase until its prerequisite is accepted and integrated.
@@ -217,14 +218,19 @@ When the user asks for implementation, fixes, tests, documentation, cleanup, or 
 
 Do not silently perform user-requested follow-up work outside the plan record. If the user wants the work kept separate from the approved baseline, preserve that boundary while still recording the handoff, evidence, and any work performed. Only an explicit execute exit disables this requirement.
 
-### Commit Records
+### Incremental Commits and Commit Records
 
-When the user explicitly asks for one or more commits during the execution-record-based task:
+In a git repository, once implementation and its local commits are authorized, use this cadence:
 
-1. Add a commit checklist item to `## Step-by-Step Plan` before committing, unless an existing plan item already covers the requested commit. Mark it in progress while preparing and verifying the commit scope.
-2. Follow the active repository's commit workflow and preserve unrelated pre-existing user changes.
-3. After each successful commit, mark the commit item completed and record the commit under `## Handoff Notes`. Create a concise `### Commits` subsection when needed and include the full commit SHA, subject, and branch. Keep multiple entries in chronological order.
-4. If a commit attempt fails, keep the item in progress while recovering and add a concise failure note only when it helps a future session. Use `[!]` only when the failure meets the genuine blocker definition.
+1. Capture the starting `HEAD`, branch, status, staged diff, unstaged diff, and untracked paths before implementation. Treat the starting `HEAD` as the exclusive lower bound of the current execution session's commit range.
+2. Derive commit-sized work units inside each selected phase before coding. Prefer the smallest logical change that leaves the repository in a coherent, reviewable state and can pass focused checks, such as one behavior slice with its tests, one refactor prerequisite, or one isolated configuration change.
+3. Never assume one phase equals one commit. A phase commonly produces multiple commits; use a single commit only when the entire phase is genuinely one indivisible logical change. Apply this rule unchanged when the session executes only one phase from a larger plan.
+4. After a unit's focused checks pass and the coordinator accepts all changes in its scope, stage only files and hunks created for that unit, review the staged diff, and commit it immediately before beginning the next dependent unit. Never include unrelated pre-existing or concurrent user changes.
+5. Use the active repository's commit conventions. Keep one logical change per commit and preserve dependency order. Do not create a partial commit merely because time elapsed; the unit must be coherent and verified.
+6. Record every successful commit under `## Handoff Notes`. Create a concise `### Commits` subsection when needed and include the full commit SHA, subject, branch, and associated phase or checklist item in chronological order.
+7. If a commit attempt fails, keep the unit in progress while recovering and add a concise failure note only when it helps a future session. Use `[!]` only when the failure meets the genuine blocker definition.
+8. After all implementation units included in the current session are committed, define the simplify scope as every current-session commit after the captured starting `HEAD` through the current `HEAD`, plus any remaining in-scope staged, unstaged, or untracked changes. Do not substitute only the final commit or current working-tree diff, even when the session executed a single phase.
+9. Commit simplify-driven fixes as one or more separate coherent commits after their checks pass. Record them like other session commits. Never rewrite, squash, or amend the earlier implementation commits unless the user explicitly requests history rewriting.
 
 The final commit SHA cannot be embedded in the commit that produced it because changing the plan would change that SHA. Record the SHA immediately after the commit, do not amend solely to make the SHA self-referential, and disclose the resulting plan-only working-tree change. Create a separate plan-metadata commit only when the user explicitly requests it; do not try to record that metadata commit's own SHA inside itself.
 
@@ -232,19 +238,19 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 
 1. Resolve, adopt, and read the complete execution-record path; activate or re-enter execute mode and persist its metadata.
 2. Inspect enough repository context to execute safely.
-3. Build the dependency and ownership map, validate declared waves, and identify the current ready set.
+3. Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
 4. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
 5. Mark the selected phase items in progress and dispatch each eligible delegated phase with the required ownership and return contract.
 6. Execute any coordinator-owned phase that can run concurrently without conflicting with active subagents.
 7. Collect subagent reports, inspect actual changed files or resources against the baseline and assigned ownership, and review each implementation.
-8. Run or confirm phase-local checks, then mark each accepted phase completed; recover or mark a genuine blocker as appropriate.
-9. Run the wave's integration gate before unlocking dependent phases.
+8. As each commit-sized unit becomes coherent, run its focused checks, review and commit it immediately, then continue with the next unit. A selected phase may therefore produce multiple commits before its phase-local checks are complete.
+9. Run or confirm phase-local checks, mark each accepted phase completed, and run the wave's integration gate before unlocking dependent phases; recover or mark a genuine blocker as appropriate.
 10. Repeat the ready-set workflow until all phases are accepted or a genuine blocker requires user input or an external state change.
 11. Run the plan's final `## Verification` checks on the integrated result.
-12. Use `$simplify` to review the integrated current changes.
+12. Use `$simplify` to review the complete current-session commit range from the captured starting `HEAD` through the current `HEAD`, together with any remaining in-scope working-tree changes.
 13. Fix confirmed or plausible `$simplify` findings that are in scope.
-14. Re-run the narrowest meaningful checks after any simplify-driven fixes.
-15. If the current git working-tree diff contains substantial agent-facing changes that are not already covered in agent docs, use `$update-agent-docs` with the current-diff-only scope in this skill.
+14. Re-run the narrowest meaningful checks after any simplify-driven fixes, then commit those fixes separately in coherent units.
+15. If the current execution session's commit range or remaining working-tree diff contains substantial agent-facing changes that are not already covered in agent docs, use `$update-agent-docs` with the session-change-only scope in this skill.
 16. Re-run the narrowest meaningful checks after any agent-doc updates.
 17. Update the plan status, checklist, amendments and evidence, verification notes, execution decisions, `Last updated`, and residual risks.
 18. If the user adds follow-up work, changes an earlier decision, provides a material handoff or evidence item, or requests a commit, pass it through the amendment gate and resume the applicable workflow before treating the task as complete.
@@ -274,30 +280,31 @@ If a wave integration check fails, return the implicated phase items to in progr
 
 ## Required Simplify Pass
 
-After the plan is implemented, invoke `$simplify` on the current changes before the final response.
+After the plan's implementation units are committed, invoke `$simplify` on the complete current-session changes before the final response.
 
-- Scope `$simplify` to the files and diff changed while executing the plan.
+- Scope `$simplify` to the diff from the captured starting `HEAD` (exclusive) through the current `HEAD` (inclusive), plus remaining in-scope staged, unstaged, and untracked changes. Include all implementation commits created in the session, not only the most recent commit or working-tree diff.
 - Run one coordinator-owned simplify pass only after all parallel phase results have been collected and integrated; do not run independent simplify passes inside subagents.
 - Allow `$simplify` to apply focused fixes for confirmed or plausible issues in scope.
+- Commit simplify-driven fixes separately after focused checks pass; do not rewrite earlier implementation commits unless the user explicitly requests it.
 - Do not let simplification broaden the plan or refactor unrelated code.
 - If `$simplify` is unavailable, rejected, or lacks capacity for its preferred reviewer layout, perform all required review passes locally or with the available safe capacity and state the limitation. Do not block plan completion waiting for a specific subagent count.
 
 ## Agent Docs Update
 
-After the plan is implemented, verified, and simplified, decide whether the current git working-tree diff introduced substantial information future agents need.
+After the plan is implemented, verified, and simplified, decide whether the current execution session's changes introduced substantial information future agents need.
 
 Run `$update-agent-docs` automatically only when both are true:
 
-- The current git working-tree diff includes durable agent-facing changes, such as new or changed project structure, package boundaries, entrypoints, scripts, commands, workflows, tests, generated assets, configuration, deployment steps, migrations, or repo conventions.
+- The current execution session's commit range or remaining working-tree diff includes durable agent-facing changes, such as new or changed project structure, package boundaries, entrypoints, scripts, commands, workflows, tests, generated assets, configuration, deployment steps, migrations, or repo conventions.
 - The existing agent docs do not already cover the new or changed information accurately.
 
-When invoking `$update-agent-docs` from this skill, explicitly constrain it to the current git working-tree diff:
+When invoking `$update-agent-docs` from this skill, explicitly constrain it to the current execution session's changes:
 
-- Review only the current git working-tree diff and the agent docs needed to check coverage or make the update.
+- Review only the current execution session's commit range and remaining git working-tree diff, plus the agent docs needed to check coverage or make the update.
 - Do not run a repository-wide documentation refresh.
 - Do not document unrelated existing code, conventions, scripts, or workflows just because they are discovered while checking the docs.
 - Keep any agent-doc changes limited to guidance made necessary by the current diff.
-- If there is no git repository or no current diff to inspect, skip this step and state the limitation in the final response.
+- If there is no git repository or no current-session change to inspect, skip this step and state the limitation in the final response.
 - If `$update-agent-docs` requires additional authorization, including permission to edit outside the repository, skip the optional update and record the reason unless that external documentation update is itself an explicit plan goal. Do not leave an otherwise completed implementation in progress solely because an automatic agent-doc update could not run.
 
 ## Security Review Offer
@@ -306,11 +313,11 @@ Do not run `$security-review` automatically.
 
 The security-review offer is post-completion and must not leave the execution plan marked in progress.
 
-At the end, ask the user whether they want a security review of the current git working-tree diff.
+At the end, ask the user whether they want a security review of the current execution session's changes.
 
 If the user says yes, use `$security-review` with this scope constraint:
 
-- Review only the current git working-tree diff.
+- Review only the current execution session's commit range plus remaining in-scope working-tree changes.
 - Do not review the full repository.
 - Read surrounding context, callers, or configs only as needed to validate a finding from the diff.
 - Report findings first, following the `$security-review` output format.
@@ -349,6 +356,6 @@ After implementation reaches `Implemented`, `Blocked`, or an explicit-exit `Paus
 - Whether execute mode remains active or was explicitly exited, plus the exact adopted execution-record path
 - Commit SHA, subject, and branch for commits created during execution, plus whether recording them left a plan-only working-tree change
 
-Then ask whether the user wants `$security-review` on the current git working-tree diff when implementation reached `Implemented`, unless they already answered that question in the current turn.
+Then ask whether the user wants `$security-review` on the current execution session's changes when implementation reached `Implemented`, unless they already answered that question in the current turn.
 
 For a read-, inspection-, summary-, adoption-, or evidence-only checkpoint, report the exact adopted execution-record path, what metadata or evidence was updated, that no implementation was performed unless separately authorized, and that execute remains active until explicit exit. Do not offer a security review solely because the record was read or adopted.
