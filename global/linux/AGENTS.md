@@ -4,6 +4,14 @@
 ## Python Runtime
 - When using Python, prefer `~/git/.venv/bin/python` if it exists. Otherwise, use the default Python interpreter.
 
+## Shared-code preservation
+
+- In repositories containing code contributed by multiple people, preserve existing code and diffs outside the exact user-approved scope.
+- Never run repository-wide or file-wide formatters, auto-fixers, import organizers, code generators, or other tools that create unrelated diffs. Format only the lines changed for the requested task when required, and verify that no incidental diff was introduced.
+- Do not refactor, clean up, modernize, optimize, rename, reorganize, or otherwise improve pre-existing code unless the user explicitly requests that exact change.
+- Treat changes to pre-existing code outside the requested scope as requiring prior user review and explicit approval. If such a change appears necessary, stop, show the proposed change and reason, and wait for approval before editing it.
+- Preserve other contributors' existing and in-progress work. Never revert, overwrite, normalize, or include their unrelated changes in the current diff.
+
 ## Skill Self-Recovery
 
 - When a loaded skill contains an incorrect, stale, or contradictory instruction, or reproducibly causes the current task to be performed incorrectly, stop following the defective path and repair the skill in the same session before continuing. Do not change a skill for a one-off target, environment, or operator error that is not a reusable skill defect.
