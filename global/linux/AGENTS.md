@@ -4,9 +4,10 @@
 ## Python Runtime
 - When using Python, prefer `~/git/.venv/bin/python` if it exists. Otherwise, use the default Python interpreter.
 
-## Shared-code preservation
+## Git repository code preservation
 
-- In repositories containing code contributed by multiple people, preserve existing code and diffs outside the exact user-approved scope.
+- Apply these preservation rules in every Git repository, regardless of how many contributors it has. Do not apply this section when the workspace is not a Git repository.
+- Preserve existing code and diffs outside the exact user-approved scope.
 - Never run repository-wide or file-wide formatters, auto-fixers, import organizers, code generators, or other tools that create unrelated diffs. Format only the lines changed for the requested task when required, and verify that no incidental diff was introduced.
 - Do not refactor, clean up, modernize, optimize, rename, reorganize, or otherwise improve pre-existing code unless the user explicitly requests that exact change.
 - Treat changes to pre-existing code outside the requested scope as requiring prior user review and explicit approval. If such a change appears necessary, stop, show the proposed change and reason, and wait for approval before editing it.
