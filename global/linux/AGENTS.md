@@ -6,7 +6,7 @@
 
 ## Git repository code preservation
 
-- Apply these preservation rules in every Git repository, regardless of how many contributors it has. Do not apply this section when the workspace is not a Git repository.
+- Apply these preservation rules whenever the files being worked on are inside a Git worktree, regardless of how many contributors the repository has. This includes Git repositories nested under a workspace whose root is not itself a Git repository. Do not apply this section only to files that are not contained in any Git worktree.
 - Preserve existing code and diffs outside the exact user-approved scope.
 - Never run repository-wide or file-wide formatters, auto-fixers, import organizers, code generators, or other tools that create unrelated diffs. Format only the lines changed for the requested task when required, and verify that no incidental diff was introduced.
 - Do not refactor, clean up, modernize, optimize, rename, reorganize, or otherwise improve pre-existing code unless the user explicitly requests that exact change.
