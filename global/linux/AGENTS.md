@@ -6,12 +6,26 @@
 
 ## Git repository code preservation
 
-- Apply these preservation rules whenever the files being worked on are inside a Git worktree, regardless of how many contributors the repository has. This includes Git repositories nested under a workspace whose root is not itself a Git repository. Do not apply this section only to files that are not contained in any Git worktree.
-- Preserve existing code and diffs outside the exact user-approved scope.
-- Never run repository-wide or file-wide formatters, auto-fixers, import organizers, code generators, or other tools that create unrelated diffs. Format only the lines changed for the requested task when required, and verify that no incidental diff was introduced.
+### Rules that always apply
+
+- Apply these rules to all files, whether or not they are contained in a Git worktree.
+- Preserve existing code and content outside the exact user-approved scope.
+- Never run repository-wide or file-wide formatters, auto-fixers, import organizers, code generators, or similar tools when they may create unrelated changes. Format only the lines changed for the requested task when required.
 - Do not refactor, clean up, modernize, optimize, rename, reorganize, or otherwise improve pre-existing code unless the user explicitly requests that exact change.
 - Treat changes to pre-existing code outside the requested scope as requiring prior user review and explicit approval. If such a change appears necessary, stop, show the proposed change and reason, and wait for approval before editing it.
-- Preserve other contributors' existing and in-progress work. Never revert, overwrite, normalize, or include their unrelated changes in the current diff.
+- Preserve identifiable work belonging to the user or another contributor. Never revert, overwrite, normalize, or incorporate their unrelated work into the current change.
+
+### Additional rules for Git worktrees
+
+- When working inside a Git worktree, inspect the relevant Git status and diffs before editing so that pre-existing changes can be distinguished from changes made during the current session. This includes Git repositories nested under a workspace whose root is not itself a Git repository.
+- Treat all pre-existing uncommitted changes as belonging to the user or another contributor unless there is clear evidence that they were created during the current session.
+- Never revert, overwrite, normalize, stage, commit, or otherwise modify pre-existing changes outside the exact user-approved scope.
+- After editing, inspect the relevant diff and verify that no incidental changes were introduced.
+
+### Files outside Git worktrees
+
+- When files are not contained in a Git worktree, Git-based ownership and change-history checks are unavailable. This removes only the Git-specific inspection requirements above; all general scope and preservation rules still apply.
+- If there is no reliable indication that existing or in-progress content belongs to another contributor, edit the user-approved scope normally without attempting to reconstruct unavailable ownership history.
 
 ## Skill Self-Recovery
 
