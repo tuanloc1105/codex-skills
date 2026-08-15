@@ -1,4 +1,4 @@
 interface:
   display_name: "Execute"
-  short_description: "Execute plans with commit-sized verified changes"
-  default_prompt: "Use $execute to read and adopt the execution record at /path/to/record.md, whether it is a $plan handoff or an execution-ready $discuss tracker. Keep that exact file updated, create multiple commits within a phase whenever it contains separate verified work units, simplify the full session commit range, and remain active until I explicitly exit execute."
+  short_description: "Execute plans with smallest verified commits"
+  default_prompt: "Use $execute to read and adopt the execution record at /path/to/record.md, whether it is a $plan handoff or an execution-ready $discuss tracker. Keep that exact file updated, commit each smallest complete and independently verified work unit immediately across any project domain, simplify the full session commit range, and remain active until I explicitly exit execute."
