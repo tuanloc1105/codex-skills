@@ -1,6 +1,6 @@
 ---
 name: discuss
-description: Use when the user invokes $discuss or requests chat-only, planning-only, advisory-only, or no-code-change work with a Markdown tracker. Maintain one automatically selected or user-specified file as a self-contained cross-session handoff. Without a destination, save under ./discussion/ with a dated topic filename and never ask where to save it. Create missing tracker directories and maintain the repository .gitignore entry automatically. By default, allow no mutation beyond tracker housekeeping and explicitly authorized scoped non-source-code changes; never modify source code while discuss is active. When the user invokes $execute against the active tracker, finalize that same file as an execution-ready handoff, exit discuss only after it is durable, and let $execute adopt it without a separate $plan file.
+description: Use when the user invokes $discuss or requests chat-only, planning-only, advisory-only, or no-code-change work with a Markdown tracker. Maintain one automatically selected or user-specified file as a self-contained cross-session handoff. Without a destination, save under ./discussion/ with a dated topic filename and never ask where to save it. Create missing tracker directories and maintain the repository .gitignore entry automatically. By default, allow no mutation beyond tracker housekeeping and explicitly authorized scoped non-source-code changes; never modify source code while discuss is active. When the discussion is settled, ask whether to continue with $plan or $execute. A direct $execute choice finalizes the same tracker as an execution-ready handoff; a $plan choice durably exits discuss and uses the tracker as planning context.
 ---
 
 # Discuss
@@ -92,6 +92,19 @@ When resuming an existing tracker:
 Treat every mutation authorization recorded by an earlier session as historical or pending context, never as executable permission in the current session. Before any new local or external mutation beyond tracker housekeeping, require a clear current-session user instruction for the exact remaining target and action. Mark completed or consumed authorization accordingly and never repeat a mutation merely because the tracker says it was previously authorized.
 
 When the user explicitly exits `discuss`, including through a successful `Direct Execute Handoff`, update the tracker status to `Exited`, record the exit instruction and time, and flush the final resume checkpoint before making any source-code mutation.
+
+### Settled Discussion Transition Gate
+
+When the goal, scope, requirements, constraints, material tradeoffs, and user-owned decisions are clear enough to proceed and no blocking discussion question remains, do not suggest only `$execute` and do not choose the next workflow on the user's behalf. Persist the settled state, then ask exactly one transition question with these two choices:
+
+1. `$plan` — create and review a separate detailed implementation plan before any execution. Recommend this for complex, risky, cross-cutting, or delegation-worthy work.
+2. `$execute` — finalize this tracker through `Direct Execute Handoff` and begin implementation from the same execution record. Recommend this for small or already implementation-ready work.
+
+Recommend exactly one option according to the work, but always present both. Keep `discuss` active and wait for the user's choice; a conclusion that the discussion is clear is not itself permission to plan or execute.
+
+If the user chooses `$plan`, complete `Tracker Durability Gate`, update `Mode status: Exited`, record the choice and timestamp in `## Log`, and set the resume checkpoint to the `$plan` transition. Then invoke `$plan` using the complete tracker as authoritative discussion context. Let `$plan` create its separate approved plan under its own saving rules; do not mark the discussion tracker execution-ready and do not apply `Direct Execute Handoff`.
+
+If the user chooses `$execute`, apply `Direct Execute Handoff`. If that handoff exposes a missing material decision, keep `discuss` active and resolve it through `Immediate Decision Gate`; after it is resolved and persisted, ask the `$plan` or `$execute` transition question again rather than assuming the earlier choice still applies.
 
 ### Direct Execute Handoff
 
@@ -337,12 +350,14 @@ Apply `Immediate Decision Gate` throughout every step below. When it triggers, s
 5. Initialize or update the selected tracker with the current discussion state and tracker housekeeping performed.
 6. For a handoff, revalidate material drift before relying on recorded external facts.
 7. If the discussion concerns changing an existing mechanism, establish and record the behavioral baseline, preservation requirements, regression risks, and evidence gaps before recommending the change.
-8. Determine whether the user requested a direct `$execute` transition for the active tracker.
-9. If so, apply `Direct Execute Handoff`; remain in discuss when its gate cannot pass, otherwise persist the exit and hand the exact path to `$execute` without creating a separate plan file.
-10. Otherwise determine whether the requested action would mutate source code.
-11. If it would mutate source code, explain that the user must explicitly exit `discuss`, then wait without making the change.
-12. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
-13. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
-14. Apply `Tracker Durability Gate` before every response after substantive work.
-15. Clarify that `discuss` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
-16. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
+8. Determine whether the user already chose a `$plan` or `$execute` transition for the active tracker.
+9. If `$plan` was chosen, durably exit discuss under `Settled Discussion Transition Gate` and hand the complete tracker to `$plan` as context.
+10. If `$execute` was chosen, apply `Direct Execute Handoff`; remain in discuss when its gate cannot pass, otherwise persist the exit and hand the exact path to `$execute` without creating a separate plan file.
+11. Otherwise, when the discussion is settled and no blocking question remains, apply `Settled Discussion Transition Gate`, ask whether the user wants `$plan` or `$execute`, and wait.
+12. Otherwise determine whether the requested action would mutate source code.
+13. If it would mutate source code, explain that the user must explicitly exit `discuss`, then wait without making the change.
+14. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
+15. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
+16. Apply `Tracker Durability Gate` before every response after substantive work.
+17. Clarify that `discuss` remains active when relevant; completing an authorized scoped mutation does not exit the mode.
+18. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
