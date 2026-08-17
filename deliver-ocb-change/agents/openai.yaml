@@ -1,0 +1,7 @@
+interface:
+  display_name: "Deliver OCB Change"
+  short_description: "Deliver OCB backend or frontend work to MR-ready"
+  default_prompt: "Use $deliver-ocb-change to take this OCB Jira task through planning, implementation, domain verification, and a verified MR-ready handoff."
+
+policy:
+  allow_implicit_invocation: true

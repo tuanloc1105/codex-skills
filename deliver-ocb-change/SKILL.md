@@ -1,0 +1,72 @@
+---
+name: deliver-ocb-change
+description: Deliver OCB Backend or web Frontend Developer work from Jira verification through approved planning, implementation, domain-specific verification, bounded Git delivery, and a verified GitLab merge request handoff. Use for explicit `$deliver-ocb-change` requests, OCB backend, frontend, or mixed Jira implementation or plan execution, and OCB-traceable GitLab MR preparation. Do not use for generic coding advice, Mobile delivery, unrelated Jira administration, deployment, release, merge, approval, or generic LinearB reporting.
+---
+
+# Deliver OCB Change
+
+Guide an OCB Backend or Frontend Developer to an evidence-backed `MR_READY` handoff. End before approval, merge, deployment, release, or post-merge measurement.
+
+## Load the Contract
+
+Before changing source or Git state, read:
+
+- [Core policy](references/core-policy.md): shared Jira, Git, authorization, evidence, and ownership rules.
+- [Repository profile](references/repository-profile.md): optional local overrides, mode routing, precedence, and drift handling.
+- [Workflow contract](references/workflow-contract.md): required plan section, gates, states, authorization, and handoff format.
+
+After resolving the delivery mode, read the complete applicable domain policy:
+
+- `backend`: [Backend policy](references/backend-policy.md).
+- `frontend`: [Frontend policy](references/frontend-policy.md).
+- `mixed`: both policies; apply each rule to its affected scope and satisfy the union of applicable gates.
+
+Apply precedence, warning-first gates, and override rules from the core and applicable domain policies exactly.
+
+## Resolve Delivery Mode
+
+Resolve exactly one mode before `$plan`, source mutation, or Git mutation: `backend`, `frontend`, or `mixed`.
+
+Use evidence in this order:
+
+1. Explicit value in the current user request.
+2. Approved or current plan.
+3. Valid `.ocb/deliver-change.yaml` profile.
+4. Authoritative repository instructions.
+5. Unambiguous target paths and requested implementation scope.
+
+Do not classify from a repository name, framework guess, a single ambiguous file, or unrelated paths in a monorepo. Use `mixed` when the authorized implementation crosses backend and frontend boundaries. If evidence remains missing, ambiguous, or conflicting, report it and ask the user to resolve the mode; continue only with read-only inspection that cannot depend on a selected domain policy.
+
+Record the resolved mode, evidence source, affected roots, and per-path classification in the workflow contract. Re-resolve it when scope or diff boundaries drift. A missing or ambiguous mode is a non-overridable hard boundary before `$plan` or mutation.
+
+## Run the Workflow
+
+1. Begin at `MODE_UNRESOLVED`. Record the repository, initial Git status, staged and unstaged diff boundaries, Jira key if supplied, requested outcome, acceptance source when applicable, and all existing user changes.
+2. Resolve delivery mode, then resolve `.ocb/deliver-change.yaml` as specified in the repository profile. Warn on configuration drift before dependent mutation.
+3. Enter `JIRA_UNVERIFIED`. Resolve the working Jira key from the request, approved or current plan, current branch, and repository evidence, in that order. If missing or ambiguous, ask rather than guessing among keys or site/account identities. With a unique key, use `$interact-with-jira` for minimal identity, issue, type, parent, relationship, and Epic verification, plus acceptance-criteria verification when required by the applicable domain policy. A Story or Task must belong directly to an Epic. A Subtask must have a direct-parent Task belonging to the same delivery Epic. Never treat prose mentioning a key as relationship evidence. For a bug found after Task completion, verify the completed Task and invoke `$interact-with-jira` to create exactly one authorized bug-fix Subtask under it; re-read it, adopt its key, and never reuse the completed Task's branch, commits, or MR.
+4. Resolve and verify the exact existing remote Epic base branch. It is Tech Lead owned; never create it, infer it from an integration branch, or substitute another branch. Read-only repository or design-source inspection may continue while Jira or the Epic base is unverified, but `$plan`, plan artifacts, source mutation, and Git mutation may not begin. This prerequisite is not overridable.
+5. After mode, Jira, and Epic base are verified, prefer `$plan` with a complete `OCB Delivery Workflow Contract`. If the user explicitly directs execution without a plan after warning, record the scoped override. Do not create a separate lifecycle tracker.
+6. Resolve branch username from the current request, approved/current plan, or authoritative repository evidence, in that order; never infer it from `git config user.name`. With exact authorization, create or verify the working branch directly from the Epic base using `{jira_id}_{username}_{task-slug}`. The working branch is the MR source and Epic base is the target.
+7. Implement only the approved scope on the working branch. Follow repository instructions and applicable domain policies, preserve unrelated changes, keep the change reviewable, and record verification evidence. For `mixed`, maintain a per-domain path boundary and run the union of applicable checks.
+8. Commit, push, or create a working MR only with exact authorization for those actions. Reuse the verified username for the required `{jira_id}_{username}_{task_name}` commit prefix unless the user explicitly overrides that naming gate after warning. Before `glab`, verify its version, leaf-command help, authentication, repository target, and identity. Always provide explicit source and Epic-base target arguments; never use interactive defaults, auto-merge, or merge flags.
+9. Assign `CODE_READY`, `MR_PREPARED`, `MR_READY`, or `WAITING_EXTERNAL` only from evidence and criteria in the workflow contract.
+
+## Enforce Waiting and Ownership
+
+- Treat hard gates as warning-first and user-overridable only where the policies allow. State missing evidence, affected action, risk, and recommended fix; record every scoped override and revalidate it after state drift.
+- Never override higher-priority instructions, ambiguous repository/diff targets, secret exposure, destructive recovery, exact Git-action authorization, or a hard boundary.
+- Use `WAITING_EXTERNAL` when credentials, permission, approval, tooling, required design evidence, or another external system prevents the next step after safe recovery is exhausted. A failed check or visual discrepancy is work to diagnose, not automatically an external wait.
+- Never self-approve, merge, change GitLab approval/protected-branch/merge settings, deploy, call LinearB deployment APIs, tag releases, perform Mobile delivery, or claim post-merge DORA results.
+- Hand off `MR_READY` to Reviewer/Lead ownership and report only verified evidence.
+
+## Compose with Other Skills
+
+- With `$discuss`, honor its mutation overlay and update its sole tracker.
+- With `$plan`, place the complete `OCB Delivery Workflow Contract` in the plan.
+- With `$execute`, keep the approved plan as execution truth, revalidate gates before mutation, and stop at `MR_READY`, `MR_PREPARED`, or documented `WAITING_EXTERNAL`.
+- With `$interact-with-jira`, delegate all real Jira behavior and safety rules to that skill.
+- With a UI design or design-to-code skill, use it only for approved frontend scope; this workflow remains authoritative for Jira, Git, evidence, and ownership.
+
+## Report the Handoff
+
+Use the format in [workflow-contract.md](references/workflow-contract.md). State the final workflow state, mode and path classification, evidence, checks, domain verification, exceptions, preserved unrelated changes, and next owner. Never describe `MR_PREPARED` as `MR_READY`.
