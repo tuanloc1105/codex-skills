@@ -73,7 +73,7 @@ All sections except `version` are optional. Within a present section, allow only
 - `permitted_prefixes` may narrow prefixes but cannot remove Jira traceability.
 - `advisory_changed_line_limit` must be positive and remains advisory.
 - Jira mapping changes labels only; it cannot change Story/Task/Subtask/Epic hierarchy.
-- The profile cannot replace, create, or weaken the Tech-Lead-owned Epic base branch topology.
+- A profile cannot silently replace, create, or weaken the default Tech-Lead-owned Epic base topology. Any exception requires a recorded user override for the exact fallback branch and action.
 - All paths and globs are repository relative and grant no mutation authority. Reject paths escaping the repository.
 - Required commands must be owned by repository manifests, scripts, CI, or documentation. A profile cannot disable higher-priority checks.
 - AI attribution must reference a repository-sanctioned mechanism; never invent a trailer.
@@ -87,7 +87,7 @@ All sections except `version` are optional. Within a present section, allow only
 5. Fill omitted values from bundled defaults.
 6. Record values and sources in the `OCB Delivery Workflow Contract`.
 
-Warn before planning or mutation when the version is unsupported; keys, types, placeholders, commands, paths, or routing are invalid; a profile weakens a gate; or it conflicts with observed evidence. Do not silently ignore drift. Continue with bundled defaults only after an allowed explicit scoped override; never override an ambiguous mode/path classification or another hard boundary.
+Warn before planning or mutation when the version is unsupported; keys, types, placeholders, commands, paths, or routing are invalid; a profile weakens a gate; or it conflicts with observed evidence. Do not silently ignore drift. Continue with bundled defaults or an exact user-selected value only after an explicit scoped override records the warning and residual risk. The override must resolve mode and path classification to exact values rather than leave competing targets ambiguous.
 
 ## Legacy profile migration
 

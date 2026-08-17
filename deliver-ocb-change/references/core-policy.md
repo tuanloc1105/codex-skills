@@ -8,7 +8,9 @@ Apply requirements in this order:
 2. A valid `.ocb/deliver-change.yaml` repository profile
 3. This core policy and the applicable domain policy
 
-Treat every **Hard** gate as warning-first unless labeled **Hard boundary**. After presenting missing evidence, affected action, risk, and recommended fix, accept an explicit user override only for the exact allowed action and record it. Never allow an override to violate higher-priority instructions, rely on an ambiguous repository or diff target, expose secrets, perform destructive recovery, bypass exact Git-action authorization, or cross an ownership boundary.
+Treat every skill-defined gate as warning-first and user-overridable. When a gate fails, pause only its dependent action and present the missing evidence, affected action, risk, and recommended fix. If the user explicitly accepts the residual risk and authorizes the exact action, record the gate as `Overridden` and continue. Never treat an override as proof that missing evidence was verified.
+
+An override is valid only for the recorded repository, state, target, scope, and action and expires when any changes. It cannot violate higher-priority instructions, choose among still-ambiguous targets, expose secrets, authorize unspecified Git mutations, or permit destructive recovery outside the user's exact authorization. When a gate lacks an executable value, such as a base branch or delivery mode, require the user to select or authorize an exact value as part of the override; never guess it.
 
 ## Jira traceability and branch topology
 
@@ -26,11 +28,11 @@ Verify issue ancestry and Epic topology before planning or mutation:
 - A Story or Task belongs directly to an Epic.
 - A Subtask belongs to a direct-parent Task, and that Task belongs to the delivery Epic.
 - A prose key mention is not relationship evidence.
-- The Tech Lead creates the Epic base branch. Verify the exact existing remote branch before `$plan`; absence or ambiguity is a **Hard boundary**.
+- The default base is the exact existing Tech-Lead-owned Epic branch. Missing existence, mapping, SHA, or ownership evidence is a **Hard** gate before `$plan`; after warning, the user may explicitly authorize an exact fallback base or exact branch action and accept the recorded topology risk.
 - Create every Story, Task, or Subtask working branch directly from the Epic base.
 - Use the working branch as MR source and Epic base as target. Never substitute a parent issue branch or global integration branch.
 
-For a bug discovered after Task completion, verify the original Task, completed state, and Epic. Through `$interact-with-jira`, create exactly one specifically authorized bug-fix Subtask under it, re-read all required fields and ancestry, and use the new key for a new Epic-based working branch and MR. Reusing the old branch, commits, or MR is outside this workflow.
+For a bug discovered after Task completion, verify the original Task, completed state, and Epic. By default, use `$interact-with-jira` to create exactly one specifically authorized bug-fix Subtask under it, re-read all required fields and ancestry, and use the new key for a new Epic-based working branch and MR. Missing Subtask evidence or reuse of an old branch, commits, or MR is a **Hard** gate: pause and warn, then continue only under an explicit scoped override that identifies the exact issue and Git path and accepts the traceability risk.
 
 Prefer a one-to-two-day change. More than 400 changed lines is an **Advisory** exception by default; explain review and rollback risk and propose a smaller slice when reasonable.
 

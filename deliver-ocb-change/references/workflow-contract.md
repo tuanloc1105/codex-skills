@@ -40,11 +40,11 @@ Workflow State: MODE_UNRESOLVED
 
 | Gate | Applicability | Type | Evidence | Owner | State |
 | --- | --- | --- | --- | --- | --- |
-| Delivery mode and path classification | Required | Hard boundary | <evidence> | User/Developer | Pending |
+| Delivery mode and path classification | Required | Hard | <evidence or exact accepted assumption> | User/Developer | Pending |
 | Jira identity and hierarchy | Required | Hard | <evidence> | Developer | Pending |
-| New Subtask for post-completion bug | <Required/Not applicable> | Hard boundary | <evidence or reason> | User/Developer | Pending |
+| New Subtask for post-completion bug | <Required/Not applicable> | Hard | <evidence or reason> | User/Developer | Pending |
 | Domain acceptance source | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Product/Developer | Pending |
-| Epic base branch before plan | Required | Hard boundary | <evidence> | Tech Lead | Pending |
+| Epic base branch before plan | Required | Hard | <evidence or exact accepted fallback> | Tech Lead/User | Pending |
 | Working branch naming and MR traceability | Required | Hard | <evidence> | Developer | Pending |
 | Commit message prefix | Required for commit | Hard | <evidence> | Developer | Pending |
 | Reviewable work slice | Required | Advisory | <evidence> | Developer | Pending |
@@ -53,7 +53,7 @@ Workflow State: MODE_UNRESOLVED
 | Frontend/UI verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Frontend Developer | Pending |
 | AI attribution | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Developer | Pending |
 | Git delivery authorization | Required for listed actions | Hard | <bundle> | User | Pending |
-| Approval and merge | Not applicable: Reviewer/Lead owned | Hard boundary | <handoff> | Reviewer/Lead | Not started |
+| Approval and merge | Not applicable: outside delivery scope | Ownership limit | <handoff> | Reviewer/Lead | Not started |
 
 ### Gate Overrides
 
@@ -107,34 +107,36 @@ Workflow State: MODE_UNRESOLVED
 
 Use `Required`, `Not applicable`, or `Deferred` for applicability; every non-required entry needs its reason or resume checkpoint and owner. Use only `Pending`, `Passed`, `Failed`, `Overridden`, `Deferred`, or `Not applicable` for state.
 
-Classify gates from higher-priority instructions, core policy, applicable domain policies, Jira acceptance, and repository rules. Hard failures pause only dependent mutation until passed or validly overridden. Hard boundaries cannot be overridden. An override records failed gate, missing evidence, affected action, warning, explicit authorization, repository/state scope, reason, and residual risk, and expires when relevant state changes.
+Classify skill-defined gates from higher-priority instructions, core policy, applicable domain policies, Jira acceptance, and repository rules. Every `Hard` failure pauses only the dependent action until it passes or the user validly overrides it after warning. An override records the failed gate, missing evidence, affected action, warning, explicit risk acceptance and authorization, exact repository/state/target/scope, reason, and residual risk, and expires when relevant state changes. Mark the gate `Overridden`, never `Passed`, and never describe missing evidence as verified.
 
-Mode and path classification must be exact before `$plan` or mutation. In `mixed` mode, both domain policies apply to their classified paths and the union of applicable gates must pass. Never downgrade `mixed` to one domain merely because one side has fewer changed lines.
+If a failed gate leaves no executable value, the user must supply or explicitly select an exact value as part of the override. Risk acceptance alone does not authorize an unspecified Git mutation or let the agent guess a repository, issue, mode, path boundary, branch, remote, or MR target. Higher-priority instructions and safety constraints remain controlling and are not workflow gates.
 
-The post-completion bug Subtask and Epic-base prerequisites retain the hard boundaries in [core-policy.md](core-policy.md). Git authorization is valid only when every field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval alone is insufficient.
+Mode and path classification should be evidence-backed before `$plan` or mutation. If evidence is incomplete, pause and recommend the classification; continue only when the user explicitly authorizes an exact mode and path scope under a recorded override. In `mixed` mode, both domain policies apply to their classified paths and the union of applicable gates must pass or be individually overridden. Never downgrade `mixed` merely because one side has fewer changed lines.
+
+The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient.
 
 ## State updates
 
 Use and evidence these transitions:
 
-`MODE_UNRESOLVED` -> `JIRA_UNVERIFIED` -> `JIRA_VERIFIED` -> `EPIC_BASE_VERIFIED` -> `PLAN_APPROVED` -> `IMPLEMENTING` -> `CODE_READY` -> `MR_PREPARED` -> `MR_READY`
+`MODE_UNRESOLVED` -> `MODE_RESOLVED` -> `JIRA_RESOLVED` -> `EPIC_BASE_RESOLVED` -> `PLAN_APPROVED` -> `IMPLEMENTING` -> `CODE_READY` -> `MR_PREPARED` -> `MR_READY`
 
-- Enter `JIRA_UNVERIFIED` only after mode and path classification resolve.
-- Stay there until Jira identity, ancestry, and applicable acceptance-source status are verified, including any required new bug-fix Subtask.
-- Enter `EPIC_BASE_VERIFIED` only after exact remote existence, Epic mapping, SHA, and Tech Lead ownership are verified.
+- Enter `MODE_RESOLVED` after mode and path classification pass or receive an exact scoped override.
+- Enter `JIRA_RESOLVED` after Jira identity, ancestry, applicable acceptance status, and any post-completion Subtask gate each pass or receive a scoped override.
+- Enter `EPIC_BASE_RESOLVED` after the Epic-base gate passes or the user authorizes an exact fallback under a scoped override.
 - Enter `PLAN_APPROVED` only with an approved plan and complete contract.
-- Enter `IMPLEMENTING` after source-mutation gates pass or receive allowed scoped overrides.
-- Enter `CODE_READY` after applicable acceptance criteria and the common plus domain checks pass, or allowed overrides record residual risk.
+- Enter `IMPLEMENTING` after source-mutation gates pass or receive scoped overrides.
+- Enter `CODE_READY` after applicable acceptance criteria and common plus domain checks pass, or scoped overrides record residual risk.
 - Use `WAITING_EXTERNAL` when external credentials, permissions, approval, required evidence, tools, or systems prevent the next step. Record prior state, operation, owner, resume condition, and next check.
-- Resume only after revalidating stale evidence, mode/path classification, and authorization.
+- Resume only after revalidating stale evidence, mode/path classification, overrides, and authorization.
 
 When `$execute` owns execution, use its technical `Status: Blocked` only when the same condition meets that skill's blocker definition. Otherwise retain the truthful delivery state and resume checkpoint.
 
 ## Readiness definitions
 
-`MR_PREPARED` requires verified mode and path boundaries, Jira context and ancestry, any required new Subtask, applicable acceptance evidence or override, verified Epic base, intended working source and Epic target, completed implementation, common and domain verification or recorded overrides, reviewed session diff, and an English proposed handoff. Use it when an external condition prevents authorized branch creation, push, or MR creation.
+`MR_PREPARED` requires every applicable gate to be `Passed`, `Overridden`, or truthfully `Not applicable`; exact intended working source and MR target; completed implementation; reviewed session diff; and an English proposed handoff. Every override must remain visible with its missing evidence and residual risk. Use this state when an external condition prevents authorized branch creation, push, or MR creation.
 
-`MR_READY` additionally requires verified Epic-base ancestry, authorized push, and an existing MR in the correct GitLab repository targeting the Epic base. Source/target, title, description, and observable checks must pass or have allowed recorded overrides. Missing evidence is never verified by override; an unauthorized, uncreated, incorrectly targeted, non-Epic-based, or repository-ambiguous MR is never `MR_READY`.
+`MR_READY` additionally requires an authorized push and an existing MR in the exact GitLab repository with an exact source and target. Ancestry, title, description, and observable checks must pass or have recorded overrides. Missing evidence is never verified by override; an unauthorized, uncreated, or repository/target-ambiguous MR is never `MR_READY` because the required action itself is not exactly defined or authorized.
 
 ## Handoff format
 
