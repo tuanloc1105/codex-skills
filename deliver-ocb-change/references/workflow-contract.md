@@ -82,6 +82,7 @@ Workflow State: MODE_UNRESOLVED
 
 - Repository: <absolute path and GitLab project>
 - Exact actions: <create branch, commit, push, create MR; list only authorized actions>
+- Pre-implementation branch/commit authorization: <current-session evidence or unresolved; required before source mutation>
 - Epic base branch: <remote ref and SHA>
 - Working source branch: <exact branch>
 - Remote and MR target: <exact values>
@@ -113,7 +114,7 @@ If a failed gate leaves no executable value, the user must supply or explicitly 
 
 Mode and path classification should be evidence-backed before `$plan` or mutation. If evidence is incomplete, pause and recommend the classification; continue only when the user explicitly authorizes an exact mode and path scope under a recorded override. In `mixed` mode, both domain policies apply to their classified paths and the union of applicable gates must pass or be individually overridden. Never downgrade `mixed` merely because one side has fewer changed lines.
 
-The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient.
+The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient. When implementation will create local commits, working-branch creation and commit authorization must be resolved before entering `IMPLEMENTING`. Push and MR authorization may remain pending until code is ready. Do not use a pending commit gate as permission to accumulate uncommitted implementation.
 
 ## State updates
 
@@ -125,7 +126,7 @@ Use and evidence these transitions:
 - Enter `JIRA_RESOLVED` after Jira identity, ancestry, applicable acceptance status, and any post-completion Subtask gate each pass or receive a scoped override.
 - Enter `EPIC_BASE_RESOLVED` after the Epic-base gate passes or the user authorizes an exact fallback under a scoped override.
 - Enter `PLAN_APPROVED` only with an approved plan and complete contract.
-- Enter `IMPLEMENTING` after source-mutation gates pass or receive scoped overrides.
+- Enter `IMPLEMENTING` after source-mutation gates pass or receive scoped overrides and, for Git-backed implementation, exact working-branch creation and local incremental-commit authorization are recorded for every affected repository.
 - Enter `CODE_READY` after applicable acceptance criteria and common plus domain checks pass, or scoped overrides record residual risk.
 - Use `WAITING_EXTERNAL` when external credentials, permissions, approval, required evidence, tools, or systems prevent the next step. Record prior state, operation, owner, resume condition, and next check.
 - Resume only after revalidating stale evidence, mode/path classification, overrides, and authorization.

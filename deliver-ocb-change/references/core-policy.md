@@ -38,7 +38,11 @@ Prefer a one-to-two-day change. More than 400 changed lines is an **Advisory** e
 
 ## Developer and Git boundary
 
-Prepare a complete, reviewable MR with relevant evidence. Require exact, current authorization for working-branch creation, commit, push, and MR creation. Plan approval alone is not Git authorization. Never self-approve, merge, modify GitLab administration, deploy, release, perform Mobile delivery, or claim post-merge metrics.
+Prepare a complete, reviewable MR with relevant evidence. Require exact, current authorization for working-branch creation, commit, push, and MR creation. Plan approval alone is not Git authorization.
+
+Resolve working-branch creation and local-commit authorization before the first source mutation in every affected repository. A single current-session authorization may cover all planned local incremental commits for the exact repository, branch, Jira scope, and authorized path/diff scope; it does not authorize push or MR creation. If local commits are not authorized, pause implementation before editing source. Never implement an entire phase into the working tree and ask for commit authorization only afterward. Once authorized, commit each smallest complete verified unit immediately under the active execution or coding workflow.
+
+Never self-approve, merge, modify GitLab administration, deploy, release, perform Mobile delivery, or claim post-merge metrics.
 
 Before `glab`, verify installed version, leaf help, authentication, repository, and identity. Use explicit source and target. Never use interactive defaults, auto-merge, or merge flags.
 
