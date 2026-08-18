@@ -1,0 +1,4 @@
+interface:
+  display_name: "Interact with Git Platforms"
+  short_description: "Safely use gh, glab, and tea across Git hosts"
+  default_prompt: "Use $interact-with-git-platform to handle this GitHub, GitLab, or Gitea CLI task with verified host, repository, and identity context."
