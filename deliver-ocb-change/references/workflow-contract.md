@@ -42,6 +42,8 @@ Workflow State: MODE_UNRESOLVED
 - Measurement method: <LinearB value or additions plus deletions fallback>
 - Expected touchpoints: <paths and change types>
 - Pre-code estimate: <changed lines, supporting evidence, and confidence>
+- Size classification: <handwritten/non-generated lines; qualifying spec/documentation lines; deterministic generated lines; exact paths>
+- Artifact exception: <not required, pending, or evidence of provenance, regeneration, indivisibility, warning, and exact user authorization>
 - Split required: <yes or no with reason>
 - Current Jira slice: <key, acceptance boundary, branch, and intended PR>
 - Additional Jira slices: <keys when verified; otherwise recommended types, parent/Epic, scope, dependencies, acceptance, verification, and per-PR estimates>
@@ -59,8 +61,8 @@ Workflow State: MODE_UNRESOLVED
 | Epic base branch before plan | Required | Hard | <evidence or exact accepted fallback> | Tech Lead/User | Pending |
 | Working branch naming and MR traceability | Required | Hard | <evidence> | Developer | Pending |
 | Commit message prefix | Required for commit | Hard | <evidence> | Developer | Pending |
-| Pre-code PR size at or below effective maximum | Required before plan approval or source mutation | Hard; no override | <estimate and evidence> | Developer | Pending |
-| Actual PR size at or below effective maximum | Required before CODE_READY, push, or MR creation | Hard; no override | <measurement and base> | Developer | Pending |
+| Pre-code PR size at or below effective maximum | Required before plan approval or source mutation | Hard; scoped artifact exception only | <estimate, classification, and exception evidence> | Developer/User | Pending |
+| Actual PR size at or below effective maximum | Required before CODE_READY, push, or MR creation | Hard; scoped artifact exception only | <measurement, base, classification, and regeneration evidence> | Developer/User | Pending |
 | Common repository checks | Required | Hard | <evidence> | Developer | Pending |
 | Backend verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Backend Developer | Pending |
 | Frontend/UI verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Frontend Developer | Pending |
@@ -121,13 +123,13 @@ Workflow State: MODE_UNRESOLVED
 
 Use `Required`, `Not applicable`, or `Deferred` for applicability; every non-required entry needs its reason or resume checkpoint and owner. Use only `Pending`, `Passed`, `Failed`, `Overridden`, `Deferred`, or `Not applicable` for state.
 
-Classify skill-defined gates from higher-priority instructions, core policy, applicable domain policies, Jira acceptance, and repository rules. The pre-code and actual PR-size gates are non-overridable within this workflow. Every other `Hard` failure pauses only the dependent action until it passes or the user validly overrides it after warning. An override records the failed gate, missing evidence, affected action, warning, explicit risk acceptance and authorization, exact repository/state/target/scope, reason, and residual risk, and expires when relevant state changes. Mark the gate `Overridden`, never `Passed`, and never describe missing evidence as verified.
+Classify skill-defined gates from higher-priority instructions, core policy, applicable domain policies, Jira acceptance, and repository rules. The pre-code and actual PR-size gates may be overridden only by the complete scoped artifact exception in [core-policy.md](core-policy.md); ordinary handwritten excess remains blocked. Every other `Hard` failure pauses only the dependent action until it passes or the user validly overrides it after warning. An override records the failed gate, missing evidence, affected action, warning, explicit risk acceptance and authorization, exact repository/state/target/scope, reason, and residual risk, and expires when relevant state changes. Mark the gate `Overridden`, never `Passed`, and never describe missing evidence as verified.
 
 If a failed gate leaves no executable value, the user must supply or explicitly select an exact value as part of the override. Risk acceptance alone does not authorize an unspecified Git mutation or let the agent guess a repository, issue, mode, path boundary, branch, remote, or MR target. Higher-priority instructions and safety constraints remain controlling and are not workflow gates.
 
 Mode and path classification should be evidence-backed before `$plan` or mutation. If evidence is incomplete, pause and recommend the classification; continue only when the user explicitly authorizes an exact mode and path scope under a recorded override. In `mixed` mode, both domain policies apply to their classified paths and the union of applicable gates must pass or be individually overridden. Never downgrade `mixed` merely because one side has fewer changed lines.
 
-The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Before plan approval or source mutation, require the PR-size section to identify expected touchpoints, measurement method, effective maximum, and a supported estimate. If the estimate is unresolved or too large, recommend Jira slices according to the current issue type, keep the workflow before `PLAN_APPROVED`, and do not mutate source. Plan phases and incremental commits do not replace the requirement for a separately traceable Jira slice, branch, and PR. Jira creation or editing requires exact authorization through `$interact-with-jira`, followed by relationship verification. Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient. When implementation will create local commits, working-branch creation and commit authorization must be resolved before entering `IMPLEMENTING`. Push and MR authorization may remain pending until code is ready. Do not use a pending commit gate as permission to accumulate uncommitted implementation.
+The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Before plan approval or source mutation, require the PR-size section to identify expected touchpoints, measurement method, effective maximum, a supported estimate, and separated line classifications when an artifact exception may apply. If the estimate is unresolved or too large and no complete artifact exception applies, recommend Jira slices according to the current issue type, keep the workflow before `PLAN_APPROVED`, and do not mutate source. Plan phases and incremental commits do not replace the requirement for a separately traceable Jira slice, branch, and PR. Jira creation or editing requires exact authorization through `$interact-with-jira`, followed by relationship verification. Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient. When implementation will create local commits, working-branch creation and commit authorization must be resolved before entering `IMPLEMENTING`. Push and MR authorization may remain pending until code is ready. Do not use a pending commit gate as permission to accumulate uncommitted implementation.
 
 ## State updates
 
@@ -138,9 +140,9 @@ Use and evidence these transitions:
 - Enter `MODE_RESOLVED` after mode and path classification pass or receive an exact scoped override.
 - Enter `JIRA_RESOLVED` after Jira identity, ancestry, applicable acceptance status, and any post-completion Subtask gate each pass or receive a scoped override.
 - Enter `EPIC_BASE_RESOLVED` after the Epic-base gate passes or the user authorizes an exact fallback under a scoped override.
-- Enter `PLAN_APPROVED` only with an approved plan, complete contract, and a passed pre-code PR-size gate for every planned Jira slice. A failed or unresolved size gate cannot be overridden.
-- Enter `IMPLEMENTING` after the current Jira slice's pre-code PR-size gate passes, other source-mutation gates pass or receive scoped overrides, and, for Git-backed implementation, exact working-branch creation and local incremental-commit authorization are recorded for every affected repository.
-- Enter `CODE_READY` after the actual intended PR diff is measured at or below the effective maximum and applicable acceptance criteria and common plus domain checks pass, or scoped overrides record residual risk for gates other than PR size.
+- Enter `PLAN_APPROVED` only with an approved plan, complete contract, and a pre-code PR-size gate that is `Passed` or validly `Overridden` through the scoped artifact exception for every planned Jira slice. An unresolved size gate cannot proceed.
+- Enter `IMPLEMENTING` after the current Jira slice's pre-code PR-size gate passes or receives a valid artifact exception, other source-mutation gates pass or receive scoped overrides, and, for Git-backed implementation, exact working-branch creation and local incremental-commit authorization are recorded for every affected repository.
+- Enter `CODE_READY` after the actual intended PR diff is measured and the size gate is `Passed` or validly `Overridden` through the scoped artifact exception, and applicable acceptance criteria and common plus domain checks pass or receive allowed scoped overrides.
 - Use `WAITING_EXTERNAL` when external credentials, permissions, approval, required evidence, tools, or systems prevent the next step. Record prior state, operation, owner, resume condition, and next check.
 - Resume only after revalidating stale evidence, mode/path classification, overrides, and authorization.
 
@@ -148,7 +150,7 @@ When `$execute` owns execution, use its technical `Status: Blocked` only when th
 
 ## Readiness definitions
 
-`MR_PREPARED` requires every applicable gate to be `Passed`, `Overridden`, or truthfully `Not applicable`; the non-overridable actual PR-size gate must be `Passed`; exact intended working source and MR target; completed implementation; reviewed session diff; and an English proposed handoff. Every override must remain visible with its missing evidence and residual risk. Use this state when an external condition prevents authorized branch creation, push, or MR creation.
+`MR_PREPARED` requires every applicable gate to be `Passed`, `Overridden`, or truthfully `Not applicable`; an overridden actual PR-size gate must contain the complete artifact-exception evidence and separated measurements; exact intended working source and MR target; completed implementation; reviewed session diff; and an English proposed handoff. Every override must remain visible with its missing evidence and residual risk. Use this state when an external condition prevents authorized branch creation, push, or MR creation.
 
 `MR_READY` additionally requires an authorized push and an existing MR in the exact GitLab repository with an exact source and target. Ancestry, title, description, and observable checks must pass or have recorded overrides. Missing evidence is never verified by override; an unauthorized, uncreated, or repository/target-ambiguous MR is never `MR_READY` because the required action itself is not exactly defined or authorized.
 
