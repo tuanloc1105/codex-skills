@@ -5,6 +5,16 @@ description: Persistent execution and evidence-tracking mode for an approved Mar
 
 # Execute
 
+## Workflow Modes Hook
+
+When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run lifecycle calls with the exact absolute path and `--marker workflow-modes-v1`.
+
+- On fresh-session adoption, after validating and persisting `Execute mode: Active`, run `activate execute --record <execution-record>` before implementation.
+- On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then run `activate execute --record <execution-record>` to confirm or rebind the same active record.
+- When the user explicitly exits execute and the exit metadata is durable, run `deactivate`. Implementation completion alone must never call `deactivate`.
+
+Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin or control script is unavailable, read-only adoption and evidence updates may continue, but do not begin or resume implementation; report that lifecycle enforcement must be installed and trusted. Never bypass a denied hook decision.
+
 Use this skill to adopt either an approved `$plan` handoff or an execution-ready `$discuss` tracker as a persistent execution and evidence record. In the rules below, “plan” means the exact adopted execution record regardless of which skill produced it.
 
 ## Persistent Mode Contract

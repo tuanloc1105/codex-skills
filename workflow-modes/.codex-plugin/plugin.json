@@ -1,0 +1,21 @@
+{
+  "name": "workflow-modes",
+  "version": "0.1.0+codex.20260820132731",
+  "description": "Persist and enforce discuss, plan, and execute workflow modes across long Codex sessions and context compaction.",
+  "author": {
+    "name": "Local developer"
+  },
+  "interface": {
+    "displayName": "Workflow Modes",
+    "shortDescription": "Keep discuss, plan, and execute modes durable.",
+    "longDescription": "Workflow Modes provides dormant lifecycle hooks that persist active mode metadata outside model context, restore it after compaction, and guard mutations according to the active tracker-backed workflow.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": [
+      "Mode persistence",
+      "Post-compaction recovery",
+      "Mutation guardrails"
+    ],
+    "defaultPrompt": "Use $discuss, $plan, or $execute with durable workflow-mode guardrails."
+  }
+}

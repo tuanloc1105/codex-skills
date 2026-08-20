@@ -1,0 +1,67 @@
+{
+  "description": "Dormant tracker-backed guardrails for discuss, plan, and execute modes.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
+            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
+            "timeout": 3,
+            "additionalContextLimit": 900
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
+            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
+            "timeout": 3,
+            "additionalContextLimit": 900
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
+            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
+            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
+            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

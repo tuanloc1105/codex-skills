@@ -5,6 +5,17 @@ description: Plan-first collaboration workflow for Codex. Use when the user expl
 
 # Plan
 
+## Workflow Modes Hook
+
+When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run lifecycle calls with the exact absolute path and `--marker workflow-modes-v1`.
+
+- On fresh `$plan` entry, run `activate plan` before substantive inspection or any mutation. This initial activation intentionally has no record path.
+- On entry from `$discuss`, require its persisted `transition plan --record <discussion-tracker>` result instead of reactivating a different mode.
+- As soon as the final plan path is exclusively reserved or adopted, run `activate plan --record <plan-path>` to bind the guard to that exact file.
+- After approval and after the plan's execute-ready metadata is durable, run `transition execute --record <plan-path>` before handing control to `$execute`.
+
+Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin is unavailable, planning may continue because it is read-only apart from plan housekeeping, but state that lifecycle enforcement is unavailable. Never mutate source in plan or bypass a denied hook decision.
+
 Use this skill to turn an ambiguous or important request into an approved execution plan and a durable handoff document.
 
 ## Plan-First Boundary

@@ -1,7 +1,7 @@
 interface:
   display_name: "Discuss"
   short_description: "Discuss, track, then choose plan or execute"
-  default_prompt: "Use $discuss to discuss this topic without source-code changes, keep a self-contained tracker with source provenance and an exact resume checkpoint, pause at the first material user-owned decision, and persist the tracker before every substantive response. When I provide an existing tracker as a handoff, read it completely and continue that exact file. When the discussion is settled, ask whether I want $plan or $execute; if I choose $execute, finalize the same file as an execution-ready handoff and exit discuss only after it is durable."
+  default_prompt: "Use $discuss to keep a self-contained tracker with source provenance and an exact resume checkpoint, pause at the first material user-owned decision, and persist the tracker before every substantive response. If I request and confirm a bounded action that affects source code, perform and verify only that action, record its result, then automatically return to discuss. Keep discuss active until I transition with $plan or $execute; if I choose $execute, finalize the same file as an execution-ready handoff before exiting discuss."
 
 policy:
   allow_implicit_invocation: false
