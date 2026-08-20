@@ -68,9 +68,9 @@ Prepare a complete, reviewable MR with relevant evidence. Require exact, current
 
 Resolve working-branch creation and local-commit authorization before the first source mutation in every affected repository. A single current-session authorization may cover all planned local incremental commits for the exact repository, branch, Jira scope, and authorized path/diff scope; it does not authorize push or MR creation. If local commits are not authorized, pause implementation before editing source. Never implement an entire phase into the working tree and ask for commit authorization only afterward. Once authorized, commit each smallest complete verified unit immediately under the active execution or coding workflow.
 
-Never self-approve, merge, modify GitLab administration, deploy, release, perform Mobile delivery, or claim post-merge metrics.
+Never self-approve or modify GitLab administration. Once a Tech Lead approval is verified on the exact MR and required checks and GitLab mergeability pass, the Developer may proactively merge without requiring the Tech Lead to perform the merge. Never bypass approval, protected-branch, pipeline, or mergeability controls. Deployment, release, Mobile delivery, and post-merge metrics remain out of scope.
 
-Before `glab`, verify installed version, leaf help, authentication, repository, and identity. Use explicit source and target. Never use interactive defaults, auto-merge, or merge flags.
+Before `glab`, verify installed version, leaf help, authentication, repository, and identity. Use explicit source and target. Never use interactive defaults or auto-merge. Before a merge command, also verify the Tech Lead approver identity and approval state, current source and target, pipeline/check state, mergeability, and current MR SHA.
 
 ## Repository-aware AI attribution
 
@@ -86,4 +86,4 @@ Use only attribution explicitly permitted by higher-priority policy, repository 
 
 ## Out-of-scope ownership
 
-Developer ownership ends at verified `MR_READY`. Review approval, merge, GitLab administration, deployment, release, DevSecOps, Service Operations, Mobile delivery, and post-merge reporting belong to other roles or workflows.
+Developer ownership continues through verified `MERGED`: the Tech Lead owns review and approval, and the Developer owns the merge after that approval. GitLab administration, deployment, release, DevSecOps, Service Operations, Mobile delivery, and post-merge reporting belong to other roles or workflows.

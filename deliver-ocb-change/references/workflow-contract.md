@@ -67,8 +67,10 @@ Workflow State: MODE_UNRESOLVED
 | Backend verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Backend Developer | Pending |
 | Frontend/UI verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Frontend Developer | Pending |
 | AI attribution | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Developer | Pending |
-| Git delivery authorization | Required for listed actions | Hard | <bundle> | User | Pending |
-| Approval and merge | Not applicable: outside delivery scope | Ownership limit | <handoff> | Reviewer/Lead | Not started |
+| Git delivery authorization | Required for listed actions before MR creation | Hard | <bundle> | User | Pending |
+| Tech Lead approval | Required before merge | Hard; not overridable | <approver identity and current approval evidence> | Tech Lead | Pending |
+| Merge readiness | Required before merge | Hard; not overridable | <source, target, SHA, checks, and GitLab mergeability> | Developer | Pending |
+| Developer merge | Required after Tech Lead approval | Hard | <merge commit/result evidence> | Developer | Pending |
 
 ### Gate Overrides
 
@@ -96,7 +98,7 @@ Workflow State: MODE_UNRESOLVED
 ### Git Delivery Authorization
 
 - Repository: <absolute path and GitLab project>
-- Exact actions: <create branch, commit, push, create MR; list only authorized actions>
+- Exact actions: <create branch, commit, push, create MR; list only user-authorized actions; merge is governed separately by verified Tech Lead approval>
 - Pre-implementation branch/commit authorization: <current-session evidence or unresolved; required before source mutation>
 - Epic base branch: <remote ref and SHA>
 - Working source branch: <exact branch>
@@ -116,6 +118,8 @@ Workflow State: MODE_UNRESOLVED
 - MR URL/IID: <verified value or unavailable>
 - Verified source/target/title/description: <evidence>
 - Observable pipeline/check state: <state and observation time>
+- Tech Lead approval: <approver identity, approval state, and observation time>
+- Merge evidence: <merge result, resulting SHA, and observation time, or pending>
 - Risks and remaining owner: <details>
 ```
 
@@ -135,7 +139,7 @@ The post-completion bug Subtask and Epic-base prerequisites use the warning-and-
 
 Use and evidence these transitions:
 
-`MODE_UNRESOLVED` -> `MODE_RESOLVED` -> `JIRA_RESOLVED` -> `EPIC_BASE_RESOLVED` -> `PLAN_APPROVED` -> `IMPLEMENTING` -> `CODE_READY` -> `MR_PREPARED` -> `MR_READY`
+`MODE_UNRESOLVED` -> `MODE_RESOLVED` -> `JIRA_RESOLVED` -> `EPIC_BASE_RESOLVED` -> `PLAN_APPROVED` -> `IMPLEMENTING` -> `CODE_READY` -> `MR_PREPARED` -> `MR_READY` -> `MERGED`
 
 - Enter `MODE_RESOLVED` after mode and path classification pass or receive an exact scoped override.
 - Enter `JIRA_RESOLVED` after Jira identity, ancestry, applicable acceptance status, and any post-completion Subtask gate each pass or receive a scoped override.
@@ -143,6 +147,7 @@ Use and evidence these transitions:
 - Enter `PLAN_APPROVED` only with an approved plan, complete contract, and a pre-code PR-size gate that is `Passed` or validly `Overridden` through the scoped artifact exception for every planned Jira slice. An unresolved size gate cannot proceed.
 - Enter `IMPLEMENTING` after the current Jira slice's pre-code PR-size gate passes or receives a valid artifact exception, other source-mutation gates pass or receive scoped overrides, and, for Git-backed implementation, exact working-branch creation and local incremental-commit authorization are recorded for every affected repository.
 - Enter `CODE_READY` after the actual intended PR diff is measured and the size gate is `Passed` or validly `Overridden` through the scoped artifact exception, and applicable acceptance criteria and common plus domain checks pass or receive allowed scoped overrides.
+- Enter `MERGED` only after verifying current Tech Lead approval on the exact MR, unchanged expected source and target, current MR SHA, required pipeline/check results, GitLab mergeability, and successful Developer-performed merge. Tech Lead approval is sufficient authorization under this workflow for the Developer to perform the merge; the Tech Lead does not need to perform it.
 - Use `WAITING_EXTERNAL` when external credentials, permissions, approval, required evidence, tools, or systems prevent the next step. Record prior state, operation, owner, resume condition, and next check.
 - Resume only after revalidating stale evidence, mode/path classification, overrides, and authorization.
 
@@ -154,6 +159,8 @@ When `$execute` owns execution, use its technical `Status: Blocked` only when th
 
 `MR_READY` additionally requires an authorized push and an existing MR in the exact GitLab repository with an exact source and target. Ancestry, title, description, and observable checks must pass or have recorded overrides. Missing evidence is never verified by override; an unauthorized, uncreated, or repository/target-ambiguous MR is never `MR_READY` because the required action itself is not exactly defined or authorized.
 
+`MERGED` additionally requires verified approval from a Tech Lead on that exact MR, current required checks, a mergeable GitLab state, an unchanged expected source and target, and evidence that the Developer's merge completed successfully. Tech Lead approval and merge-readiness gates are not overridable. Never self-approve, enable auto-merge, bypass controls, or treat an approval from an unverified role as Tech Lead approval.
+
 ## Handoff format
 
 Report in English:
@@ -164,4 +171,5 @@ Report in English:
 4. Implementation summary and exact session diff boundary
 5. Common, backend, and frontend checks with results, exceptions, and residual risks
 6. Preserved unrelated changes
-7. Next owner and actions, stopping before approval, merge, deployment, or release
+7. Tech Lead approval and Developer merge evidence, or the exact owner and resume condition when waiting
+8. Next owner and actions, stopping before deployment or release
