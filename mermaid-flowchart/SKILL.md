@@ -18,7 +18,7 @@ Turn the relevant facts in the current task into a readable Mermaid flowchart an
 
 ## Write and verify artifacts
 
-- When the user wants an artifact, write the Mermaid source to a meaningful `.mmd` path in the current workspace. Do not overwrite an existing file unless the request clearly targets it.
+- When the user wants an artifact, write the Mermaid source to a meaningful `.mmd` path in the current workspace. During an active `$discuss` session, default both the Mermaid source and rendered artifacts to `./discussion/` relative to the workspace captured by `$discuss`, unless the user specifies another destination. Do not overwrite an existing file unless the request clearly targets it.
 - Validate with `scripts/validate_mermaid.sh <input.mmd>`.
 - Render SVG with `scripts/render_mermaid.sh <input.mmd> <output.svg>`. PNG and PDF are supported when requested by using the corresponding output extension.
 - The scripts require an already-installed Mermaid CLI and local browser runtime; they never download dependencies. The renderer honors `MERMAID_PUPPETEER_CONFIG_FILE`, otherwise it discovers a Puppeteer-cached browser and creates a temporary config. In Codex, browser launch may require approval to rerun the same render command outside the process sandbox. If either runtime remains unavailable, still provide the Mermaid source and state that render validation was not run.
