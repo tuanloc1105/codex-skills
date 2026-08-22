@@ -25,7 +25,7 @@ Workflow State: MODE_UNRESOLVED
 - Working issue type and direct parent: <evidence or unresolved>
 - Epic evidence: <key/source or unresolved>
 - Delivery mode: <new work, post-completion bug fix, or unresolved>
-- Completed Task and bug-fix Subtask: <evidence, not applicable with reason, or unresolved>
+- Completed Story or Task and bug-fix Subtask: <evidence, not applicable with reason, or unresolved>
 - Epic base branch: <remote branch, SHA, existence and ownership evidence, or unresolved>
 - Acceptance/design source: <source, not applicable with reason, or unresolved>
 
