@@ -19,13 +19,13 @@ Workflow State: MODE_UNRESOLVED
 
 ### Jira and Acceptance Evidence
 
-- Working Jira key: <Story/Task/Subtask key or unresolved>
+- Working Jira key: <Story/Task/Bug/Subtask key or unresolved>
 - Username: <value and source or unresolved>
 - Site/account status: <verified, ambiguous, unavailable, or unresolved>
 - Working issue type and direct parent: <evidence or unresolved>
 - Epic evidence: <key/source or unresolved>
 - Delivery mode: <new work, post-completion bug fix, or unresolved>
-- Completed Story or Task and bug-fix Subtask: <evidence, not applicable with reason, or unresolved>
+- Completed Story, Task, or Bug and bug-fix Subtask: <evidence, not applicable with reason, or unresolved>
 - Epic base branch: <remote branch, SHA, existence and ownership evidence, or unresolved>
 - Acceptance/design source: <source, not applicable with reason, or unresolved>
 

@@ -25,14 +25,14 @@ Resolve `username` from the current request, approved/current plan, or authorita
 
 Verify issue ancestry and Epic topology before planning or mutation:
 
-- Story and Task are peer issue types that belong directly to an Epic.
-- A Subtask belongs to a direct-parent Story or Task, and that parent belongs to the delivery Epic.
+- Story, Task, and Bug are peer issue types that belong directly to an Epic.
+- A Subtask belongs to a direct-parent Story, Task, or Bug, and that parent belongs to the delivery Epic.
 - A prose key mention is not relationship evidence.
 - The default base is the exact existing Tech-Lead-owned Epic branch. Missing existence, mapping, SHA, or ownership evidence is a **Hard** gate before `$plan`; after warning, the user may explicitly authorize an exact fallback base or exact branch action and accept the recorded topology risk.
-- Create every Story, Task, or Subtask working branch directly from the Epic base.
+- Create every Story, Task, Bug, or Subtask working branch directly from the Epic base.
 - Use the working branch as MR source and Epic base as target. Never substitute a parent issue branch or global integration branch.
 
-For a bug discovered after Story or Task completion, verify the original issue, its Story-or-Task type, completed state, and Epic. By default, use `$interact-with-jira` to create exactly one specifically authorized bug-fix Subtask under it, re-read all required fields and ancestry, and use the new key for a new Epic-based working branch and MR. Missing Subtask evidence or reuse of an old branch, commits, or MR is a **Hard** gate: pause and warn, then continue only under an explicit scoped override that identifies the exact issue and Git path and accepts the traceability risk.
+For a correction discovered after Story, Task, or Bug completion, verify the original issue, its Story, Task, or Bug type, completed state, and Epic. By default, use `$interact-with-jira` to create exactly one specifically authorized bug-fix Subtask under it, re-read all required fields and ancestry, and use the new key for a new Epic-based working branch and MR. Missing Subtask evidence or reuse of an old branch, commits, or MR is a **Hard** gate: pause and warn, then continue only under an explicit scoped override that identifies the exact issue and Git path and accepts the traceability risk.
 
 ## PR-size boundary and scoped artifact exception
 
@@ -56,8 +56,8 @@ The exception changes only the size-gate outcome. It does not waive Jira traceab
 
 Split Jira work without violating the verified hierarchy:
 
-- For a Story or Task, recommend child Subtasks.
-- For a Subtask, narrow it to the first compliant slice and recommend sibling Subtasks under the same parent Story or Task. If it cannot be narrowed, recommend new sibling Subtasks and ask the user how to disposition the original.
+- For a Story, Task, or Bug, recommend child Subtasks.
+- For a Subtask, narrow it to the first compliant slice and recommend sibling Subtasks under the same parent Story, Task, or Bug. If it cannot be narrowed, recommend new sibling Subtasks and ask the user how to disposition the original.
 
 Give each slice its own Jira key, acceptance boundary, estimate, working branch, and PR. Record dependencies and verification per slice. Never create or edit Jira work items without exact user authorization; after mutation, re-read their keys, types, parents, and Epic ancestry. Do not begin code for a slice until its Jira evidence, approved scope, and pre-code estimate pass.
 
