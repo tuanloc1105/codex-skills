@@ -26,6 +26,7 @@ Workflow State: MODE_UNRESOLVED
 - Epic evidence: <key/source or unresolved>
 - Delivery mode: <new work, post-completion bug fix, or unresolved>
 - Completed Story, Task, or Bug and bug-fix Subtask: <evidence, not applicable with reason, or unresolved>
+- Jira Done transition: <authorized action, resulting status and evidence, deferred with owner, or not applicable with reason>
 - Epic base branch: <remote branch, SHA, existence and ownership evidence, or unresolved>
 - Acceptance/design source: <source, not applicable with reason, or unresolved>
 
@@ -68,6 +69,7 @@ Workflow State: MODE_UNRESOLVED
 | Frontend/UI verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Frontend Developer | Pending |
 | AI attribution | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Developer | Pending |
 | Git delivery authorization | Required for listed actions before MR creation | Hard | <bundle> | User | Pending |
+| Jira Done transition after MR creation | <Required when authorized/Deferred/Not applicable> | Hard for the transition only | <CODE_READY, MR repository/source/target, authorization, and re-read status> | User/Developer | Pending |
 | Tech Lead approval | Required before merge | Hard; not overridable | <approver identity and current approval evidence> | Tech Lead | Pending |
 | Merge readiness | Required before merge | Hard; not overridable | <source, target, SHA, checks, and GitLab mergeability> | Developer | Pending |
 | Developer merge | Required after Tech Lead approval | Hard | <merge commit/result evidence> | Developer | Pending |
@@ -117,6 +119,7 @@ Workflow State: MODE_UNRESOLVED
 
 - MR URL/IID: <verified value or unavailable>
 - Verified source/target/title/description: <evidence>
+- Jira Done evidence: <issue key, transition authorization, resulting status, and observation time; deferred owner; or not applicable>
 - Observable pipeline/check state: <state and observation time>
 - Tech Lead approval: <approver identity, approval state, and observation time>
 - Merge evidence: <merge result, resulting SHA, and observation time, or pending>
@@ -133,7 +136,7 @@ If a failed gate leaves no executable value, the user must supply or explicitly 
 
 Mode and path classification should be evidence-backed before `$plan` or mutation. If evidence is incomplete, pause and recommend the classification; continue only when the user explicitly authorizes an exact mode and path scope under a recorded override. In `mixed` mode, both domain policies apply to their classified paths and the union of applicable gates must pass or be individually overridden. Never downgrade `mixed` merely because one side has fewer changed lines.
 
-The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Before plan approval or source mutation, require the PR-size section to identify expected touchpoints, measurement method, effective maximum, a supported estimate, and separated line classifications when an artifact exception may apply. If the estimate is unresolved or too large and no complete artifact exception applies, recommend Jira slices according to the current issue type, keep the workflow before `PLAN_APPROVED`, and do not mutate source. Plan phases and incremental commits do not replace the requirement for a separately traceable Jira slice, branch, and PR. Jira creation or editing requires exact authorization through `$interact-with-jira`, followed by relationship verification. Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient. When implementation will create local commits, working-branch creation and commit authorization must be resolved before entering `IMPLEMENTING`. Push and MR authorization may remain pending until code is ready. Do not use a pending commit gate as permission to accumulate uncommitted implementation.
+The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Before plan approval or source mutation, require the PR-size section to identify expected touchpoints, measurement method, effective maximum, a supported estimate, and separated line classifications when an artifact exception may apply. If the estimate is unresolved or too large and no complete artifact exception applies, recommend Jira slices according to the current issue type, keep the workflow before `PLAN_APPROVED`, and do not mutate source. Plan phases and incremental commits do not replace the requirement for a separately traceable Jira slice, branch, and PR. Jira creation, editing, or status transition requires exact authorization through `$interact-with-jira`, followed by relationship or resulting-status verification as applicable. Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient. When implementation will create local commits, working-branch creation and commit authorization must be resolved before entering `IMPLEMENTING`. Push and MR authorization may remain pending until code is ready. Do not use a pending commit gate as permission to accumulate uncommitted implementation.
 
 ## State updates
 
@@ -147,6 +150,7 @@ Use and evidence these transitions:
 - Enter `PLAN_APPROVED` only with an approved plan, complete contract, and a pre-code PR-size gate that is `Passed` or validly `Overridden` through the scoped artifact exception for every planned Jira slice. An unresolved size gate cannot proceed.
 - Enter `IMPLEMENTING` after the current Jira slice's pre-code PR-size gate passes or receives a valid artifact exception, other source-mutation gates pass or receive scoped overrides, and, for Git-backed implementation, exact working-branch creation and local incremental-commit authorization are recorded for every affected repository.
 - Enter `CODE_READY` after the actual intended PR diff is measured and the size gate is `Passed` or validly `Overridden` through the scoped artifact exception, and applicable acceptance criteria and common plus domain checks pass or receive allowed scoped overrides.
+- After `CODE_READY`, once the MR exists with the expected repository, source, and target, transition the working Jira issue to `Done` immediately when the exact transition is authorized, then re-read and record the resulting status. This transition does not require pipeline results, Tech Lead approval, mergeability, `MR_READY`, or merge evidence. If it is unauthorized or unavailable, defer only the Jira transition with an owner and resume condition; do not block the independent review-and-merge path.
 - Enter `MERGED` only after verifying current Tech Lead approval on the exact MR, unchanged expected source and target, current MR SHA, required pipeline/check results, GitLab mergeability, and successful Developer-performed merge. Tech Lead approval is sufficient authorization under this workflow for the Developer to perform the merge; the Tech Lead does not need to perform it.
 - Use `WAITING_EXTERNAL` when external credentials, permissions, approval, required evidence, tools, or systems prevent the next step. Record prior state, operation, owner, resume condition, and next check.
 - Resume only after revalidating stale evidence, mode/path classification, overrides, and authorization.
@@ -157,7 +161,7 @@ When `$execute` owns execution, use its technical `Status: Blocked` only when th
 
 `MR_PREPARED` requires every applicable gate to be `Passed`, `Overridden`, or truthfully `Not applicable`; an overridden actual PR-size gate must contain the complete artifact-exception evidence and separated measurements; exact intended working source and MR target; completed implementation; reviewed session diff; and an English proposed handoff. Every override must remain visible with its missing evidence and residual risk. Use this state when an external condition prevents authorized branch creation, push, or MR creation.
 
-`MR_READY` additionally requires an authorized push and an existing MR in the exact GitLab repository with an exact source and target. Ancestry, title, description, and observable checks must pass or have recorded overrides. Missing evidence is never verified by override; an unauthorized, uncreated, or repository/target-ambiguous MR is never `MR_READY` because the required action itself is not exactly defined or authorized.
+`MR_READY` additionally requires an authorized push and an existing MR in the exact GitLab repository with an exact source and target. Ancestry, title, description, and observable checks must pass or have recorded overrides. Missing evidence is never verified by override; an unauthorized, uncreated, or repository/target-ambiguous MR is never `MR_READY` because the required action itself is not exactly defined or authorized. An exactly authorized Jira `Done` transition may already have occurred after `CODE_READY` and verified MR creation; its outcome is recorded separately and does not depend on this readiness state or merge.
 
 `MERGED` additionally requires verified approval from a Tech Lead on that exact MR, current required checks, a mergeable GitLab state, an unchanged expected source and target, and evidence that the Developer's merge completed successfully. Tech Lead approval and merge-readiness gates are not overridable. Never self-approve, enable auto-merge, bypass controls, or treat an approval from an unverified role as Tech Lead approval.
 

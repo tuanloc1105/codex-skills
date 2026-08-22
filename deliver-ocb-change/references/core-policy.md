@@ -61,6 +61,12 @@ Split Jira work without violating the verified hierarchy:
 
 Give each slice its own Jira key, acceptance boundary, estimate, working branch, and PR. Record dependencies and verification per slice. Never create or edit Jira work items without exact user authorization; after mutation, re-read their keys, types, parents, and Epic ancestry. Do not begin code for a slice until its Jira evidence, approved scope, and pre-code estimate pass.
 
+## Jira completion timing
+
+After implementation reaches `CODE_READY` and the working MR exists with the expected repository, source, and target, the working Jira issue may transition to `Done`. Pipeline results, Tech Lead approval, mergeability, and MR merge are not prerequisites. Perform the transition only with exact authorization for that issue and transition through `$interact-with-jira`, then re-read the issue and record the resulting status and evidence.
+
+Jira `Done` and GitLab merge are independent lifecycle facts. Conversely, Jira `Done` never proves pipeline success, Tech Lead approval, merge readiness, or `MERGED`. If authorization, permissions, or an applicable Jira transition is unavailable, pause only the Jira transition and continue the MR review-and-merge workflow when its own gates permit.
+
 ## Developer and Git boundary
 
 Prepare a complete, reviewable MR with relevant evidence. Require exact, current authorization for working-branch creation, commit, push, and MR creation. Plan approval alone is not Git authorization.
