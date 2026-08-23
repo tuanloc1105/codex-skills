@@ -15,6 +15,18 @@
 5. Use the `plugin-creator` marketplace/update workflow instead of hand-editing personal marketplace config. Reinstall the plugin and test it in a new task so Codex reloads its skills and hooks.
 6. Review and trust changed non-managed hooks through Codex before relying on them. Never bypass hook trust for normal interactive use.
 
+### Workflow Modes Source-Only Default
+
+Treat changes under `workflow-modes/` as source-only unless the user explicitly requests sync or installation. Validate the repository copy, but do not automatically:
+
+- update the plugin manifest cachebuster;
+- copy the bundle to `~/plugins/workflow-modes/`;
+- change its marketplace entry;
+- run `workflow-modes/scripts/install.py`; or
+- invoke `codex plugin add`.
+
+Existing tasks retain the absolute path of the versioned hook cache they started with. Reinstalling Workflow Modes while one of those tasks is active may remove that cache and leave both `PreToolUse` and `Stop` unable to start, preventing the task from repairing itself. When sync is explicitly requested, perform it only after warning that active tasks using the old cache must be closed first.
+
 For Jarvis distribution to another machine, use the repository installer instead
 of copying individual hooks or scripts. It installs the complete plugin bundle
 and preserves unrelated personal marketplace entries:

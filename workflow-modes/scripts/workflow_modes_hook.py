@@ -189,22 +189,43 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
     if not is_shell_tool(payload):
         return None
     try:
-        tokens = shlex.split(tool_command(payload))
+        lexer = shlex.shlex(
+            tool_command(payload), posix=True, punctuation_chars=";&|"
+        )
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
     except ValueError:
         return None
-    try:
-        script_index = next(
-            index for index, token in enumerate(tokens)
+
+    segments: list[list[str]] = [[]]
+    for token in tokens:
+        if token and set(token) <= {";", "&", "|"}:
+            segments.append([])
+        else:
+            segments[-1].append(token)
+
+    candidates: list[tuple[list[str], int, int]] = []
+    for segment in segments:
+        script_indexes = [
+            index for index, token in enumerate(segment)
             if Path(token).name == "workflow_modes_control.py"
-        )
-    except StopIteration:
+        ]
+        for script_index in script_indexes:
+            try:
+                marker_index = segment.index("--marker", script_index + 1)
+            except ValueError:
+                continue
+            if marker_index + 1 < len(segment) and segment[marker_index + 1] == MARKER:
+                candidates.append((segment, script_index, marker_index))
+
+    if not candidates:
         return None
-    if "--marker" not in tokens:
-        return None
-    marker_index = tokens.index("--marker")
-    if marker_index + 1 >= len(tokens) or tokens[marker_index + 1] != MARKER:
-        return None
-    args = tokens[script_index + 1:marker_index]
+    if len(candidates) > 1:
+        return {"action": "ambiguous"}
+
+    segment, script_index, marker_index = candidates[0]
+    args = segment[script_index + 1:marker_index]
     if not args:
         return None
     result: dict[str, Any] = {"action": args[0]}
@@ -239,6 +260,11 @@ def handle_control(
     store: StateStore, key: str, payload: dict[str, Any], control: dict[str, Any]
 ) -> dict[str, Any] | None:
     action = control.get("action")
+    if action == "ambiguous":
+        return deny_tool(
+            "WORKFLOW_CONTROL_AMBIGUOUS: run only one marker-backed lifecycle control "
+            "request per tool call."
+        )
     cwd = str(payload.get("cwd", os.getcwd()))
     current = store.get(key)
     if action in {"activate", "transition"}:

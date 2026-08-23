@@ -190,6 +190,32 @@ class WorkflowModesHookTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_help_probe_does_not_corrupt_following_control_request(self) -> None:
+        self.record.parent.mkdir(parents=True, exist_ok=True)
+        self.record.write_text(
+            "Status: In progress\nExecute mode: Active\n", encoding="utf-8"
+        )
+        command = (
+            f'{sys.executable} "{CONTROL}" activate --help && '
+            f'{sys.executable} "{CONTROL}" activate execute '
+            f'--record "{self.record}" --marker {MARKER}'
+        )
+        output = self.run_hook(
+            "PreToolUse", tool_name="exec_command", tool_input={"cmd": command}
+        )
+        self.assertIn("mode=execute", json.dumps(output))
+
+    def test_multiple_marker_backed_controls_are_rejected(self) -> None:
+        command = (
+            f'{sys.executable} "{CONTROL}" activate plan --marker {MARKER}; '
+            f'{sys.executable} "{CONTROL}" snapshot --marker {MARKER}'
+        )
+        output = self.run_hook(
+            "PreToolUse", tool_name="exec_command", tool_input={"cmd": command}
+        )
+        self.assertIn("WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(output))
+        self.assertIsNone(self.run_hook("PostCompact"))
+
 
 if __name__ == "__main__":
     unittest.main()

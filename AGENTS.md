@@ -12,6 +12,7 @@
 - Validate both copies and verify all non-excluded paths and contents match after syncing.
 - Install plugin-owned skills through the complete plugin; do not separately mirror a nested `<plugin>/skills/<skill-name>/` unless the skill is intentionally published in both forms.
 - Jarvis exception: after changing `jarvis/`, do not mirror `jarvis/skills/jarvis/` to `~/.codex/skills/jarvis/`; keep the repository plugin as the source of truth and synchronize it only when the user explicitly requests installation or distribution.
+- Workflow Modes exception: after changing `workflow-modes/`, keep the change source-only by default. Do not update its cachebuster, copy it to `~/plugins/workflow-modes/`, modify its marketplace entry, run its installer, or invoke `codex plugin add` unless the user explicitly requests sync or installation. Active tasks may still reference the previous versioned hook cache, so an unsolicited reinstall can break both `PreToolUse` and `Stop`.
 
 ## Read On Demand
 
