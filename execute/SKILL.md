@@ -96,6 +96,15 @@ Require a path to the Markdown execution record unless an exact adopted plan or 
 - If the user did not supply a path and no exact active path exists, ask where the execution record is and stop until they answer.
 - If the path does not exist or is not readable, report that clearly and ask for the correct path.
 
+## Dedicated Worktree
+
+Before beginning or resuming implementation in a git repository, work from a dedicated linked worktree for the adopted execution record. Never implement in the user's existing checkout.
+
+- Inspect the repository's current worktrees first. Reuse one only when it is already dedicated to the same execution record and contains no unrelated work; otherwise create a new linked worktree on the intended task branch or on a new task-focused branch from the approved base.
+- Run all implementation edits, checks, staging, commits, integration, and simplify-driven fixes inside that worktree. The adopted execution record remains at its exact bound path and is the only permitted execute-mode write outside the dedicated worktree when that path lives elsewhere.
+- Record the worktree path and branch under `## Handoff Notes` before implementation so a later session can resume the same isolated workspace.
+- If a dedicated worktree cannot be created or safely reused, do not fall back to the existing checkout. Report the concrete blocker and wait for the permission or user decision required to proceed.
+
 ## Plan and Tracker Intake
 
 Read the full execution record before any substantive response or implementation work, adopt the exact path, and apply the `Persistent Mode Contract` metadata update. Never copy a direct discussion handoff into a separate plan file; preserve the tracker history and keep updating that same path.
@@ -247,24 +256,25 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 ## Implementation Workflow
 
 1. Resolve, adopt, and read the complete execution-record path; activate or re-enter execute mode and persist its metadata.
-2. Inspect enough repository context to execute safely.
-3. Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
-4. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
-5. Mark the selected phase items in progress and dispatch each eligible delegated phase with the required ownership and return contract.
-6. Execute any coordinator-owned phase that can run concurrently without conflicting with active subagents.
-7. Collect subagent reports, inspect actual changed files or resources against the baseline and assigned ownership, and review each implementation.
-8. As each commit-sized unit becomes coherent, run its focused checks, review and commit it immediately, then continue with the next unit. A selected phase may therefore produce multiple commits before its phase-local checks are complete.
-9. Run or confirm phase-local checks, mark each accepted phase completed, and run the wave's integration gate before unlocking dependent phases; recover or mark a genuine blocker as appropriate.
-10. Repeat the ready-set workflow until all phases are accepted or a genuine blocker requires user input or an external state change.
-11. Run the plan's final `## Verification` checks on the integrated result.
-12. Use `$simplify` to review the complete current-session commit range from the captured starting `HEAD` through the current `HEAD`, together with any remaining in-scope working-tree changes.
-13. Fix confirmed or plausible `$simplify` findings that are in scope.
-14. Re-run the narrowest meaningful checks after any simplify-driven fixes, then commit those fixes separately in coherent units.
-15. If the current execution session's commit range or remaining working-tree diff contains substantial agent-facing changes that are not already covered in agent docs, use `$update-agent-docs` with the session-change-only scope in this skill.
-16. Re-run the narrowest meaningful checks after any agent-doc updates.
-17. Update the plan status, checklist, amendments and evidence, verification notes, execution decisions, `Last updated`, and residual risks.
-18. If the user adds follow-up work, changes an earlier decision, provides a material handoff or evidence item, or requests a commit, pass it through the amendment gate and resume the applicable workflow before treating the task as complete.
-19. Apply the final completion gate and continue working if any requirement fails.
+2. For a git repository, create or safely reuse the dedicated worktree, record its path and branch in the execution record, and perform the remaining implementation workflow there.
+3. Inspect enough repository context to execute safely.
+4. Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
+5. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
+6. Mark the selected phase items in progress and dispatch each eligible delegated phase with the required ownership and return contract.
+7. Execute any coordinator-owned phase that can run concurrently without conflicting with active subagents.
+8. Collect subagent reports, inspect actual changed files or resources against the baseline and assigned ownership, and review each implementation.
+9. As each commit-sized unit becomes coherent, run its focused checks, review and commit it immediately, then continue with the next unit. A selected phase may therefore produce multiple commits before its phase-local checks are complete.
+10. Run or confirm phase-local checks, mark each accepted phase completed, and run the wave's integration gate before unlocking dependent phases; recover or mark a genuine blocker as appropriate.
+11. Repeat the ready-set workflow until all phases are accepted or a genuine blocker requires user input or an external state change.
+12. Run the plan's final `## Verification` checks on the integrated result.
+13. Use `$simplify` to review the complete current-session commit range from the captured starting `HEAD` through the current `HEAD`, together with any remaining in-scope working-tree changes.
+14. Fix confirmed or plausible `$simplify` findings that are in scope.
+15. Re-run the narrowest meaningful checks after any simplify-driven fixes, then commit those fixes separately in coherent units.
+16. If the current execution session's commit range or remaining working-tree diff contains substantial agent-facing changes that are not already covered in agent docs, use `$update-agent-docs` with the session-change-only scope in this skill.
+17. Re-run the narrowest meaningful checks after any agent-doc updates.
+18. Update the plan status, checklist, amendments and evidence, verification notes, execution decisions, `Last updated`, and residual risks.
+19. If the user adds follow-up work, changes an earlier decision, provides a material handoff or evidence item, or requests a commit, pass it through the amendment gate and resume the applicable workflow before treating the task as complete.
+20. Apply the final completion gate and continue working if any requirement fails.
 
 ## Recovery Before Blocking
 
@@ -336,6 +346,7 @@ If the user says yes, use `$security-review` with this scope constraint:
 
 Before sending a response that claims implementation completion, a genuine blocker, or an explicit-exit pause:
 
+- Confirm git implementation was performed in the dedicated worktree recorded in `## Handoff Notes`, not in the user's existing checkout.
 - Re-read the plan checklist and confirm no in-scope `[ ]` or `[~]` item remains.
 - Confirm every `[!]` item satisfies the Genuine Blocker Definition.
 - Confirm unrelated ready phases were not skipped because another phase failed.
