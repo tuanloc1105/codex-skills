@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Plan-first collaboration workflow for Codex. Use when the user explicitly invokes $plan, says "len plan", "lap ke hoach", "thao luan truoc", "how to do it", wants to discuss and approve an implementation plan before code changes, or wants a detailed handoff plan saved to a file for a future Codex session. This skill requires $plan behavior, explicit user approval before implementation, a $discuss fallback when the session has no reliable clue or the agent is confused, and a final detailed "How to do it" plan file with context, dependency-aware phases, execution waves, subagent eligibility notes, touchpoints, intended logic, verification steps, and an explicit persistent $execute resume marker so any future session that reads the plan adopts it even after implementation. Without an explicit destination, automatically save the approved plan under ./plans/ in the current working directory without asking about the path, filename, or collisions.
+description: Plan-first collaboration workflow for Codex. Use when the user explicitly invokes $plan, says "len plan", "lap ke hoach", "thao luan truoc", "how to do it", wants to discuss and approve an implementation plan before code changes, or wants a detailed handoff plan saved to a file for a future Codex session. This skill creates one draft Markdown record at entry, keeps it active throughout planning, requires explicit user approval before implementation, and finalizes that same file with context, dependency-aware phases, execution waves, subagent eligibility notes, touchpoints, intended logic, verification steps, and a persistent $execute resume marker. Without an explicit destination, automatically save the draft under ./plans/ in the current working directory without asking about the path, filename, or collisions.
 ---
 
 # Plan
@@ -9,14 +9,16 @@ description: Plan-first collaboration workflow for Codex. Use when the user expl
 
 When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run lifecycle calls with the exact absolute path and `--marker workflow-modes-v1`.
 
-- On fresh `$plan` entry, run `activate plan` before substantive inspection or any mutation. This initial activation intentionally has no record path.
+- On fresh `$plan` entry, resolve and exclusively reserve the draft plan path before substantive inspection, initialize its draft metadata, and run `activate plan --record <plan-path>`. Keep this exact file from planning discussion through approval and execute handoff.
 - On entry from `$discuss`, require its persisted `transition plan --record <discussion-tracker>` result instead of reactivating a different mode.
-- As soon as the final plan path is exclusively reserved or adopted, run `activate plan --record <plan-path>` to bind the guard to that exact file.
+- On entry from `$discuss`, resolve and initialize the separate draft plan immediately, then run `activate plan --record <plan-path>` to rebind plan mode from the discussion context to its exact record.
+- At activation, after every `UserPromptSubmit` reminder, and after every `PostCompact` reminder, read the exact draft plan completely and run `sync --record <plan-path>` before substantive work.
+- Persist material planning deltas throughout the conversation. Before every user-facing response, run `checkpoint --record <plan-path>`; use `--no-change` only after confirming that the turn produced no material record change.
 - After approval and after the plan's execute-ready metadata is durable, run `transition execute --record <plan-path>` before handing control to `$execute`.
 
 Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin is unavailable, planning may continue because it is read-only apart from plan housekeeping, but state that lifecycle enforcement is unavailable. Never mutate source in plan or bypass a denied hook decision.
 
-Use this skill to turn an ambiguous or important request into an approved execution plan and a durable handoff document.
+Use this skill to turn an ambiguous or important request into an approved execution plan while keeping one durable Markdown record from the beginning of planning.
 
 ## Plan-First Boundary
 
@@ -32,7 +34,7 @@ Follow the `$plan` workflow directly without attempting to switch or discuss the
 
 ## Discuss Fallback
 
-Follow the conversational restrictions and question style of `$discuss` before planning when the current session has no reliable clue about what the user wants, or when the agent is confused about the right direction. Do not activate its tracker lifecycle during this fallback; the `$plan` handoff remains the only Markdown discussion artifact and is created after approval. Directory and `.gitignore` bookkeeping required to save it remains allowed.
+Follow the conversational restrictions and question style of `$discuss` before planning when the current session has no reliable clue about what the user wants, or when the agent is confused about the right direction. Do not activate a separate discuss tracker lifecycle during this fallback; the already-created `$plan` draft remains the only Markdown planning artifact.
 
 Use this fallback when:
 
@@ -42,28 +44,29 @@ Use this fallback when:
 - The agent feels uncertain, stuck, or confused about the user's intent.
 - More conversation is needed before writing a useful "How to do it" handoff plan.
 
-While in this fallback:
+While in this fallback, keep using the already established draft plan as the planning record:
 
-- Do not edit files, create artifacts, implement changes, or mutate local or external state.
+- Do not edit source files, create unrelated artifacts, implement changes, or mutate external state. Draft-plan housekeeping and persistence remain required.
 - Ask concise clarifying questions and follow the mandatory `Question and Open-Issue Contract` below.
 - Help the user choose the target outcome, constraints, and preferred approach.
 - Summarize the agreed direction before returning to the `$plan` workflow.
 
 ## Conversation Workflow
 
-1. Restate the user's goal in concrete terms.
-2. Gather only the missing information that materially changes the plan. Keep questions concise and follow the mandatory `Question and Open-Issue Contract`; do not ask for details that can be discovered safely from the workspace.
-3. Inspect enough context to remove guesswork:
+1. Resolve, reserve, initialize, activate, read, and sync the exact draft plan path under `Saving Rules`.
+2. Restate the user's goal in concrete terms and persist it to the draft.
+3. Gather only the missing information that materially changes the plan. Keep questions concise and follow the mandatory `Question and Open-Issue Contract`; do not ask for details that can be discovered safely from the workspace.
+4. Inspect enough context to remove guesswork:
    - Relevant repository instructions and local conventions
    - Existing files, exports, callers, routes, schemas, tests, configs, logs, or docs
    - Current constraints from the user and active environment
-4. Establish an existing-behavior and regression-safety baseline before proposing changes to an existing mechanism:
+5. Establish an existing-behavior and regression-safety baseline before proposing changes to an existing mechanism:
    - Record the current behavior and the evidence supporting it; distinguish verified facts, user-reported behavior, inferences, and unknowns
    - Identify stable behaviors, invariants, interfaces, data contracts, UX expectations, error handling, and backward-compatibility requirements that must be preserved unless the user explicitly changes them
    - Trace affected callers, consumers, integrations, data flows, and other downstream touchpoints
    - Identify the existing tests, checks, logs, screenshots, or manual reproduction that demonstrate the baseline; run only safe read-only checks and record any checks that could not be run
    - Separate intentional behavior changes from regressions and make material evidence gaps explicit before planning potentially breaking work
-5. Propose a plan with clear scope:
+6. Propose a plan with clear scope:
    - What will change
    - What will not change
    - Main files, modules, services, UI surfaces, data flows, or external systems touched
@@ -71,9 +74,8 @@ While in this fallback:
    - Risks, assumptions, and open questions
    - Preservation acceptance criteria, regression checks, and verification strategy
    - Rollback or recovery for material behavior changes
-6. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Treat approval as required before writing the final handoff plan.
-7. After the plan is approved, resolve the save path automatically. Respect an explicit destination; otherwise use `./plans/` in the current working directory. Never ask about the save path, filename, overwrite behavior, or collisions.
-8. Save the approved "How to do it" plan as a Markdown file. Do not implement the plan in the same `$plan` flow unless the user explicitly requests execution after saving.
+7. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Approval is required before changing the existing draft record to its final execute-ready status.
+8. After approval, finalize the same exact Markdown file as the approved "How to do it" handoff. Do not create a replacement plan or implement it in the same `$plan` flow unless the user explicitly requests execution after saving.
 
 ## Question and Open-Issue Contract
 
@@ -116,14 +118,14 @@ While using `$plan`, document this execution structure but do not spawn subagent
 
 ## Saving Rules
 
-Resolve and create the approved plan file automatically. Never ask the user about its save location, directory, filename, overwrite behavior, or collisions.
+Resolve, create, and freeze the draft plan file automatically at the start of `$plan`. Never ask the user about its save location, directory, filename, overwrite behavior, or collisions.
 
 - Capture the current working directory when the skill starts and resolve every relative destination against it.
 - Classify a user-provided destination without asking: an existing directory, a path ending in a separator, or explicit directory wording is a directory; otherwise treat it as a file path.
 - If the user gives a directory, generate the plan filename inside it.
 - If the user gives any explicit file path, including a bare filename, preserve that path exactly after resolving it against the captured current working directory.
 - If the user gives no destination, use `./plans/` relative to the current working directory at the time the skill starts.
-- For an agent-generated filename, derive `<plan-name>` from the approved plan title or goal. Use `plan` only when no meaningful slug can be derived.
+- For an agent-generated filename, derive `<plan-name>` from the current title or goal. Use `plan` only when no meaningful slug can be derived.
 - Resolve the final candidate path before writing. If it or a symlink at that path already exists and the user did not explicitly request overwrite, preserve it and automatically choose the lowest available numbered sibling for that basename, such as `YYYY-MM-DD-<plan-name>-2.md`; do not ask. Overwrite only when the user explicitly instructed it and the resolved target passes the same path-safety checks.
 - Resolve the directory that will contain the plan. If that directory or any parent directory does not exist, create the missing directories automatically before saving; do not ask for separate confirmation.
 - For a new plan, reserve the selected file with exclusive creation and retry with the next numbered sibling if another writer wins the same path. Freeze the successfully reserved or explicitly overwritten path for the remainder of the `$plan` flow.
@@ -135,10 +137,11 @@ Resolve and create the approved plan file automatically. Never ask the user abou
 - For an agent-generated filename, use the format `YYYY-MM-DD-<plan-name>.md`.
 - For an agent-generated filename, use the current local date unless the user requests another date.
 - Slugify an agent-generated `<plan-name>` with lowercase ASCII words joined by hyphens.
+- Initialize the reserved file with `Status: Draft planning discussion`, `Plan mode: Active`, `Execution readiness: Not ready`, a stable non-secret tracker ID, the machine-readable workflow-record header from the template, and an exact resume checkpoint. Update it after every material planning turn.
 - Keep the saved file self-contained. A future session should not need the original chat to understand the work.
-- Include the execute mode marker, last-updated timestamp, and resume instruction from the handoff template. A future session asked to read or continue the file must invoke `$execute`, adopt the exact path, and keep updating it until the user explicitly exits execute, even when the implementation status is already `Implemented`.
-- Tell the user the final path after saving.
-- Tell the user the fresh-session resume prompt: `Use $execute and read the plan at <final-path>.`
+- Include the mode markers, last-updated timestamp, and status-appropriate resume instruction from the handoff template. A draft resumes with `$plan`; after approval the same line changes to the persistent `$execute` instruction, which remains authoritative even when implementation status later becomes `Implemented`.
+- Tell the user the exact path when the draft is established and again when it is finalized.
+- For a draft, tell the user: `Use $plan and continue the draft at <final-path>.` After approval, tell the user: `Use $execute and read the plan at <final-path>.`
 - If the resolved plan directory or file cannot be created, report the exact blocker and stop without asking a storage-choice question or silently relocating an explicit destination. If only `.gitignore` maintenance fails, keep the resolved destination, save the plan there, and report that it could not be ignored; never relocate the plan solely because of an ignore failure.
 
 ## Handoff Plan Template
@@ -148,12 +151,16 @@ Write the plan in Markdown with these sections. Include only truthful, task-rele
 ```markdown
 # How to do it: <Plan Name>
 
+<!-- workflow-record version:2 kind:plan tracker-id:<stable tracker ID> -->
+
 Date: <YYYY-MM-DD>
 Last updated: <timestamp and timezone>
 Timezone: <local timezone if known>
-Status: Approved plan, not yet implemented
-Execute mode: Ready
-Resume instruction: Invoke $execute, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute.
+Status: <Draft planning discussion | Approved plan, not yet implemented>
+Plan mode: <Active | Exited>
+Execution readiness: <Not ready | Ready>
+Execute mode: <Inactive | Ready>
+Resume instruction: <While draft: Invoke $plan, read this file completely, and continue this exact draft before substantive work. | After approval: Invoke $execute, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute.>
 
 ## Goal
 <Concrete outcome the user wants.>

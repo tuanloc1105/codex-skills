@@ -16,9 +16,11 @@ Keep the mode active across analysis and every scoped action. Completing an acti
 When the `workflow-modes` plugin is installed and its hooks are trusted, use its control script as a lifecycle guard. Resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run it with the exact absolute path. Every call must end with `--marker workflow-modes-v1`; confirm the hook returns model-visible `WORKFLOW_*` context.
 
 - After the tracker is established and its active discuss metadata is persisted, run `activate discuss --record <tracker>`.
+- At activation, after every `UserPromptSubmit` reminder, and after every `PostCompact` reminder, read the exact tracker completely and run `sync --record <tracker>` before substantive work. A changed or unacknowledged record must remain a hard boundary for non-record mutation.
 - Before any authorized non-source-code mutation, persist the action and run `action-open --record <tracker> --impact non-source`, adding one `--path <absolute-path>` for each known local target.
 - Before an authorized source-code mutation, persist its confirmation and scope, then run `action-open --record <tracker> --impact source-confirmed --path <absolute-path>...`. File-targeted mutation outside those paths must remain blocked.
 - After persisting an action's terminal result, run `action-close --result <completed|failed|blocked>` before the user-facing response. A failed action still requires closure and returns to discuss.
+- Before every user-facing response, run `checkpoint --record <tracker>` after all material turn deltas are durable. When the turn genuinely changes nothing in the tracker, run `checkpoint --record <tracker> --no-change`; never use `--no-change` to skip a required update.
 - After the `$plan` durability gate, run `transition plan --record <tracker>` before invoking `$plan`.
 - After a successful Direct Execute Handoff, run `transition execute --record <tracker>` before invoking `$execute`.
 
@@ -100,6 +102,7 @@ For every new tracker:
 - Initialize `Execution readiness: Not ready` and `Execute mode: Inactive`; these markers change only through `Direct Execute Handoff`.
 - Record the captured working directory, containing repository root when applicable, current branch and commit when available, creation time, last-updated time, and local timezone. Mark unavailable values explicitly instead of inventing them.
 - Give the discussion a stable tracker ID that does not change when the file moves. Use a locally generated non-secret identifier; do not derive it from credentials or private data.
+- Put the tracker ID and record kind in a compact machine-readable header near the top so the hook-visible session binding can be checked against the file without making the absolute path part of the document identity.
 - Tell the user the exact tracker path and an explicit fresh-session resume prompt such as `Use $discuss and continue the tracker at <path>`.
 
 When resuming an existing tracker:
@@ -123,7 +126,7 @@ When the goal, scope, requirements, constraints, material tradeoffs, and user-ow
 
 Recommend exactly one option according to the work, but always present both. Keep `discuss` active and wait for the user's choice; a conclusion that the discussion is clear is not itself permission to plan or execute.
 
-If the user chooses `$plan`, complete `Tracker Durability Gate`, update `Mode status: Exited`, record the choice and timestamp in `## Log`, and set the resume checkpoint to the `$plan` transition. Then invoke `$plan` using the complete tracker as authoritative discussion context. Let `$plan` create its separate approved plan under its own saving rules; do not mark the discussion tracker execution-ready and do not apply `Direct Execute Handoff`.
+If the user chooses `$plan`, complete `Tracker Durability Gate`, update `Mode status: Exited`, record the choice and timestamp in `## Log`, and set the resume checkpoint to the `$plan` transition. Then invoke `$plan` using the complete tracker as authoritative discussion context. Let `$plan` create and bind its separate draft plan immediately under its own saving rules; do not mark the discussion tracker execution-ready and do not apply `Direct Execute Handoff`.
 
 If the user chooses `$execute`, apply `Direct Execute Handoff`. If that handoff exposes a missing material decision, keep `discuss` active and resolve it through `Immediate Decision Gate`; after it is resolved and persisted, ask the `$plan` or `$execute` transition question again rather than assuming the earlier choice still applies.
 
@@ -191,6 +194,8 @@ Use a concise, resumable Markdown format. The metadata, goal, scope, source-of-t
 
 ```markdown
 # Discussion Tracker
+
+<!-- workflow-record version:2 kind:discuss tracker-id:<stable tracker ID> -->
 
 Tracker ID: <stable non-secret ID>
 Created: <timestamp and timezone>
@@ -281,6 +286,8 @@ Track the user goal, important context, decisions, requirements, constraints, op
 ### Tracker Durability Gate
 
 Before every user-facing response that follows substantive discussion, inspection, a user answer, a decision, a scope change, or an authorized mutation, persist all material deltas to the tracker and update `Last updated` plus `Resume Checkpoint`. Complete the tracker write before sending the response. This includes turns that do not trigger `Immediate Decision Gate`.
+
+After the durable write, complete the hook turn checkpoint. The checkpoint may acknowledge the newly written revision directly. If no material delta exists, explicitly use the no-change checkpoint only after verifying that the tracker remains accurate.
 
 If the tracker update fails, do not present unsaved conclusions as durable handoff state. Report the exact persistence blocker, identify what was not saved, and stop before further substantive work. An abrupt process or host failure cannot be made atomic with chat delivery; on the next available turn, reconcile the tracker against the visible conversation before continuing.
 

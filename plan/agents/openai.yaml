@@ -1,4 +1,4 @@
 interface:
   display_name: "Plan"
   short_description: "Discuss, approve, and auto-save execution plans"
-  default_prompt: "Use $plan to establish the baseline and regression checks, then auto-save a detailed How to do it plan with a persistent $execute resume marker for future sessions."
+  default_prompt: "Use $plan to create one durable draft Markdown record immediately, keep it synchronized throughout planning, establish the baseline and regression checks, then finalize that same file with a persistent $execute resume marker after approval."

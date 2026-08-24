@@ -187,6 +187,28 @@ def read_record(path: str) -> str | None:
         return None
 
 
+def record_revision(path: str | None) -> str | None:
+    if not isinstance(path, str):
+        return None
+    text = read_record(path)
+    if text is None:
+        return None
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def record_tracker_id(path: str | None) -> str | None:
+    if not isinstance(path, str):
+        return None
+    text = read_record(path)
+    if text is None:
+        return None
+    header = re.search(r"workflow-record[^\n>]*tracker-id:([^\s>]+)", text)
+    if header:
+        return header.group(1)
+    metadata = re.search(r"^Tracker ID:\s*(\S+)\s*$", text, flags=re.MULTILINE)
+    return metadata.group(1) if metadata else None
+
+
 def contains_evidence_id(text: str, evidence_id: str) -> bool:
     return bool(
         re.search(
@@ -281,6 +303,9 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
             else:
                 result[key] = args[index + 1]
             index += 2
+        elif token == "--no-change":
+            result["no_change"] = True
+            index += 1
         else:
             positionals.append(token)
             index += 1
@@ -294,6 +319,22 @@ def state_summary(state: dict[str, Any]) -> str:
     return (
         f"mode={state.get('mode')}, record={state.get('record')}, "
         f"action={action_text}"
+    )
+
+
+def mark_sync_required(state: dict[str, Any]) -> None:
+    current_revision = record_revision(state.get("record"))
+    state["record_revision"] = current_revision
+    state["sync_required"] = bool(state.get("record"))
+
+
+def record_is_synced(state: dict[str, Any]) -> bool:
+    current_revision = record_revision(state.get("record"))
+    state["record_revision"] = current_revision
+    return bool(
+        current_revision
+        and not state.get("sync_required")
+        and state.get("acknowledged_revision") == current_revision
     )
 
 
@@ -377,6 +418,12 @@ def handle_control(
             "record": absolute_record,
             "action": None,
             "stop_warning_issued": False,
+            "record_revision": record_revision(absolute_record),
+            "tracker_id": record_tracker_id(absolute_record),
+            "acknowledged_revision": None,
+            "sync_required": bool(absolute_record),
+            "checkpoint_required": False,
+            "turn_start_revision": record_revision(absolute_record),
             "updated_at": utc_now(),
         }
         store.mutate(key, lambda _old: state)
@@ -399,6 +446,71 @@ def handle_control(
         return context_output("PreToolUse", "WORKFLOW_MODE_INACTIVE: execute explicitly exited.")
     if not current:
         return deny_tool("WORKFLOW_MODE_INACTIVE: activate a tracker-backed mode first.")
+    if action == "sync":
+        record = control.get("record")
+        if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
+            return deny_tool("WORKFLOW_RECORD_MISMATCH: sync record differs from active tracker.")
+        revision = record_revision(str(current.get("record")))
+        if revision is None:
+            return deny_tool("WORKFLOW_RECORD_UNREADABLE: the tracker must exist and be readable.")
+        tracker_id = record_tracker_id(str(current.get("record")))
+        if current.get("tracker_id") and tracker_id != current.get("tracker_id"):
+            return deny_tool(
+                "WORKFLOW_RECORD_IDENTITY_MISMATCH: the active path now contains a different "
+                "tracker ID; restore the record or explicitly rebind the workflow."
+            )
+        current["tracker_id"] = tracker_id or current.get("tracker_id")
+        current["record_revision"] = revision
+        current["acknowledged_revision"] = revision
+        current["sync_required"] = False
+        current["updated_at"] = utc_now()
+        store.mutate(key, lambda _old: current)
+        return context_output(
+            "PreToolUse",
+            f"WORKFLOW_RECORD_SYNCED: mode={current.get('mode')}, "
+            f"record={current.get('record')}, revision={revision}.",
+        )
+    if action == "checkpoint":
+        record = control.get("record")
+        if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
+            return deny_tool(
+                "WORKFLOW_RECORD_MISMATCH: checkpoint record differs from active tracker."
+            )
+        current_revision = record_revision(str(current.get("record")))
+        if current_revision is None:
+            return deny_tool("WORKFLOW_RECORD_UNREADABLE: the tracker must exist and be readable.")
+        if current.get("sync_required") or not current.get("acknowledged_revision"):
+            return deny_tool(
+                "WORKFLOW_RECORD_SYNC_REQUIRED: read the exact tracker completely and run "
+                "sync before checkpointing the turn."
+            )
+        if current.get("action"):
+            return deny_tool(
+                "WORKFLOW_ACTION_CLOSE_REQUIRED: close the active action before checkpointing."
+            )
+        current["record_revision"] = current_revision
+        changed = current_revision != current.get("turn_start_revision")
+        if not changed and current.get("acknowledged_revision") != current_revision:
+            current["sync_required"] = True
+            store.mutate(key, lambda _old: current)
+            return deny_tool(
+                "WORKFLOW_RECORD_SYNC_REQUIRED: the active tracker revision was not acknowledged."
+            )
+        if current.get("checkpoint_required") and not changed and not control.get("no_change"):
+            return deny_tool(
+                "WORKFLOW_CHECKPOINT_CHANGE_REQUIRED: the tracker did not change this turn; "
+                "persist material deltas or use checkpoint --no-change after confirming none exist."
+            )
+        current["checkpoint_required"] = False
+        current["acknowledged_revision"] = current_revision
+        current["last_checkpoint_revision"] = current.get("record_revision")
+        current["updated_at"] = utc_now()
+        store.mutate(key, lambda _old: current)
+        return context_output(
+            "PreToolUse",
+            f"WORKFLOW_TURN_CHECKPOINTED: mode={current.get('mode')}, "
+            f"record={current.get('record')}, changed={str(changed).lower()}.",
+        )
     if action == "snapshot":
         return context_output("PreToolUse", f"WORKFLOW_MODE_SNAPSHOT: {state_summary(current)}.")
     if action == "action-open":
@@ -406,6 +518,12 @@ def handle_control(
             return deny_tool("WORKFLOW_ACTION_DENIED: scoped actions require discuss or execute mode.")
         if current.get("action"):
             return deny_tool("WORKFLOW_ACTION_ALREADY_OPEN: close the current action first.")
+        if not record_is_synced(current):
+            store.mutate(key, lambda _old: current)
+            return deny_tool(
+                "WORKFLOW_RECORD_SYNC_REQUIRED: read the exact tracker completely and run "
+                "sync before opening a workflow action."
+            )
         record = control.get("record")
         if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
             return deny_tool("WORKFLOW_RECORD_MISMATCH: action record differs from active tracker.")
@@ -548,6 +666,12 @@ def handle_pre_tool(
     paths = paths_for_tool(payload)
     if paths and all(record_or_housekeeping_path(path, state, cwd) for path in paths):
         return None
+    if not record_is_synced(state):
+        store.mutate(key, lambda _old: state)
+        return deny_tool(
+            "WORKFLOW_RECORD_SYNC_REQUIRED: the active tracker is unacknowledged or changed; "
+            "read it completely and run sync before non-record mutation."
+        )
     if mode == "execute" and not state.get("action"):
         return deny_tool(
             "WORKFLOW_EXECUTE_ACTION_REQUIRED: persist an evidence checkpoint, open an "
@@ -606,23 +730,30 @@ def handle_pre_tool(
 def mode_message(state: dict[str, Any]) -> str:
     mode = state.get("mode")
     common = (
-        f"WORKFLOW_MODE_ACTIVE after context boundary: {state_summary(state)}. "
-        "Read the exact tracker completely and reconcile it before substantive work. "
+        "<workflow-anchor version=\"2\"> "
+        f"mode={mode}; record={state.get('record')}; tracker_id={state.get('tracker_id')}; "
+        f"record_revision={state.get('record_revision')}; sync_status=required; "
+        "rule=read the exact tracker completely, then run sync before substantive work; "
+        "rule=persist material turn changes and run checkpoint before final response. "
     )
     if mode == "discuss":
-        return common + (
-            "Discuss remains active across scoped actions; only plan or execute may durably exit it."
-        )
+        return common + "exit=only plan or execute. </workflow-anchor>"
     if mode == "plan":
-        return common + "Plan remains source-read-only until an explicit execute transition."
-    return common + (
-        "Execute remains active after implementation completion and exits only on explicit request."
-    )
+        return common + "boundary=source-read-only until execute transition. </workflow-anchor>"
+    return common + "exit=explicit request only, including after implementation. </workflow-anchor>"
 
 
 def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     state = store.get(key)
-    if not state or not state.get("action"):
+    if not state:
+        return None
+    if not state.get("action") and state.get("checkpoint_required"):
+        return {
+            "decision": "block",
+            "reason": "WORKFLOW_TURN_CHECKPOINT_REQUIRED: sync the active tracker, persist "
+            "material deltas or explicitly confirm no change, then run checkpoint before stopping.",
+        }
+    if not state.get("action"):
         return None
     if state.get("mode") == "execute":
         return {
@@ -656,10 +787,20 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
         return handle_pre_tool(store, key, payload)
     if event == "UserPromptSubmit":
         state = store.get(key)
-        return context_output(event, mode_message(state)) if state else None
+        if not state:
+            return None
+        mark_sync_required(state)
+        state["checkpoint_required"] = True
+        state["turn_start_revision"] = state.get("record_revision")
+        store.mutate(key, lambda _old: state)
+        return context_output(event, mode_message(state))
     if event == "PostCompact":
         state = store.get(key)
-        return {"systemMessage": mode_message(state)} if state else None
+        if not state:
+            return None
+        mark_sync_required(state)
+        store.mutate(key, lambda _old: state)
+        return {"systemMessage": mode_message(state)}
     if event == "Stop":
         return handle_stop(store, key, payload)
     if event == "SessionEnd":

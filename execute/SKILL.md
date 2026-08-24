@@ -12,16 +12,20 @@ When the `workflow-modes` plugin is installed and its hooks are trusted, resolve
 - On fresh-session adoption, after validating and persisting `Execute mode: Active`, run `activate execute --record <execution-record>` before implementation.
 - On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then run `activate execute --record <execution-record>` to confirm or rebind the same active record.
 - When the user explicitly exits execute and the exit metadata is durable, run `deactivate`. Implementation completion alone must never call `deactivate`.
+- At activation, after every `UserPromptSubmit` reminder, and after every `PostCompact` reminder, read the exact execution record completely and run `sync --record <execution-record>` before substantive work. Never open an action or mutate outside the record while its revision is unacknowledged.
+- Before every user-facing response, run `checkpoint --record <execution-record>` after all material amendments, evidence, progress, verification, and action results are durable. Use `--no-change` only for a genuinely evidence-free turn after confirming the record remains accurate.
 
 Before each bounded group of source, Git, external-system, or other mutating actions in execute mode:
 
 1. Persist a stable amendment/evidence ID, the intended action, and the exact marker `<!-- workflow-action:<ID> status:open -->` in the active execution record.
-2. Run `action-open --record <execution-record> --evidence-id <ID> --impact <non-source|source-confirmed>` and add every inspectable target with `--path <path>`. For inherently unscoped mutations, add only the minimum required `--unscoped <git|external|shell>` classification; `git` also requires `source-confirmed`. Read-only tools and writes limited to the active execution record do not require an open action.
+2. Read the updated record and run `sync --record <execution-record>`, then run `action-open --record <execution-record> --evidence-id <ID> --impact <non-source|source-confirmed>` and add every inspectable target with `--path <path>`. For inherently unscoped mutations, add only the minimum required `--unscoped <git|external|shell>` classification; `git` also requires `source-confirmed`. Read-only tools and writes limited to the active execution record do not require an open action.
 3. Perform only the mutations covered by that checkpoint. Do not carry an action across an unrelated user request or materially different mutation group.
 4. Persist the terminal result, checks, identifiers, and residual state under the same evidence ID. Replace the open marker with exactly one matching terminal marker: `status:completed`, `status:failed`, or `status:blocked`.
 5. Run `action-close --result <completed|failed|blocked>` before a final response, mode deactivation, or unrelated mutation group. Never treat a denied close or Stop hook as optional; reconcile the record and retry the close.
 
 The execute hook must deny non-record mutations without an open action, deny opening when the evidence ID/open marker is absent from the tracker, deny paths or unscoped mutation classes outside the action, deny closing until the matching terminal marker is persisted, and block Stop while an execute action remains open. If the active record becomes genuinely unreadable while an action is open, use `action-abort --reason record-unreadable`, repair or restore the tracker, and do not mutate other state until execute is rebound. These controls enforce bookkeeping and scope; they do not grant mutation authority that the user, plan, or a higher-priority policy withheld.
+
+The hook also treats the record revision as a workflow boundary. `UserPromptSubmit` and `PostCompact` require a fresh sync, external record drift invalidates an earlier acknowledgement, and Stop requires a completed turn checkpoint. A checkpoint may acknowledge the revision just written by the agent; it does not replace the required start-of-turn read and sync.
 
 Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin or control script is unavailable, read-only adoption and evidence updates may continue, but do not begin or resume implementation; report that lifecycle enforcement must be installed and trusted. Never bypass a denied hook decision.
 

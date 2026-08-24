@@ -71,14 +71,25 @@ class WorkflowModesHookTests(unittest.TestCase):
     def activate(self, mode: str) -> None:
         self.record.parent.mkdir(parents=True, exist_ok=True)
         if mode == "discuss":
-            content = "Mode: $discuss\nMode status: Active\nExecute mode: Inactive\n"
+            content = (
+                "<!-- workflow-record version:2 kind:discuss tracker-id:TEST-TRACKER -->\n"
+                "Mode: $discuss\nMode status: Active\nExecute mode: Inactive\n"
+            )
         elif mode == "execute":
-            content = "Status: In progress\nExecute mode: Active\n"
+            content = (
+                "<!-- workflow-record version:2 kind:plan tracker-id:TEST-TRACKER -->\n"
+                "Status: In progress\nExecute mode: Active\n"
+            )
         else:
-            content = "Status: Draft\nExecute mode: Inactive\n"
+            content = (
+                "<!-- workflow-record version:2 kind:plan tracker-id:TEST-TRACKER -->\n"
+                "Status: Draft\nExecute mode: Inactive\n"
+            )
         self.record.write_text(content, encoding="utf-8")
         output = self.control("activate", mode, "--record", str(self.record))
         self.assertIn("WORKFLOW_MODE_ACTIVE", json.dumps(output))
+        synced = self.control("sync", "--record", str(self.record))
+        self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(synced))
 
     def test_dormant_until_skill_activates_mode(self) -> None:
         self.assertIsNone(self.patch("app.py"))
@@ -90,6 +101,58 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("systemMessage", output)
         self.assertIn(str(self.record), json.dumps(output))
         self.assertIn("only plan or execute", json.dumps(output))
+
+    def test_user_prompt_requires_record_sync_and_turn_checkpoint(self) -> None:
+        self.activate("discuss")
+        output = self.run_hook("UserPromptSubmit", prompt="Continue")
+        rendered = json.dumps(output)
+        self.assertIn("workflow-anchor", rendered)
+        self.assertIn("sync_status=required", rendered)
+        blocked = self.patch(str(self.cwd / "app.py"))
+        self.assertIn("WORKFLOW_RECORD_SYNC_REQUIRED", json.dumps(blocked))
+        stop = self.run_hook("Stop", stop_hook_active=False)
+        self.assertIn("WORKFLOW_TURN_CHECKPOINT_REQUIRED", json.dumps(stop))
+        self.control("sync", "--record", str(self.record))
+        unchanged = self.control("checkpoint", "--record", str(self.record))
+        self.assertIn("WORKFLOW_CHECKPOINT_CHANGE_REQUIRED", json.dumps(unchanged))
+        checked = self.control(
+            "checkpoint", "--record", str(self.record), "--no-change"
+        )
+        self.assertIn("WORKFLOW_TURN_CHECKPOINTED", json.dumps(checked))
+        self.assertIsNone(self.run_hook("Stop", stop_hook_active=False))
+
+    def test_record_change_invalidates_previous_sync(self) -> None:
+        self.activate("execute")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "External change\n",
+            encoding="utf-8",
+        )
+        blocked = self.patch(str(self.cwd / "app.py"))
+        self.assertIn("WORKFLOW_RECORD_SYNC_REQUIRED", json.dumps(blocked))
+        synced = self.control("sync", "--record", str(self.record))
+        self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(synced))
+        blocked_for_action = self.patch(str(self.cwd / "app.py"))
+        self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked_for_action))
+
+    def test_sync_rejects_record_identity_replacement(self) -> None:
+        self.activate("execute")
+        replacement = self.record.read_text(encoding="utf-8").replace(
+            "tracker-id:TEST-TRACKER", "tracker-id:OTHER-TRACKER"
+        )
+        self.record.write_text(replacement, encoding="utf-8")
+        blocked = self.control("sync", "--record", str(self.record))
+        self.assertIn("WORKFLOW_RECORD_IDENTITY_MISMATCH", json.dumps(blocked))
+
+    def test_checkpoint_accepts_a_changed_and_synced_record(self) -> None:
+        self.activate("plan")
+        self.run_hook("UserPromptSubmit", prompt="Revise the plan")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "Decision: accepted\n",
+            encoding="utf-8",
+        )
+        self.control("sync", "--record", str(self.record))
+        checked = self.control("checkpoint", "--record", str(self.record))
+        self.assertIn("changed=true", json.dumps(checked))
 
     def test_hook_schema_uses_system_message_for_post_compact(self) -> None:
         hooks = json.loads(HOOKS.read_text(encoding="utf-8"))["hooks"]
@@ -136,6 +199,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         )
         plan = self.control("transition", "plan", "--record", str(self.record))
         self.assertIn("mode=plan", json.dumps(plan))
+        self.control("sync", "--record", str(self.record))
         blocked = self.patch("app.py")
         self.assertIn("WORKFLOW_PLAN_READ_ONLY", json.dumps(blocked))
         self.record.write_text(
@@ -144,6 +208,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         )
         execute = self.control("transition", "execute", "--record", str(self.record))
         self.assertIn("mode=execute", json.dumps(execute))
+        self.control("sync", "--record", str(self.record))
         blocked = self.patch("app.py")
         self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked))
 
@@ -157,7 +222,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         output = self.control("transition", "execute", "--record", str(self.record))
         self.assertIn("mode=execute", json.dumps(output))
         compact = self.run_hook("PostCompact")
-        self.assertIn("exits only on explicit request", json.dumps(compact))
+        self.assertIn("exit=explicit request only", json.dumps(compact))
 
     def test_discuss_and_plan_cannot_deactivate(self) -> None:
         self.activate("discuss")
@@ -197,6 +262,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             self.record.read_text(encoding="utf-8") + "A001 pending action\n",
             encoding="utf-8",
         )
+        self.control("sync", "--record", str(self.record))
         missing_marker = self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A001",
             "--path", str(self.cwd / "app.py"), "--impact", "source-confirmed",
@@ -210,6 +276,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             + "A001 pending action\n<!-- workflow-action:A001 status:open -->\n",
             encoding="utf-8",
         )
+        self.control("sync", "--record", str(self.record))
         opened = self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A001",
             "--path", str(self.cwd / "app.py"), "--unscoped", "git",
@@ -239,6 +306,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         )
         closed = self.control("action-close", "--result", "completed")
         self.assertIn("tracker evidence reconciled", json.dumps(closed))
+        self.control("sync", "--record", str(self.record))
         blocked_again = self.patch(str(self.cwd / "app.py"))
         self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked_again))
 
@@ -249,6 +317,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             + "A002 pending action\n<!-- workflow-action:A002 status:open -->\n",
             encoding="utf-8",
         )
+        self.control("sync", "--record", str(self.record))
         self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A002",
             "--impact", "non-source",
@@ -266,6 +335,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             + "A004 pending action\n<!-- workflow-action:A004 status:open -->\n",
             encoding="utf-8",
         )
+        self.control("sync", "--record", str(self.record))
         self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A004",
             "--impact", "non-source",
@@ -282,6 +352,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             + "A005 pending action\n<!-- workflow-action:A005 status:open -->\n",
             encoding="utf-8",
         )
+        self.control("sync", "--record", str(self.record))
         self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A005",
             "--impact", "non-source",
@@ -300,6 +371,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             + "A003 pending Jira update\n<!-- workflow-action:A003 status:open -->\n",
             encoding="utf-8",
         )
+        self.control("sync", "--record", str(self.record))
         self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A003",
             "--unscoped", "external", "--impact", "non-source",

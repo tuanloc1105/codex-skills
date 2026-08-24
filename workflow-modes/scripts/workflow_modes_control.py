@@ -43,6 +43,15 @@ def parse_args() -> argparse.Namespace:
     action_abort.add_argument("--reason", choices=("record-unreadable",), required=True)
     action_abort.add_argument("--marker", required=True)
 
+    sync = subparsers.add_parser("sync")
+    sync.add_argument("--record", required=True)
+    sync.add_argument("--marker", required=True)
+
+    checkpoint = subparsers.add_parser("checkpoint")
+    checkpoint.add_argument("--record", required=True)
+    checkpoint.add_argument("--no-change", action="store_true")
+    checkpoint.add_argument("--marker", required=True)
+
     subparsers.add_parser("snapshot").add_argument("--marker", required=True)
     subparsers.add_parser("deactivate").add_argument("--marker", required=True)
     args = parser.parse_args()
