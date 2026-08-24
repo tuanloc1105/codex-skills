@@ -74,7 +74,7 @@ All sections except `version` are optional. Within a present section, allow only
 - `permitted_prefixes` may narrow prefixes but cannot remove Jira traceability.
 - `maximum_changed_line_limit` must be positive and no greater than 400. It may make the default PR-size boundary stricter but cannot weaken or broaden the scoped artifact exception in core policy. Treat the former `advisory_changed_line_limit` key as invalid configuration drift because ordinary PR size is not advisory.
 - Jira mapping changes labels only; it cannot change the peer Story/Task/Bug level, their direct Epic parentage, or the rule that a Subtask may have a Story, Task, or Bug as its direct parent.
-- A profile cannot silently replace, create, or weaken the default Tech-Lead-owned Epic base topology. Any exception requires a recorded user override for the exact fallback branch and action.
+- A profile cannot silently replace, create, or weaken the default Tech-Lead-owned Epic base or the rule that it remains every MR target. A verified working branch from the same Epic may be the development base only through the stacked-ticket procedure in core policy; any other exception requires a recorded user override for the exact fallback branch and action.
 - All paths and globs are repository relative and grant no mutation authority. Reject paths escaping the repository.
 - Required commands must be owned by repository manifests, scripts, CI, or documentation. A profile cannot disable higher-priority checks.
 - AI attribution must reference a repository-sanctioned mechanism; never invent a trailer.
