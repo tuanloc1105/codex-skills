@@ -18,17 +18,22 @@ from typing import Any, Callable
 
 MARKER = "workflow-modes-v1"
 MODES = {"discuss", "plan", "execute"}
+GIT_MUTATION_COMMANDS = "add|commit|push|merge|rebase|reset|clean|checkout|switch|restore"
+GIT_MUTATION_PATTERN = rf"\bgit\s+(?:{GIT_MUTATION_COMMANDS})\b"
+EXTERNAL_MUTATION_PATTERN = (
+    r"\b(?:glab|gh|tea)\b[^;&|\n]*"
+    r"\b(?:approve|close|comment|create|delete|edit|merge|note|reopen|review|update)\b"
+    r"|\bacli\s+jira\s+workitem\b[^;&|\n]*"
+    r"\b(?:comment|create|edit|transition)\b"
+)
 MUTATING_SHELL = re.compile(
     r"(?:^|[;&|]\s*|\s)(?:rm|mv|cp|mkdir|touch|chmod|chown|install)\b"
-    r"|\bgit\s+(?:add|commit|push|merge|rebase|reset|clean|checkout|switch)\b"
+    rf"|{GIT_MUTATION_PATTERN}"
     r"|\b(?:npm|pnpm|yarn|pip|pip3|uv)\s+(?:install|uninstall|add|remove|publish)\b"
     r"|\b(?:docker|podman)\s+(?:build|push|run|compose\s+up)\b"
     r"|\bkubectl\s+(?:apply|create|delete|patch|replace|scale|set)\b"
     r"|\bterraform\s+(?:apply|destroy|import)\b"
-    r"|\bglab\s+(?:mr|issue|release)\s+(?:approve|close|create|delete|edit|merge|note|reopen|update)\b"
-    r"|\bgh\s+(?:issue|pr|release)\s+(?:close|comment|create|delete|edit|merge|reopen|review)\b"
-    r"|\btea\s+(?:issues?|pulls?|releases?)\s+(?:close|comment|create|delete|edit|merge|reopen)\b"
-    r"|\bacli\s+jira\s+workitem\s+(?:comment|create|edit|transition)\b"
+    rf"|{EXTERNAL_MUTATION_PATTERN}"
     r"|(?:^|[^>])>{1,2}(?!>)",
     re.IGNORECASE,
 )
@@ -48,10 +53,8 @@ SOURCE_EXTENSIONS = {
     ".java", ".js", ".jsx", ".kt", ".kts", ".lua", ".php", ".py", ".rb",
     ".rs", ".sh", ".sql", ".swift", ".ts", ".tsx", ".vue",
 }
-SOURCE_MUTATING_SHELL = re.compile(
-    r"\bgit\s+(?:add|commit|push|merge|rebase|reset|clean|checkout|switch)\b",
-    re.IGNORECASE,
-)
+SOURCE_MUTATING_SHELL = re.compile(GIT_MUTATION_PATTERN, re.IGNORECASE)
+EXTERNAL_MUTATING_SHELL = re.compile(EXTERNAL_MUTATION_PATTERN, re.IGNORECASE)
 
 
 def utc_now() -> str:
@@ -193,11 +196,19 @@ def contains_evidence_id(text: str, evidence_id: str) -> bool:
     )
 
 
-def evidence_digest(text: str, evidence_id: str) -> str:
-    matching_lines = [
-        line for line in text.splitlines() if contains_evidence_id(line, evidence_id)
-    ]
-    return hashlib.sha256("\n".join(matching_lines).encode("utf-8")).hexdigest()
+def action_marker(evidence_id: str, status: str) -> str:
+    return f"<!-- workflow-action:{evidence_id} status:{status} -->"
+
+
+def unscoped_mutation_kind(payload: dict[str, Any]) -> str:
+    if not is_shell_tool(payload):
+        return "external"
+    command = tool_command(payload)
+    if SOURCE_MUTATING_SHELL.search(command):
+        return "git"
+    if EXTERNAL_MUTATING_SHELL.search(command):
+        return "external"
+    return "shell"
 
 
 def missing_markers(text: str, markers: tuple[str, ...]) -> list[str]:
@@ -259,11 +270,14 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
     while index < len(args):
         token = args[index]
         if token in {
-            "--record", "--path", "--result", "--impact", "--evidence-id"
+            "--record", "--path", "--result", "--impact", "--evidence-id",
+            "--unscoped", "--reason",
         } and index + 1 < len(args):
             key = token[2:].replace("-", "_")
             if key == "path":
                 result.setdefault("paths", []).append(args[index + 1])
+            elif key == "unscoped":
+                result.setdefault("unscoped", []).append(args[index + 1])
             else:
                 result[key] = args[index + 1]
             index += 2
@@ -402,6 +416,11 @@ def handle_control(
         if impact not in {"non-source", "source-confirmed"}:
             return deny_tool("WORKFLOW_ACTION_INVALID: --impact must classify source impact.")
         paths = [normalized(path, cwd) for path in control.get("paths", [])]
+        unscoped = control.get("unscoped", [])
+        if not isinstance(unscoped, list) or not set(unscoped).issubset(
+            {"git", "external", "shell"}
+        ):
+            return deny_tool("WORKFLOW_ACTION_INVALID: unsupported --unscoped classification.")
         evidence_id = control.get("evidence_id")
         if current.get("mode") == "execute":
             if not isinstance(evidence_id, str) or not evidence_id.strip():
@@ -419,17 +438,18 @@ def handle_control(
                     "WORKFLOW_EVIDENCE_NOT_PERSISTED: the execute action evidence ID is "
                     "absent from the active tracker."
                 )
+            if action_marker(evidence_id, "open") not in record_text:
+                return deny_tool(
+                    "WORKFLOW_ACTION_MARKER_REQUIRED: persist the exact open marker for the "
+                    "execute action before action-open."
+                )
         current["action"] = {
             "status": "authorized",
             "paths": sorted(set(paths)),
             "impact": impact,
             "opened_at": utc_now(),
             "evidence_id": evidence_id,
-            "evidence_digest_at_open": (
-                evidence_digest(record_text, evidence_id)
-                if isinstance(evidence_id, str)
-                else None
-            ),
+            "unscoped": sorted(set(unscoped)),
         }
         current["stop_warning_issued"] = False
         store.mutate(key, lambda _old: current)
@@ -442,6 +462,12 @@ def handle_control(
         if current.get("mode") not in {"discuss", "execute"} or not current.get("action"):
             return deny_tool("WORKFLOW_ACTION_MISSING: no workflow action is open.")
         action_mode = current.get("mode")
+        result = control.get("result")
+        if result not in {"completed", "failed", "blocked"}:
+            return deny_tool(
+                "WORKFLOW_ACTION_RESULT_INVALID: action-close requires completed, failed, "
+                "or blocked."
+            )
         if current.get("mode") == "execute":
             record_text = read_record(str(current.get("record")))
             if record_text is None:
@@ -452,12 +478,15 @@ def handle_control(
                     "WORKFLOW_EVIDENCE_NOT_PERSISTED: the action evidence ID must remain in "
                     "the execution record."
                 )
-            if evidence_digest(record_text, evidence_id) == current["action"].get(
-                "evidence_digest_at_open"
-            ):
+            if action_marker(evidence_id, result) not in record_text:
                 return deny_tool(
-                    "WORKFLOW_EVIDENCE_NOT_RECONCILED: update the execution record entry "
-                    "for this evidence ID with the terminal action result before action-close."
+                    "WORKFLOW_EVIDENCE_NOT_RECONCILED: replace the action's open marker with "
+                    "the exact terminal marker matching --result before action-close."
+                )
+            if action_marker(evidence_id, "open") in record_text:
+                return deny_tool(
+                    "WORKFLOW_EVIDENCE_NOT_RECONCILED: remove the action's open marker before "
+                    "action-close."
                 )
         current["action"] = None
         current["stop_warning_issued"] = False
@@ -470,6 +499,25 @@ def handle_control(
         return context_output(
             "PreToolUse",
             f"WORKFLOW_ACTION_CLOSED: result={control.get('result')}; {close_message}",
+        )
+    if action == "action-abort":
+        if current.get("mode") != "execute" or not current.get("action"):
+            return deny_tool("WORKFLOW_ACTION_MISSING: no execute action is open.")
+        if control.get("reason") != "record-unreadable":
+            return deny_tool(
+                "WORKFLOW_ACTION_ABORT_DENIED: only record-unreadable recovery is supported."
+            )
+        if read_record(str(current.get("record"))) is not None:
+            return deny_tool(
+                "WORKFLOW_ACTION_ABORT_DENIED: the active execution record is still readable."
+            )
+        current["action"] = None
+        current["stop_warning_issued"] = False
+        store.mutate(key, lambda _old: current)
+        return context_output(
+            "PreToolUse",
+            "WORKFLOW_ACTION_ABORTED: unreadable-record recovery cleared the execute action; "
+            "repair or restore the tracker before further mutation.",
         )
     return deny_tool("WORKFLOW_CONTROL_INVALID: unsupported lifecycle action.")
 
@@ -534,12 +582,17 @@ def handle_pre_tool(
             )
         return None
     if mode == "execute":
-        if action.get("impact") == "non-source" and is_shell_tool(payload) and (
-            SOURCE_MUTATING_SHELL.search(tool_command(payload))
-        ):
+        mutation_kind = unscoped_mutation_kind(payload)
+        if action.get("impact") == "non-source" and mutation_kind == "git":
             return deny_tool(
                 "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: Git source/history mutations require "
                 "an execute action opened with --impact source-confirmed."
+            )
+        allowed_unscoped = set(action.get("unscoped", []))
+        if mutation_kind not in allowed_unscoped:
+            return deny_tool(
+                "WORKFLOW_ACTION_UNSCOPED_TOOL: this execute action did not authorize the "
+                f"unscoped mutation class '{mutation_kind}'."
             )
         return None
     if action.get("impact") == "non-source":

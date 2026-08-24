@@ -28,6 +28,9 @@ def parse_args() -> argparse.Namespace:
     action_open.add_argument("--evidence-id")
     action_open.add_argument("--path", action="append", default=[])
     action_open.add_argument(
+        "--unscoped", action="append", choices=("git", "external", "shell"), default=[]
+    )
+    action_open.add_argument(
         "--impact", choices=("non-source", "source-confirmed"), required=True
     )
     action_open.add_argument("--marker", required=True)
@@ -35,6 +38,10 @@ def parse_args() -> argparse.Namespace:
     action_close = subparsers.add_parser("action-close")
     action_close.add_argument("--result", choices=("completed", "failed", "blocked"), required=True)
     action_close.add_argument("--marker", required=True)
+
+    action_abort = subparsers.add_parser("action-abort")
+    action_abort.add_argument("--reason", choices=("record-unreadable",), required=True)
+    action_abort.add_argument("--marker", required=True)
 
     subparsers.add_parser("snapshot").add_argument("--marker", required=True)
     subparsers.add_parser("deactivate").add_argument("--marker", required=True)

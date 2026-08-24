@@ -15,13 +15,13 @@ When the `workflow-modes` plugin is installed and its hooks are trusted, resolve
 
 Before each bounded group of source, Git, external-system, or other mutating actions in execute mode:
 
-1. Persist a stable amendment/evidence ID and the intended action in the active execution record.
-2. Run `action-open --record <execution-record> --evidence-id <ID> --impact <non-source|source-confirmed>` and add every inspectable target with `--path <path>`. Read-only tools and writes limited to the active execution record do not require an open action.
+1. Persist a stable amendment/evidence ID, the intended action, and the exact marker `<!-- workflow-action:<ID> status:open -->` in the active execution record.
+2. Run `action-open --record <execution-record> --evidence-id <ID> --impact <non-source|source-confirmed>` and add every inspectable target with `--path <path>`. For inherently unscoped mutations, add only the minimum required `--unscoped <git|external|shell>` classification; `git` also requires `source-confirmed`. Read-only tools and writes limited to the active execution record do not require an open action.
 3. Perform only the mutations covered by that checkpoint. Do not carry an action across an unrelated user request or materially different mutation group.
-4. Persist the terminal result, checks, identifiers, and residual state under the same evidence ID. The record must change after `action-open` even when the action failed or became blocked.
+4. Persist the terminal result, checks, identifiers, and residual state under the same evidence ID. Replace the open marker with exactly one matching terminal marker: `status:completed`, `status:failed`, or `status:blocked`.
 5. Run `action-close --result <completed|failed|blocked>` before a final response, mode deactivation, or unrelated mutation group. Never treat a denied close or Stop hook as optional; reconcile the record and retry the close.
 
-The execute hook must deny non-record mutations without an open action, deny opening when the evidence ID is absent from the tracker, deny closing while the tracker is unchanged since open, and block Stop while an execute action remains open. These controls enforce bookkeeping and scope; they do not grant mutation authority that the user, plan, or a higher-priority policy withheld.
+The execute hook must deny non-record mutations without an open action, deny opening when the evidence ID/open marker is absent from the tracker, deny paths or unscoped mutation classes outside the action, deny closing until the matching terminal marker is persisted, and block Stop while an execute action remains open. If the active record becomes genuinely unreadable while an action is open, use `action-abort --reason record-unreadable`, repair or restore the tracker, and do not mutate other state until execute is rebound. These controls enforce bookkeeping and scope; they do not grant mutation authority that the user, plan, or a higher-priority policy withheld.
 
 Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin or control script is unavailable, read-only adoption and evidence updates may continue, but do not begin or resume implementation; report that lifecycle enforcement must be installed and trusted. Never bypass a denied hook decision.
 

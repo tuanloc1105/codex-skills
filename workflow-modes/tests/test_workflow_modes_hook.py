@@ -193,21 +193,34 @@ class WorkflowModesHookTests(unittest.TestCase):
             "--path", str(self.cwd / "app.py"), "--impact", "source-confirmed",
         )
         self.assertIn("WORKFLOW_EVIDENCE_NOT_PERSISTED", json.dumps(missing_record))
-
-    def test_execute_action_requires_terminal_record_update_before_close(self) -> None:
-        self.activate("execute")
         self.record.write_text(
             self.record.read_text(encoding="utf-8") + "A001 pending action\n",
             encoding="utf-8",
         )
-        opened = self.control(
+        missing_marker = self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A001",
             "--path", str(self.cwd / "app.py"), "--impact", "source-confirmed",
+        )
+        self.assertIn("WORKFLOW_ACTION_MARKER_REQUIRED", json.dumps(missing_marker))
+
+    def test_execute_action_requires_terminal_record_update_before_close(self) -> None:
+        self.activate("execute")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8")
+            + "A001 pending action\n<!-- workflow-action:A001 status:open -->\n",
+            encoding="utf-8",
+        )
+        opened = self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A001",
+            "--path", str(self.cwd / "app.py"), "--unscoped", "git",
+            "--impact", "source-confirmed",
         )
         self.assertIn("bounded execute action authorized", json.dumps(opened))
         self.assertIsNone(self.patch(str(self.cwd / "app.py")))
         denied_path = self.patch(str(self.cwd / "other.py"))
         self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(denied_path))
+        denied_shell = self.mutate_shell("rm other.py")
+        self.assertIn("WORKFLOW_ACTION_UNSCOPED_TOOL", json.dumps(denied_shell))
         self.assertIsNone(self.mutate_shell("git push origin feature/test"))
         stale_close = self.control("action-close", "--result", "completed")
         self.assertIn("WORKFLOW_EVIDENCE_NOT_RECONCILED", json.dumps(stale_close))
@@ -217,9 +230,12 @@ class WorkflowModesHookTests(unittest.TestCase):
         )
         unrelated_close = self.control("action-close", "--result", "completed")
         self.assertIn("WORKFLOW_EVIDENCE_NOT_RECONCILED", json.dumps(unrelated_close))
+        terminal_record = self.record.read_text(encoding="utf-8").replace(
+            "<!-- workflow-action:A001 status:open -->",
+            "<!-- workflow-action:A001 status:completed -->",
+        )
         self.record.write_text(
-            self.record.read_text(encoding="utf-8") + "A001 completed with commit abc123\n",
-            encoding="utf-8",
+            terminal_record + "A001 completed with commit abc123\n", encoding="utf-8"
         )
         closed = self.control("action-close", "--result", "completed")
         self.assertIn("tracker evidence reconciled", json.dumps(closed))
@@ -229,7 +245,8 @@ class WorkflowModesHookTests(unittest.TestCase):
     def test_execute_action_blocks_stop_and_deactivation_until_reconciled(self) -> None:
         self.activate("execute")
         self.record.write_text(
-            self.record.read_text(encoding="utf-8") + "A002 pending action\n",
+            self.record.read_text(encoding="utf-8")
+            + "A002 pending action\n<!-- workflow-action:A002 status:open -->\n",
             encoding="utf-8",
         )
         self.control(
@@ -242,15 +259,50 @@ class WorkflowModesHookTests(unittest.TestCase):
         deactivate = self.control("deactivate")
         self.assertIn("WORKFLOW_ACTION_CLOSE_REQUIRED", json.dumps(deactivate))
 
+    def test_execute_action_rejects_invalid_close_result(self) -> None:
+        self.activate("execute")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8")
+            + "A004 pending action\n<!-- workflow-action:A004 status:open -->\n",
+            encoding="utf-8",
+        )
+        self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A004",
+            "--impact", "non-source",
+        )
+        invalid = self.control("action-close", "--result", "typo")
+        self.assertIn("WORKFLOW_ACTION_RESULT_INVALID", json.dumps(invalid))
+        stop = self.run_hook("Stop", stop_hook_active=False)
+        self.assertEqual(stop.get("decision"), "block")
+
+    def test_execute_action_can_abort_only_when_record_is_unreadable(self) -> None:
+        self.activate("execute")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8")
+            + "A005 pending action\n<!-- workflow-action:A005 status:open -->\n",
+            encoding="utf-8",
+        )
+        self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A005",
+            "--impact", "non-source",
+        )
+        denied = self.control("action-abort", "--reason", "record-unreadable")
+        self.assertIn("WORKFLOW_ACTION_ABORT_DENIED", json.dumps(denied))
+        self.record.unlink()
+        aborted = self.control("action-abort", "--reason", "record-unreadable")
+        self.assertIn("WORKFLOW_ACTION_ABORTED", json.dumps(aborted))
+        self.assertIsNone(self.run_hook("Stop", stop_hook_active=False))
+
     def test_execute_non_source_action_cannot_mutate_git_history(self) -> None:
         self.activate("execute")
         self.record.write_text(
-            self.record.read_text(encoding="utf-8") + "A003 pending Jira update\n",
+            self.record.read_text(encoding="utf-8")
+            + "A003 pending Jira update\n<!-- workflow-action:A003 status:open -->\n",
             encoding="utf-8",
         )
         self.control(
             "action-open", "--record", str(self.record), "--evidence-id", "A003",
-            "--impact", "non-source",
+            "--unscoped", "external", "--impact", "non-source",
         )
         blocked = self.mutate_shell("git push origin feature/test")
         self.assertIn("WORKFLOW_SOURCE_CONFIRMATION_REQUIRED", json.dumps(blocked))
@@ -260,6 +312,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.activate("execute")
         for command in (
             "glab mr create --title test",
+            "gh --repo owner/repo pr merge 12",
             "gh pr merge 12",
             "tea pulls create",
             "acli jira workitem transition --key ABC-1",
