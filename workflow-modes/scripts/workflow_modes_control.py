@@ -25,6 +25,7 @@ def parse_args() -> argparse.Namespace:
 
     action_open = subparsers.add_parser("action-open")
     action_open.add_argument("--record", required=True)
+    action_open.add_argument("--evidence-id")
     action_open.add_argument("--path", action="append", default=[])
     action_open.add_argument(
         "--impact", choices=("non-source", "source-confirmed"), required=True

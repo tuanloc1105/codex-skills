@@ -61,6 +61,13 @@ class WorkflowModesHookTests(unittest.TestCase):
             tool_input={"command": command},
         )
 
+    def mutate_shell(self, command: str) -> dict[str, object] | None:
+        return self.run_hook(
+            "PreToolUse",
+            tool_name="exec_command",
+            tool_input={"cmd": command},
+        )
+
     def activate(self, mode: str) -> None:
         self.record.parent.mkdir(parents=True, exist_ok=True)
         if mode == "discuss":
@@ -137,7 +144,8 @@ class WorkflowModesHookTests(unittest.TestCase):
         )
         execute = self.control("transition", "execute", "--record", str(self.record))
         self.assertIn("mode=execute", json.dumps(execute))
-        self.assertIsNone(self.patch("app.py"))
+        blocked = self.patch("app.py")
+        self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked))
 
     def test_discuss_transitions_directly_to_execute(self) -> None:
         self.activate("discuss")
@@ -166,6 +174,99 @@ class WorkflowModesHookTests(unittest.TestCase):
         output = self.control("deactivate")
         self.assertIn("WORKFLOW_MODE_INACTIVE", json.dumps(output))
         self.assertIsNone(self.run_hook("PostCompact"))
+
+    def test_execute_allows_tracker_update_without_action(self) -> None:
+        self.activate("execute")
+        self.assertIsNone(self.patch(str(self.record)))
+        blocked = self.patch(str(self.cwd / "app.py"))
+        self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked))
+
+    def test_execute_action_requires_persisted_evidence_id(self) -> None:
+        self.activate("execute")
+        missing_id = self.control(
+            "action-open", "--record", str(self.record),
+            "--path", str(self.cwd / "app.py"), "--impact", "source-confirmed",
+        )
+        self.assertIn("WORKFLOW_EVIDENCE_ID_REQUIRED", json.dumps(missing_id))
+        missing_record = self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A001",
+            "--path", str(self.cwd / "app.py"), "--impact", "source-confirmed",
+        )
+        self.assertIn("WORKFLOW_EVIDENCE_NOT_PERSISTED", json.dumps(missing_record))
+
+    def test_execute_action_requires_terminal_record_update_before_close(self) -> None:
+        self.activate("execute")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "A001 pending action\n",
+            encoding="utf-8",
+        )
+        opened = self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A001",
+            "--path", str(self.cwd / "app.py"), "--impact", "source-confirmed",
+        )
+        self.assertIn("bounded execute action authorized", json.dumps(opened))
+        self.assertIsNone(self.patch(str(self.cwd / "app.py")))
+        denied_path = self.patch(str(self.cwd / "other.py"))
+        self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(denied_path))
+        self.assertIsNone(self.mutate_shell("git push origin feature/test"))
+        stale_close = self.control("action-close", "--result", "completed")
+        self.assertIn("WORKFLOW_EVIDENCE_NOT_RECONCILED", json.dumps(stale_close))
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "Unrelated tracker update\n",
+            encoding="utf-8",
+        )
+        unrelated_close = self.control("action-close", "--result", "completed")
+        self.assertIn("WORKFLOW_EVIDENCE_NOT_RECONCILED", json.dumps(unrelated_close))
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "A001 completed with commit abc123\n",
+            encoding="utf-8",
+        )
+        closed = self.control("action-close", "--result", "completed")
+        self.assertIn("tracker evidence reconciled", json.dumps(closed))
+        blocked_again = self.patch(str(self.cwd / "app.py"))
+        self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked_again))
+
+    def test_execute_action_blocks_stop_and_deactivation_until_reconciled(self) -> None:
+        self.activate("execute")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "A002 pending action\n",
+            encoding="utf-8",
+        )
+        self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A002",
+            "--impact", "non-source",
+        )
+        stop = self.run_hook("Stop", stop_hook_active=True)
+        self.assertEqual(stop.get("decision"), "block")
+        self.assertIn("WORKFLOW_EXECUTE_RECONCILIATION_REQUIRED", json.dumps(stop))
+        deactivate = self.control("deactivate")
+        self.assertIn("WORKFLOW_ACTION_CLOSE_REQUIRED", json.dumps(deactivate))
+
+    def test_execute_non_source_action_cannot_mutate_git_history(self) -> None:
+        self.activate("execute")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "A003 pending Jira update\n",
+            encoding="utf-8",
+        )
+        self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A003",
+            "--impact", "non-source",
+        )
+        blocked = self.mutate_shell("git push origin feature/test")
+        self.assertIn("WORKFLOW_SOURCE_CONFIRMATION_REQUIRED", json.dumps(blocked))
+        self.assertIsNone(self.mutate_shell("glab mr create --title test"))
+
+    def test_git_platform_cli_mutations_require_execute_action(self) -> None:
+        self.activate("execute")
+        for command in (
+            "glab mr create --title test",
+            "gh pr merge 12",
+            "tea pulls create",
+            "acli jira workitem transition --key ABC-1",
+        ):
+            with self.subTest(command=command):
+                blocked = self.mutate_shell(command)
+                self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked))
 
     def test_stop_blocks_once_when_discuss_action_is_open(self) -> None:
         self.activate("discuss")

@@ -13,6 +13,16 @@ When the `workflow-modes` plugin is installed and its hooks are trusted, resolve
 - On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then run `activate execute --record <execution-record>` to confirm or rebind the same active record.
 - When the user explicitly exits execute and the exit metadata is durable, run `deactivate`. Implementation completion alone must never call `deactivate`.
 
+Before each bounded group of source, Git, external-system, or other mutating actions in execute mode:
+
+1. Persist a stable amendment/evidence ID and the intended action in the active execution record.
+2. Run `action-open --record <execution-record> --evidence-id <ID> --impact <non-source|source-confirmed>` and add every inspectable target with `--path <path>`. Read-only tools and writes limited to the active execution record do not require an open action.
+3. Perform only the mutations covered by that checkpoint. Do not carry an action across an unrelated user request or materially different mutation group.
+4. Persist the terminal result, checks, identifiers, and residual state under the same evidence ID. The record must change after `action-open` even when the action failed or became blocked.
+5. Run `action-close --result <completed|failed|blocked>` before a final response, mode deactivation, or unrelated mutation group. Never treat a denied close or Stop hook as optional; reconcile the record and retry the close.
+
+The execute hook must deny non-record mutations without an open action, deny opening when the evidence ID is absent from the tracker, deny closing while the tracker is unchanged since open, and block Stop while an execute action remains open. These controls enforce bookkeeping and scope; they do not grant mutation authority that the user, plan, or a higher-priority policy withheld.
+
 Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin or control script is unavailable, read-only adoption and evidence updates may continue, but do not begin or resume implementation; report that lifecycle enforcement must be installed and trusted. Never bypass a denied hook decision.
 
 Use this skill to adopt either an approved `$plan` handoff or an execution-ready `$discuss` tracker as a persistent execution and evidence record. In the rules below, “plan” means the exact adopted execution record regardless of which skill produced it.

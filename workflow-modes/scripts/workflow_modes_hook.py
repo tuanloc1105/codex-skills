@@ -25,13 +25,18 @@ MUTATING_SHELL = re.compile(
     r"|\b(?:docker|podman)\s+(?:build|push|run|compose\s+up)\b"
     r"|\bkubectl\s+(?:apply|create|delete|patch|replace|scale|set)\b"
     r"|\bterraform\s+(?:apply|destroy|import)\b"
+    r"|\bglab\s+(?:mr|issue|release)\s+(?:approve|close|create|delete|edit|merge|note|reopen|update)\b"
+    r"|\bgh\s+(?:issue|pr|release)\s+(?:close|comment|create|delete|edit|merge|reopen|review)\b"
+    r"|\btea\s+(?:issues?|pulls?|releases?)\s+(?:close|comment|create|delete|edit|merge|reopen)\b"
+    r"|\bacli\s+jira\s+workitem\s+(?:comment|create|edit|transition)\b"
     r"|(?:^|[^>])>{1,2}(?!>)",
     re.IGNORECASE,
 )
 MUTATING_TOOL_VERBS = {
-    "add", "archive", "commit", "create", "delete", "deploy", "edit",
-    "install", "move", "publish", "push", "remove", "rename", "send",
-    "set", "update", "write",
+    "add", "approve", "archive", "close", "comment", "commit", "create",
+    "delete", "deploy", "edit", "install", "merge", "move", "publish",
+    "push", "remove", "rename", "reopen", "send", "set", "transition",
+    "update", "write",
 }
 COORDINATION_TOOLS = {
     "followup_task", "get_goal", "interrupt_agent", "list_agents",
@@ -43,6 +48,10 @@ SOURCE_EXTENSIONS = {
     ".java", ".js", ".jsx", ".kt", ".kts", ".lua", ".php", ".py", ".rb",
     ".rs", ".sh", ".sql", ".swift", ".ts", ".tsx", ".vue",
 }
+SOURCE_MUTATING_SHELL = re.compile(
+    r"\bgit\s+(?:add|commit|push|merge|rebase|reset|clean|checkout|switch)\b",
+    re.IGNORECASE,
+)
 
 
 def utc_now() -> str:
@@ -175,6 +184,22 @@ def read_record(path: str) -> str | None:
         return None
 
 
+def contains_evidence_id(text: str, evidence_id: str) -> bool:
+    return bool(
+        re.search(
+            rf"(?<![A-Za-z0-9_-]){re.escape(evidence_id)}(?![A-Za-z0-9_-])",
+            text,
+        )
+    )
+
+
+def evidence_digest(text: str, evidence_id: str) -> str:
+    matching_lines = [
+        line for line in text.splitlines() if contains_evidence_id(line, evidence_id)
+    ]
+    return hashlib.sha256("\n".join(matching_lines).encode("utf-8")).hexdigest()
+
+
 def missing_markers(text: str, markers: tuple[str, ...]) -> list[str]:
     return [marker for marker in markers if marker not in text]
 
@@ -233,7 +258,9 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
     index = 1
     while index < len(args):
         token = args[index]
-        if token in {"--record", "--path", "--result", "--impact"} and index + 1 < len(args):
+        if token in {
+            "--record", "--path", "--result", "--impact", "--evidence-id"
+        } and index + 1 < len(args):
             key = token[2:].replace("-", "_")
             if key == "path":
                 result.setdefault("paths", []).append(args[index + 1])
@@ -345,6 +372,11 @@ def handle_control(
             "read and reconcile it before substantive work.",
         )
     if action == "deactivate":
+        if current and current.get("mode") == "execute" and current.get("action"):
+            return deny_tool(
+                "WORKFLOW_ACTION_CLOSE_REQUIRED: reconcile and close the execute action "
+                "before deactivating execute mode."
+            )
         if current and current.get("mode") != "execute":
             return deny_tool(
                 "WORKFLOW_EXIT_DENIED: discuss and plan exit only through a valid plan/execute transition."
@@ -356,37 +388,88 @@ def handle_control(
     if action == "snapshot":
         return context_output("PreToolUse", f"WORKFLOW_MODE_SNAPSHOT: {state_summary(current)}.")
     if action == "action-open":
-        if current.get("mode") != "discuss":
-            return deny_tool("WORKFLOW_ACTION_DENIED: scoped actions belong to discuss mode.")
+        if current.get("mode") not in {"discuss", "execute"}:
+            return deny_tool("WORKFLOW_ACTION_DENIED: scoped actions require discuss or execute mode.")
+        if current.get("action"):
+            return deny_tool("WORKFLOW_ACTION_ALREADY_OPEN: close the current action first.")
         record = control.get("record")
         if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
             return deny_tool("WORKFLOW_RECORD_MISMATCH: action record differs from active tracker.")
+        record_text = read_record(str(current.get("record")))
+        if record_text is None:
+            return deny_tool("WORKFLOW_RECORD_UNREADABLE: the tracker must exist and be readable.")
         impact = control.get("impact")
         if impact not in {"non-source", "source-confirmed"}:
             return deny_tool("WORKFLOW_ACTION_INVALID: --impact must classify source impact.")
         paths = [normalized(path, cwd) for path in control.get("paths", [])]
+        evidence_id = control.get("evidence_id")
+        if current.get("mode") == "execute":
+            if not isinstance(evidence_id, str) or not evidence_id.strip():
+                return deny_tool(
+                    "WORKFLOW_EVIDENCE_ID_REQUIRED: execute actions require --evidence-id "
+                    "for a checkpoint already persisted in the tracker."
+                )
+            if not re.fullmatch(r"[A-Z][A-Z0-9_-]{2,63}", evidence_id):
+                return deny_tool(
+                    "WORKFLOW_EVIDENCE_ID_INVALID: use a stable uppercase tracker ID such "
+                    "as A057."
+                )
+            if not contains_evidence_id(record_text, evidence_id):
+                return deny_tool(
+                    "WORKFLOW_EVIDENCE_NOT_PERSISTED: the execute action evidence ID is "
+                    "absent from the active tracker."
+                )
         current["action"] = {
             "status": "authorized",
             "paths": sorted(set(paths)),
             "impact": impact,
             "opened_at": utc_now(),
+            "evidence_id": evidence_id,
+            "evidence_digest_at_open": (
+                evidence_digest(record_text, evidence_id)
+                if isinstance(evidence_id, str)
+                else None
+            ),
         }
         current["stop_warning_issued"] = False
         store.mutate(key, lambda _old: current)
         return context_output(
             "PreToolUse",
-            "WORKFLOW_ACTION_OPEN: bounded discuss action authorized; close it after persisting "
-            "the terminal result, then resume full discuss behavior.",
+            f"WORKFLOW_ACTION_OPEN: bounded {current.get('mode')} action authorized; close it "
+            "only after persisting the terminal result in the tracker.",
         )
     if action == "action-close":
-        if current.get("mode") != "discuss" or not current.get("action"):
-            return deny_tool("WORKFLOW_ACTION_MISSING: no discuss action is open.")
+        if current.get("mode") not in {"discuss", "execute"} or not current.get("action"):
+            return deny_tool("WORKFLOW_ACTION_MISSING: no workflow action is open.")
+        action_mode = current.get("mode")
+        if current.get("mode") == "execute":
+            record_text = read_record(str(current.get("record")))
+            if record_text is None:
+                return deny_tool("WORKFLOW_RECORD_UNREADABLE: the tracker must exist and be readable.")
+            evidence_id = current["action"].get("evidence_id")
+            if not isinstance(evidence_id, str) or not contains_evidence_id(record_text, evidence_id):
+                return deny_tool(
+                    "WORKFLOW_EVIDENCE_NOT_PERSISTED: the action evidence ID must remain in "
+                    "the execution record."
+                )
+            if evidence_digest(record_text, evidence_id) == current["action"].get(
+                "evidence_digest_at_open"
+            ):
+                return deny_tool(
+                    "WORKFLOW_EVIDENCE_NOT_RECONCILED: update the execution record entry "
+                    "for this evidence ID with the terminal action result before action-close."
+                )
         current["action"] = None
         current["stop_warning_issued"] = False
         store.mutate(key, lambda _old: current)
+        close_message = (
+            "full discuss guardrails restored."
+            if action_mode == "discuss"
+            else "tracker evidence reconciled."
+        )
         return context_output(
             "PreToolUse",
-            f"WORKFLOW_ACTION_CLOSED: result={control.get('result')}; full discuss guardrails restored.",
+            f"WORKFLOW_ACTION_CLOSED: result={control.get('result')}; {close_message}",
         )
     return deny_tool("WORKFLOW_CONTROL_INVALID: unsupported lifecycle action.")
 
@@ -396,7 +479,7 @@ def record_or_housekeeping_path(path: str, state: dict[str, Any], cwd: str) -> b
     record = state.get("record")
     if isinstance(record, str) and absolute == record:
         return True
-    if Path(absolute).name == ".gitignore":
+    if state.get("mode") != "execute" and Path(absolute).name == ".gitignore":
         return True
     if state.get("mode") == "plan" and Path(absolute).suffix.lower() == ".md":
         return True
@@ -413,12 +496,15 @@ def handle_pre_tool(
     if not state or not is_mutating_tool(payload):
         return None
     mode = state.get("mode")
-    if mode == "execute":
-        return None
     cwd = str(payload.get("cwd", os.getcwd()))
     paths = paths_for_tool(payload)
     if paths and all(record_or_housekeeping_path(path, state, cwd) for path in paths):
         return None
+    if mode == "execute" and not state.get("action"):
+        return deny_tool(
+            "WORKFLOW_EXECUTE_ACTION_REQUIRED: persist an evidence checkpoint, open an "
+            "execute action, then perform the mutation."
+        )
     if mode == "plan":
         return deny_tool(
             "WORKFLOW_PLAN_READ_ONLY: source mutation is blocked in plan mode. Persist the "
@@ -433,7 +519,9 @@ def handle_pre_tool(
     allowed_paths = set(action.get("paths", []))
     if paths:
         requested = {normalized(path, cwd) for path in paths}
-        if not requested.issubset(allowed_paths | {str(state.get("record"))}):
+        if (not allowed_paths and mode == "execute") or not requested.issubset(
+            allowed_paths | {str(state.get("record"))}
+        ):
             return deny_tool(
                 "WORKFLOW_ACTION_SCOPE_DENIED: requested files exceed the persisted action scope."
             )
@@ -443,6 +531,15 @@ def handle_pre_tool(
             return deny_tool(
                 "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: source-like files require a "
                 "source-confirmed discuss action."
+            )
+        return None
+    if mode == "execute":
+        if action.get("impact") == "non-source" and is_shell_tool(payload) and (
+            SOURCE_MUTATING_SHELL.search(tool_command(payload))
+        ):
+            return deny_tool(
+                "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: Git source/history mutations require "
+                "an execute action opened with --impact source-confirmed."
             )
         return None
     if action.get("impact") == "non-source":
@@ -472,7 +569,15 @@ def mode_message(state: dict[str, Any]) -> str:
 
 def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     state = store.get(key)
-    if not state or state.get("mode") != "discuss" or not state.get("action"):
+    if not state or not state.get("action"):
+        return None
+    if state.get("mode") == "execute":
+        return {
+            "decision": "block",
+            "reason": "WORKFLOW_EXECUTE_RECONCILIATION_REQUIRED: persist terminal evidence "
+            "and run action-close before stopping.",
+        }
+    if state.get("mode") != "discuss":
         return None
     if payload.get("stop_hook_active") or state.get("stop_warning_issued"):
         state["stop_warning_issued"] = False

@@ -1,6 +1,6 @@
 {
   "name": "workflow-modes",
-  "version": "0.1.0+codex.20260823122549",
+  "version": "0.1.0+codex.20260824123308",
   "description": "Persist and enforce discuss, plan, and execute workflow modes across long Codex sessions and context compaction.",
   "author": {
     "name": "Local developer"
