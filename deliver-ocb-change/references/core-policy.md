@@ -16,6 +16,7 @@ An override is valid only for the recorded repository, state, target, scope, and
 
 Use these default branch patterns:
 
+- Epic base branch: `feature/{epic_id}_{epic-slug}`. Never include the Developer username in an Epic branch name; Epic branches are shared, Tech-Lead-owned delivery bases.
 - `feature/{jira_id}_{username}_{task-slug}`
 - `hotfix/{jira_id}_{username}_{task-slug}`
 
@@ -28,7 +29,7 @@ Verify issue ancestry and Epic topology before planning or mutation:
 - Story, Task, and Bug are peer issue types that belong directly to an Epic.
 - A Subtask belongs to a direct-parent Story, Task, or Bug, and that parent belongs to the delivery Epic.
 - A prose key mention is not relationship evidence.
-- The Epic base is the exact existing Tech-Lead-owned Epic branch and is always the MR target. Missing existence, mapping, SHA, or ownership evidence is a **Hard** gate before `$plan`; after warning, the user may explicitly authorize an exact fallback Epic base or exact branch action and accept the recorded topology risk.
+- The Epic base is the exact existing Tech-Lead-owned Epic branch and is always the MR target. If the user explicitly authorizes creating a missing Epic branch, use `feature/{epic_id}_{epic-slug}` without a Developer username unless a higher-precedence repository profile provides another exact pattern. Missing existence, mapping, SHA, or ownership evidence is a **Hard** gate before `$plan`; after warning, the user may explicitly authorize an exact fallback Epic base or exact branch action and accept the recorded topology risk.
 - Resolve a separate development base for branch creation. Use the Epic base for an independent ticket. When the user explicitly chooses to begin a dependent ticket before its predecessor is merged, the development base may be the exact remote working branch of the immediately preceding ticket in the same Epic.
 - For a stacked development base, verify the predecessor Jira key and dependency, working branch and current SHA, its ancestry from the same Epic base, its MR source and Epic target when an MR exists, and the complete ordered dependency chain. Never infer the relationship from a branch name or prose key mention alone. Branch the new ticket from that verified predecessor SHA and record that SHA so later drift is observable.
 - Use each ticket's working branch as its MR source and the Epic base as its MR target. Never retarget a stacked MR to its predecessor branch or substitute a global integration branch.
