@@ -719,12 +719,19 @@ def handle_pre_tool(
                 f"unscoped mutation class '{mutation_kind}'."
             )
         return None
-    if action.get("impact") == "non-source":
-        return None
-    return deny_tool(
-        "WORKFLOW_ACTION_UNSCOPED_TOOL: mutating tools without inspectable file targets are "
-        "blocked during a temporary discuss action. Use a file-scoped tool or transition to execute."
-    )
+    mutation_kind = unscoped_mutation_kind(payload)
+    if action.get("impact") == "non-source" and mutation_kind == "git":
+        return deny_tool(
+            "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: Git source/history mutations require "
+            "a discuss action opened with --impact source-confirmed."
+        )
+    allowed_unscoped = set(action.get("unscoped", []))
+    if mutation_kind not in allowed_unscoped:
+        return deny_tool(
+            "WORKFLOW_ACTION_UNSCOPED_TOOL: this discuss action did not authorize the "
+            f"unscoped mutation class '{mutation_kind}'."
+        )
+    return None
 
 
 def mode_message(state: dict[str, Any]) -> str:

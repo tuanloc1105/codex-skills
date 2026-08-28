@@ -191,6 +191,27 @@ class WorkflowModesHookTests(unittest.TestCase):
         blocked = self.patch("app.py")
         self.assertIn("WORKFLOW_SOURCE_CONFIRMATION_REQUIRED", json.dumps(blocked))
 
+    def test_discuss_action_allows_only_explicit_unscoped_mutation_class(self) -> None:
+        self.activate("discuss")
+        self.control(
+            "action-open", "--record", str(self.record),
+            "--path", str(self.cwd), "--unscoped", "git",
+            "--impact", "source-confirmed",
+        )
+        self.assertIsNone(self.mutate_shell("git merge --no-commit origin/main"))
+        denied_shell = self.mutate_shell("rm generated.txt")
+        self.assertIn("WORKFLOW_ACTION_UNSCOPED_TOOL", json.dumps(denied_shell))
+
+    def test_discuss_non_source_action_rejects_unscoped_git_mutation(self) -> None:
+        self.activate("discuss")
+        self.control(
+            "action-open", "--record", str(self.record),
+            "--path", str(self.cwd), "--unscoped", "git",
+            "--impact", "non-source",
+        )
+        blocked = self.mutate_shell("git merge --no-commit origin/main")
+        self.assertIn("WORKFLOW_SOURCE_CONFIRMATION_REQUIRED", json.dumps(blocked))
+
     def test_discuss_transitions_to_plan_then_execute(self) -> None:
         self.activate("discuss")
         self.record.write_text(
