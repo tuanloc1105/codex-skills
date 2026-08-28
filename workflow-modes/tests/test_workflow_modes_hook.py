@@ -95,6 +95,10 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIsNone(self.patch("app.py"))
         self.assertIsNone(self.run_hook("PostCompact"))
 
+    def test_read_only_git_merge_base_is_not_classified_as_merge(self) -> None:
+        self.activate("discuss")
+        self.assertIsNone(self.mutate_shell("git merge-base origin/dev origin/main"))
+
     def test_post_compact_restores_active_mode_and_record(self) -> None:
         self.activate("discuss")
         output = self.run_hook("PostCompact")

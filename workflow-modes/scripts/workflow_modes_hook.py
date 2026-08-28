@@ -19,7 +19,7 @@ from typing import Any, Callable
 MARKER = "workflow-modes-v1"
 MODES = {"discuss", "plan", "execute"}
 GIT_MUTATION_COMMANDS = "add|commit|push|merge|rebase|reset|clean|checkout|switch|restore"
-GIT_MUTATION_PATTERN = rf"\bgit\s+(?:{GIT_MUTATION_COMMANDS})\b"
+GIT_MUTATION_PATTERN = rf"\bgit\s+(?:{GIT_MUTATION_COMMANDS})(?=$|[\s;&|])"
 EXTERNAL_MUTATION_PATTERN = (
     r"\b(?:glab|gh|tea)\b[^;&|\n]*"
     r"\b(?:approve|close|comment|create|delete|edit|merge|note|reopen|review|update)\b"
