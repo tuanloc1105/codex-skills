@@ -37,6 +37,7 @@ def main() -> int:
     errors: list[str] = []
     data = json.loads(REGISTRY.read_text())
     entries = data.get("capabilities", [])
+    sources = data.get("sources", {})
     if data.get("default") != "deny":
         fail(errors, "registry default must be deny")
 
@@ -71,6 +72,9 @@ def main() -> int:
                 fail(errors, f"{label}: Tier B must re-read verification state")
         if not entry.get("granular_scopes") or not entry.get("classic_scope"):
             fail(errors, f"{label}: scopes must be non-empty")
+        source = sources.get(entry.get("family"), "")
+        if not source.startswith("https://developer.atlassian.com/"):
+            fail(errors, f"{label}: API family must map to an official Atlassian source")
 
     if ids != REQUIRED_IDS:
         fail(errors, f"capability set mismatch; missing={sorted(REQUIRED_IDS - ids)} extra={sorted(ids - REQUIRED_IDS)}")

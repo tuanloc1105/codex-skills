@@ -1,6 +1,11 @@
 {
   "schema_version": 1,
   "default": "deny",
+  "sources": {
+    "platform-v3": "https://developer.atlassian.com/cloud/jira/platform/rest/v3/",
+    "software-agile-v1": "https://developer.atlassian.com/cloud/jira/software/rest/",
+    "software-v1": "https://developer.atlassian.com/cloud/jira/software/rest/"
+  },
   "capabilities": [
     {"id":"attachment.metadata","family":"platform-v3","mcp_probe":"exact runtime capability","method":"GET","path":"/rest/api/3/attachment/{attachmentId}","classic_scope":"read:jira-work","granular_scopes":["read:attachment:jira"],"tier":"A","target":"explicit attachment ID","authorization":"requested download","bounds":"one attachment","retry":"bounded reads only","verification":"ID, association, size and type"},
     {"id":"attachment.content","family":"platform-v3","mcp_probe":"exact runtime capability","method":"GET","path":"/rest/api/3/attachment/content/{attachmentId}","classic_scope":"read:jira-work","granular_scopes":["read:attachment:jira"],"tier":"A","target":"metadata-verified attachment ID","authorization":"explicit destination and size policy","bounds":"one streamed body","retry":"only while outcome is known and before final rename","verification":"status and byte count"},
