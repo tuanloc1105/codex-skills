@@ -2,6 +2,8 @@
 
 Use the playbook selected by the user's requested effort. Default to `medium`. Preserve the user's target, base, focus files, exclusions, and extra instructions in every delegated task and verification pass.
 
+`Verification` below means the mode's contextual candidate-verification phase and may produce a three-state verdict. A focused `action-safety validation` required before a typed, external, or mutating action is narrower: it checks that the affected claim is still supported without widening candidate search, changing the mode, or fabricating a verdict that the output contract does not request.
+
 ## Contents
 
 - Minimal
@@ -129,7 +131,7 @@ For `medium` and above, when parallel reviewers are available and permitted:
 2. Give each reviewer the target, user constraints, and a raw diff only when it is small; otherwise give a shared ephemeral indexed diff source plus focused excerpts so every reviewer sees the same scope without duplicating large output. This is internal evidence, not a published review artifact.
 3. Do not give a finder another finder's conclusions.
 4. Run independent finder tasks concurrently within the available concurrency limit.
-5. Assign each deduplicated candidate to a verifier that did not originate it when practical.
+5. Assign each deduplicated candidate to a verifier that did not originate it when practical. Preserve finder identifiers internally so this separation can be checked rather than assumed.
 6. Give a gap-sweep reviewer the same scoped diff source or excerpts plus the deduplicated findings so it searches only for defects not already listed, including uncovered instances at other locations.
 
 For `medium` and above, when independent reviewers are unavailable:

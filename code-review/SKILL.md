@@ -13,13 +13,15 @@ After selecting the mode, read every reference required by the active row before
 
 | Trigger | Required References |
 | --- | --- |
-| `minimal`, `low`, `low-minimum`, or `low-expanded` | [mode-playbooks.md](references/mode-playbooks.md) |
-| `medium` or `high` | [mode-playbooks.md](references/mode-playbooks.md), [finder-angles.md](references/finder-angles.md), [verification.md](references/verification.md) |
-| `extra-high`, `xhigh`, `max`, or `maximum` | [mode-playbooks.md](references/mode-playbooks.md), [finder-angles.md](references/finder-angles.md), [verification.md](references/verification.md), [deep-sweep.md](references/deep-sweep.md) |
+| `minimal`, `low`, `low-minimum`, or `low-expanded` | [target-resolution.md](references/target-resolution.md), [mode-playbooks.md](references/mode-playbooks.md) |
+| `medium` or `high` | [target-resolution.md](references/target-resolution.md), [mode-playbooks.md](references/mode-playbooks.md), [finder-angles.md](references/finder-angles.md), [verification.md](references/verification.md) |
+| `extra-high`, `xhigh`, `max`, or `maximum` | [target-resolution.md](references/target-resolution.md), [mode-playbooks.md](references/mode-playbooks.md), [finder-angles.md](references/finder-angles.md), [verification.md](references/verification.md), [deep-sweep.md](references/deep-sweep.md) |
 | `ultra` or `ultrareview` explanation | [mode-playbooks.md](references/mode-playbooks.md) |
 | raw JSON, structured output, typed reporting, `--comment`, `--fix`, `--artifact`, or a shareable review | add [reporting-and-actions.md](references/reporting-and-actions.md) |
 
 Apply the mode row and every matching action row. This file wins if a reference conflicts with it.
+
+For maintenance comparisons with extracted Claude Code prompts, use [upstream-crosswalk.md](references/upstream-crosswalk.md). It is provenance documentation, not a runtime review reference; do not load it during ordinary reviews.
 
 ## Select the Mode
 
@@ -45,13 +47,13 @@ At `medium`, favor precision: every reported issue should be something a maintai
 
 ## Gather the Diff
 
-Read the requested target before judging it. Honor an explicit base or target first. Treat user-provided scope restrictions, focus files, exclusions, and review instructions as hard constraints throughout the review, including any delegated work. Otherwise, for a local branch, cover both committed and uncommitted changes with the equivalent of:
+Resolve the requested target before judging it, following `target-resolution.md`. Honor an explicit base or target first. Treat user-provided scope restrictions, focus files, exclusions, and review instructions as hard constraints throughout the review, including any delegated work. Otherwise, for a local branch, cover both committed and uncommitted changes with the equivalent of:
 
 ```text
 git diff @{upstream}...HEAD
 ```
 
-Gather the range diff first. Fall back to the repository's default or main branch, then `HEAD~1`, when no upstream exists. When the worktree is dirty or the range diff is empty, also gather `git diff HEAD`; low modes may gather both ranges in their single diff-reading call. List non-ignored untracked files with the equivalent of `git ls-files --others --exclude-standard` and include each as an addition hunk so working-tree scope does not omit new files. Gather the changed-file summary and unified diff, then inspect enclosing functions, callers, callees, tests, fixtures, schemas, generated types, migrations, feature flags, config, history, blame, and documented contracts only as needed to establish behavior. Keep large raw outputs out of the conversation; share an ephemeral indexed diff source or focused excerpt with reviewers instead of duplicating a large raw diff. This internal evidence source is not a published review artifact.
+Gather the resolved range diff first without double-counting overlapping changes. When the resolved target includes the working tree, also gather tracked modifications and list non-ignored untracked files with the equivalent of `git ls-files --others --exclude-standard`; represent each untracked file as an addition hunk so new files are not omitted. Gather the changed-file summary and unified diff, then inspect enclosing functions, callers, callees, tests, fixtures, schemas, generated types, migrations, feature flags, config, history, blame, and documented contracts only as needed to establish behavior. Keep large raw outputs out of the conversation; share an ephemeral indexed diff source or focused excerpt with reviewers instead of duplicating a large raw diff. This internal evidence source is not a published review artifact.
 
 For `low`, `low-minimum`, and `low-expanded`, make one diff-reading call, skip test and fixture hunks (`test/`, `spec/`, `__tests__/`, `*_test.*`, `*.test.*`, `fixtures/`, `testdata/`), do not read full files, and judge only what is visible in the hunk.
 
@@ -73,7 +75,7 @@ Follow the exact hunk-only scope and output routing in the active low-effort pla
 
 ## Verify Candidates
 
-For `medium` and above, deduplicate candidates with the same defect, location, and mechanism, then give each survivor a focused verification pass. Keep `CONFIRMED` and `PLAUSIBLE`; discard `REFUTED`. Use the active mode's precision or recall bias without weakening the requirement for a concrete trigger and wrong effect. Survival through recall-biased verification does not by itself make a `PLAUSIBLE` finding safe to auto-fix.
+For `medium` and above, deduplicate candidates with the same defect, location, and mechanism while preserving finder provenance, then give each survivor a focused verification pass. Keep `CONFIRMED` and `PLAUSIBLE`; discard `REFUTED`. Use the active mode's precision or recall bias without weakening the requirement for a concrete trigger and wrong effect. Survival through recall-biased verification does not by itself make a `PLAUSIBLE` finding safe to auto-fix. Assign severity from impact after verification; never derive severity from the verdict or number of finders.
 
 ## Run the Gap Sweep
 

@@ -1,6 +1,6 @@
 # Reporting and Actions
 
-Use this reference when the caller requests JSON or structured output, typed findings, GitHub comments, fixes, or a shareable artifact. Complete the active mode's search and verification phases first. Before any external or mutating action, focused-verify each affected finding even when the base search mode normally omits a separate verifier.
+Use this reference when the caller requests JSON or structured output, typed findings, GitHub comments, fixes, or a shareable artifact. Complete the active mode's search and verification phases first. Before any typed, external, or mutating action, run focused action-safety validation on each affected finding even when the base search mode normally omits a separate verifier. This narrow validation does not expand candidate search, change the selected mode, or create a three-state verdict unless the active output contract requires one.
 
 ## Contents
 
@@ -43,6 +43,15 @@ Rank by user impact and urgency:
 3. partial failures, resource exhaustion, race conditions, and operationally significant inefficiency;
 4. concrete reuse, simplification, altitude, or convention defects with observable maintenance or runtime consequences, plus exact applicable repository-instruction violations backed by the governing rule path and offending changed line.
 
+Assign an internal severity after verification:
+
+- `critical`: reachable data loss, security bypass, unrecoverable corruption, or widespread outage;
+- `high`: crash, wrong result, primary-flow failure, or compatibility regression with material user impact;
+- `medium`: partial failure, race, resource exhaustion, or operationally significant inefficiency;
+- `low`: actionable maintenance or repository-rule defect with a concrete but bounded consequence.
+
+Severity measures impact, while `verdict` measures evidentiary certainty and `category` identifies the failure class. Keep them independent: neither a `CONFIRMED` verdict nor multiple finder origins automatically raises severity, and a specific `PLAUSIBLE` catastrophic scenario may retain high impact while clearly displaying its uncertainty.
+
 Point `line` at the smallest changed line that demonstrates the defect. Use a context line only when no changed line can represent the cause and the active reporting surface permits it. Keep titles concise and put the concrete failure mechanism in `failure_scenario` or the finding body.
 
 Keep the complete verified survivor pool until all requested fixes and re-verification finish. The active mode cap limits each emitted finding list and the initial automatic-fix action set; it does not permanently discard lower-ranked survivors. After fixes, rerank and backfill from the complete pool so unresolved defects cannot disappear merely because higher-ranked findings were fixed.
@@ -68,7 +77,7 @@ The canonical array uses exactly these fields:
 ]
 ```
 
-Rank the final unresolved findings most severe first and enforce the active finding cap. Emit `[]` when nothing remains unresolved. Do not add internal evidence, verification notes, action outcomes, or convenience fields to the canonical contract. A caller-supplied schema may request fields such as `category`, `verdict`, `evidence`, or action outcomes; populate only the requested fields.
+Rank the final unresolved findings most severe first and enforce the active finding cap. Emit `[]` when nothing remains unresolved. Do not add internal evidence, verification notes, action outcomes, or convenience fields to the canonical contract. A caller-supplied schema may request fields such as `severity`, `category`, `verdict`, `evidence`, provenance, or action outcomes; populate only the requested fields.
 
 Other explicitly authorized actions may still run before delivery, but they must not change or append to the JSON response. The canonical post-fix array contains only unresolved findings, so successful fixes disappear and skipped still-valid findings remain. When the caller needs fix dispositions, require a caller schema that includes them or use typed or human output. When a comment, fix, or artifact action cannot run, do not break the JSON contract with an explanatory prose suffix.
 
@@ -76,7 +85,7 @@ Other explicitly authorized actions may still run before delivery, but they must
 
 Use a typed ReportFindings tool only when active host or review instructions require that tool for the current reporting phase. Mere tool availability, a generic request for structured output, or the existence of findings is insufficient; generic structured output without another schema uses the canonical JSON array above.
 
-When `minimal` or a low mode reaches a required typed report, focused-verify each retained finding before the call even though the base search mode omits a separate verifier. This safety pass does not change the mode's search scope or finding cap.
+When `minimal` or a low mode reaches a required typed report, action-safety-validate each retained finding before the call even though the base search mode omits a separate verifier. This safety pass does not change the mode's search scope or finding cap and does not add `verdict` unless a three-state pass actually ran.
 
 Call the required tool exactly once in that reporting phase with `{level, findings}`. Use this canonical finding shape unless the active tool schema is stricter:
 
@@ -97,9 +106,9 @@ Call the required tool exactly once in that reporting phase with `{level, findin
 }
 ```
 
-Make `short_summary` at most 60 characters and express only the claim, without rationale or a consequence clause. Use a short kebab-case `category`, such as `correctness`, `removed-behavior`, `cross-file-contract`, `language-pitfall`, `wrapper-proxy-correctness`, `reuse`, `simplification`, `efficiency`, `altitude`, or `conventions`.
+Make `short_summary` at most 60 characters and express only the claim, without rationale or a consequence clause. Include an additional `"severity": "critical|high|medium|low"` field only when the active tool schema accepts it. Use a short kebab-case `category`, such as `correctness`, `removed-behavior`, `cross-file-contract`, `language-pitfall`, `wrapper-proxy-correctness`, `reuse`, `simplification`, `efficiency`, `altitude`, or `conventions`.
 
-Include `verdict` only when a three-state or action-safety verification pass ran; do not fabricate a verdict for an unverified minimal or low finding.
+Include `verdict` only when a three-state verification pass ran; action-safety validation alone does not produce a verdict. Do not fabricate one for an unverified minimal or low finding.
 
 Pass findings most severe first, enforce the active cap, and pass an empty `findings` array when nothing survives. Do not print the findings again as prose or raw JSON after the tool call.
 

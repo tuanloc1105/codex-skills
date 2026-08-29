@@ -130,7 +130,7 @@ Check:
 3. Apply the sections above only to defects not already listed; another finding with the same category or mechanism does not suppress an uncovered instance at a different location.
 4. Record candidates with file, changed line, summary, failure scenario, category, and evidence needed.
 5. Deduplicate new candidates against the existing list.
-6. Keep at most eight new candidates, prioritizing severity and non-overlapping mechanisms.
+6. Keep at most eight new candidates, prioritizing potential impact and non-overlapping mechanisms; assign final severity only after verification.
 7. Verify every new candidate with the active mode's recall-biased rules.
 8. Add only `CONFIRMED` and `PLAUSIBLE` results to the final ranking.
 

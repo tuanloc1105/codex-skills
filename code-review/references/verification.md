@@ -17,7 +17,7 @@ Merge candidates only when all three match:
 2. the same location;
 3. the same failure mechanism.
 
-Keep candidates that share a line but fail for different inputs, states, or effects. Preserve the clearest summary and combine complementary evidence when merging.
+Keep candidates that share a line but fail for different inputs, states, or effects. Preserve the clearest summary, combine complementary evidence, and retain the union of origin angles and reviewer identifiers when merging.
 
 ## Build the Verification Case
 
@@ -107,13 +107,15 @@ Return this internal shape to the review coordinator:
   "summary": "Concise defect claim",
   "failure_scenario": "Trigger and observable wrong behavior",
   "category": "cross-file-contract",
+  "origin_angles": ["line-scan", "cross-file-contract"],
+  "origin_reviewers": ["finder-1", "finder-3"],
   "verdict": "PLAUSIBLE",
   "evidence": "Relevant code or contract",
   "confirmation_needed": "Specific missing fact"
 }
 ```
 
-Omit `confirmation_needed` for `CONFIRMED` and `REFUTED`. Discard `REFUTED` candidates before the final report.
+Omit `confirmation_needed` for `CONFIRMED` and `REFUTED`. Discard `REFUTED` candidates before the final report. Keep provenance internal unless a caller-supplied schema explicitly requests it. Do not treat multiple origins as independent verification or use them to convert `PLAUSIBLE` into `CONFIRMED`.
 
 ## Verification Guardrails
 

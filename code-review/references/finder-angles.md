@@ -19,8 +19,12 @@ Capture:
 - `failure_scenario`: triggering input or state plus the observable wrong result.
 - `category`: short kebab-case angle slug.
 - `evidence_needed`: code, contract, runtime fact, or test needed to verify uncertainty.
+- `origin_angle`: the finder angle that produced the candidate.
+- `origin_reviewer`: an opaque reviewer or pass identifier when independent reviewers are used.
 
 Keep two candidates on the same line when their failure mechanisms differ. Drop a candidate during finding only when no concrete failure scenario can be named.
+
+Do not assign a final severity during finding. Verification establishes the mechanism and reachability; ranking then assigns impact independently. When deduplication merges candidates, preserve every distinct `origin_angle` and `origin_reviewer` as provenance. Multiple origins are useful audit evidence, not votes, and do not upgrade a verdict by themselves.
 
 ## Correctness A: Line-by-Line Diff Scan
 
