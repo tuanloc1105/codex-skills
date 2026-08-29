@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -70,21 +71,28 @@ class WorkflowModesHookTests(unittest.TestCase):
 
     def activate(self, mode: str) -> None:
         self.record.parent.mkdir(parents=True, exist_ok=True)
+        profile = "Durable" if mode == "execute" else "Lightweight"
         if mode == "discuss":
             content = (
-                "<!-- workflow-record version:2 kind:discuss tracker-id:TEST-TRACKER -->\n"
+                "<!-- workflow-record version:3 kind:discuss tracker-id:TEST-TRACKER -->\n"
                 "Mode: $discuss\nMode status: Active\nExecute mode: Inactive\n"
             )
         elif mode == "execute":
             content = (
-                "<!-- workflow-record version:2 kind:plan tracker-id:TEST-TRACKER -->\n"
+                "<!-- workflow-record version:3 kind:plan tracker-id:TEST-TRACKER -->\n"
                 "Status: In progress\nExecute mode: Active\n"
             )
         else:
             content = (
-                "<!-- workflow-record version:2 kind:plan tracker-id:TEST-TRACKER -->\n"
+                "<!-- workflow-record version:3 kind:plan tracker-id:TEST-TRACKER -->\n"
                 "Status: Draft\nExecute mode: Inactive\n"
             )
+        content += (
+            "<!-- workflow-active-snapshot:start version:1 -->\n"
+            f"Profile: {profile}\nGoal: Test workflow\nCurrent state: Active\n"
+            "Accepted decisions: None\nOpen items: None\nNext safe action: Continue\n"
+            "<!-- workflow-active-snapshot:end -->\n"
+        )
         self.record.write_text(content, encoding="utf-8")
         output = self.control("activate", mode, "--record", str(self.record))
         self.assertIn("WORKFLOW_MODE_ACTIVE", json.dumps(output))
@@ -105,18 +113,22 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("systemMessage", output)
         self.assertIn(str(self.record), json.dumps(output))
         self.assertIn("only plan or execute", json.dumps(output))
+        self.assertIn("sync_status=record", json.dumps(output))
+        rejected = self.control(
+            "sync", "--record", str(self.record), "--scope", "snapshot"
+        )
+        self.assertIn("currently required record scope", json.dumps(rejected))
 
-    def test_user_prompt_requires_record_sync_and_turn_checkpoint(self) -> None:
+    def test_user_prompt_keeps_unchanged_record_synced_and_requires_checkpoint(self) -> None:
         self.activate("discuss")
         output = self.run_hook("UserPromptSubmit", prompt="Continue")
         rendered = json.dumps(output)
         self.assertIn("workflow-anchor", rendered)
-        self.assertIn("sync_status=required", rendered)
+        self.assertIn("sync_status=current", rendered)
         blocked = self.patch(str(self.cwd / "app.py"))
-        self.assertIn("WORKFLOW_RECORD_SYNC_REQUIRED", json.dumps(blocked))
+        self.assertIn("WORKFLOW_DISCUSS_ACTION_REQUIRED", json.dumps(blocked))
         stop = self.run_hook("Stop", stop_hook_active=False)
         self.assertIn("WORKFLOW_TURN_CHECKPOINT_REQUIRED", json.dumps(stop))
-        self.control("sync", "--record", str(self.record))
         unchanged = self.control("checkpoint", "--record", str(self.record))
         self.assertIn("WORKFLOW_CHECKPOINT_CHANGE_REQUIRED", json.dumps(unchanged))
         checked = self.control(
@@ -124,6 +136,75 @@ class WorkflowModesHookTests(unittest.TestCase):
         )
         self.assertIn("WORKFLOW_TURN_CHECKPOINTED", json.dumps(checked))
         self.assertIsNone(self.run_hook("Stop", stop_hook_active=False))
+
+    def test_legacy_record_uses_audited_prompt_sync(self) -> None:
+        self.record.parent.mkdir(parents=True, exist_ok=True)
+        self.record.write_text(
+            "<!-- workflow-record version:2 kind:discuss tracker-id:TEST-TRACKER -->\n"
+            "Mode: $discuss\nMode status: Active\nExecute mode: Inactive\n",
+            encoding="utf-8",
+        )
+        self.control("activate", "discuss", "--record", str(self.record))
+        self.control("sync", "--record", str(self.record))
+        output = self.run_hook("UserPromptSubmit", prompt="Continue")
+        self.assertIn("profile=audited", json.dumps(output))
+        self.assertIn("sync_status=record", json.dumps(output))
+
+    def test_snapshot_only_change_requests_snapshot_sync(self) -> None:
+        self.activate("discuss")
+        text = self.record.read_text(encoding="utf-8")
+        self.record.write_text(
+            text.replace("Current state: Active", "Current state: Awaiting decision"),
+            encoding="utf-8",
+        )
+        output = self.run_hook("UserPromptSubmit", prompt="Continue")
+        self.assertIn("sync_status=snapshot", json.dumps(output))
+        synced = self.control(
+            "sync", "--record", str(self.record), "--scope", "snapshot"
+        )
+        self.assertIn("scope=snapshot", json.dumps(synced))
+
+    def test_ack_write_accepts_owned_delta_without_reread(self) -> None:
+        self.activate("plan")
+        previous = "sha256:" + hashlib.sha256(self.record.read_bytes()).hexdigest()
+        self.assertIsNone(self.patch(str(self.record)))
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "Decision: accepted\n",
+            encoding="utf-8",
+        )
+        acknowledged = self.control(
+            "ack-write", "--record", str(self.record),
+            "--previous-revision", previous,
+        )
+        self.assertIn("WORKFLOW_WRITE_ACKNOWLEDGED", json.dumps(acknowledged))
+        output = self.run_hook("UserPromptSubmit", prompt="Continue")
+        self.assertIn("sync_status=current", json.dumps(output))
+
+    def test_ack_write_rejects_stale_previous_revision(self) -> None:
+        self.activate("plan")
+        self.assertIsNone(self.patch(str(self.record)))
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "Decision: accepted\n",
+            encoding="utf-8",
+        )
+        rejected = self.control(
+            "ack-write", "--record", str(self.record),
+            "--previous-revision", "sha256:stale",
+        )
+        self.assertIn("WORKFLOW_ACK_WRITE_STALE", json.dumps(rejected))
+
+    def test_ack_write_rejects_unobserved_external_change(self) -> None:
+        self.activate("plan")
+        previous = "sha256:" + hashlib.sha256(self.record.read_bytes()).hexdigest()
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "External change\n",
+            encoding="utf-8",
+        )
+        rejected = self.control(
+            "ack-write", "--record", str(self.record),
+            "--previous-revision", previous,
+        )
+        self.assertIn("WORKFLOW_ACK_WRITE_STALE", json.dumps(rejected))
 
     def test_record_change_invalidates_previous_sync(self) -> None:
         self.activate("execute")
@@ -157,6 +238,16 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.control("sync", "--record", str(self.record))
         checked = self.control("checkpoint", "--record", str(self.record))
         self.assertIn("changed=true", json.dumps(checked))
+
+    def test_checkpoint_rejects_an_unacknowledged_tracker_write(self) -> None:
+        self.activate("plan")
+        self.run_hook("UserPromptSubmit", prompt="Revise the plan")
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8") + "Decision: accepted\n",
+            encoding="utf-8",
+        )
+        blocked = self.control("checkpoint", "--record", str(self.record))
+        self.assertIn("revision was not acknowledged", json.dumps(blocked))
 
     def test_hook_schema_uses_system_message_for_post_compact(self) -> None:
         hooks = json.loads(HOOKS.read_text(encoding="utf-8"))["hooks"]

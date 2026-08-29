@@ -45,7 +45,13 @@ def parse_args() -> argparse.Namespace:
 
     sync = subparsers.add_parser("sync")
     sync.add_argument("--record", required=True)
+    sync.add_argument("--scope", choices=("record", "snapshot"), default="record")
     sync.add_argument("--marker", required=True)
+
+    ack_write = subparsers.add_parser("ack-write")
+    ack_write.add_argument("--record", required=True)
+    ack_write.add_argument("--previous-revision", required=True)
+    ack_write.add_argument("--marker", required=True)
 
     checkpoint = subparsers.add_parser("checkpoint")
     checkpoint.add_argument("--record", required=True)

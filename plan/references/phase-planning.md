@@ -1,0 +1,28 @@
+# Dependency-Aware Phase Planning Reference
+
+Read this reference completely only when phases, dependencies, execution waves, or subagent eligibility materially improve the plan.
+
+## Dependency-Aware Phase Planning
+
+Divide work into phases only when the boundaries improve execution, ownership, or verification. Do not turn a small linear task into artificial phases, and do not treat phase numbering or list order as an implicit dependency.
+
+When phases are useful, assign stable IDs such as `P1`, `P2`, and record for each phase:
+
+- `Depends on`: prerequisite phase IDs or `None`
+- `Wave`: the earliest execution wave allowed by those dependencies
+- `Subagent`: `Eligible` or `Not eligible — <reason>`
+- `Owned scope`: files, modules, services, external systems, or other mutable resources the phase may change
+- `Produces`: the concrete result or contract returned for downstream work
+- Phase-local verification and any cross-phase integration gate
+
+Treat `Depends on` as the source of truth and `Wave` as a derived scheduling aid:
+
+- Put phases with no unmet implementation dependencies in Wave 1, even when they appear later in the document.
+- Put phases in the same later wave only when all of their dependencies finish in earlier waves.
+- Mark `Subagent: Eligible` only when the phase is bounded, does not consume another same-wave phase's output, has non-overlapping ownership, can be verified independently, and has a clear handoff result.
+- Mark a phase not eligible when it may overlap another phase's files or mutable state, or when it owns shared contracts, migrations, lockfiles, generated artifacts, external side effects, or stateful processes without an explicit safe coordination strategy.
+- Default to `Not eligible` when independence cannot be established confidently.
+
+Eligibility means the executing agent may delegate the phase to a separate subagent; it is not a requirement to do so. Runtime capacity, current repository state, newly discovered coupling, or delegation overhead may justify serial execution. The main executing agent remains responsible for plan progress, shared resources, integration, conflict resolution, and cross-phase verification.
+
+While using `$plan`, document this execution structure but do not spawn subagents to implement production work.

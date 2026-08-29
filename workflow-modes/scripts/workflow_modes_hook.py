@@ -17,6 +17,9 @@ from typing import Any, Callable
 
 
 MARKER = "workflow-modes-v1"
+SNAPSHOT_START = "<!-- workflow-active-snapshot:start version:1 -->"
+SNAPSHOT_END = "<!-- workflow-active-snapshot:end -->"
+PROFILES = {"lightweight", "durable", "audited"}
 MODES = {"discuss", "plan", "execute"}
 GIT_MUTATION_COMMANDS = "add|commit|push|merge|rebase|reset|clean|checkout|switch|restore"
 GIT_MUTATION_PATTERN = rf"\bgit\s+(?:{GIT_MUTATION_COMMANDS})(?=$|[\s;&|])"
@@ -196,6 +199,45 @@ def record_revision(path: str | None) -> str | None:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def content_revision(text: str) -> str:
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def record_snapshot(text: str | None) -> str | None:
+    if text is None or text.count(SNAPSHOT_START) != 1 or text.count(SNAPSHOT_END) != 1:
+        return None
+    start = text.index(SNAPSHOT_START) + len(SNAPSHOT_START)
+    end = text.index(SNAPSHOT_END, start)
+    snapshot = text[start:end]
+    if len(snapshot.encode("utf-8")) > 64 * 1024:
+        return None
+    return snapshot
+
+
+def record_revisions(path: str | None) -> tuple[str | None, str | None, str | None]:
+    if not isinstance(path, str):
+        return None, None, None
+    text = read_record(path)
+    if text is None:
+        return None, None, None
+    snapshot = record_snapshot(text)
+    if snapshot is None:
+        return content_revision(text), None, None
+    outside = text.replace(SNAPSHOT_START + snapshot + SNAPSHOT_END, "", 1)
+    return content_revision(text), content_revision(snapshot), content_revision(outside)
+
+
+def record_profile(path: str | None) -> str:
+    if not isinstance(path, str):
+        return "audited"
+    snapshot = record_snapshot(read_record(path))
+    if snapshot is None:
+        return "audited"
+    match = re.search(r"^Profile:\s*(\S+)\s*$", snapshot, flags=re.MULTILINE)
+    profile = match.group(1).lower() if match else "audited"
+    return profile if profile in PROFILES else "audited"
+
+
 def record_tracker_id(path: str | None) -> str | None:
     if not isinstance(path, str):
         return None
@@ -293,7 +335,7 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
         token = args[index]
         if token in {
             "--record", "--path", "--result", "--impact", "--evidence-id",
-            "--unscoped", "--reason",
+            "--unscoped", "--reason", "--scope", "--previous-revision",
         } and index + 1 < len(args):
             key = token[2:].replace("-", "_")
             if key == "path":
@@ -322,19 +364,33 @@ def state_summary(state: dict[str, Any]) -> str:
     )
 
 
-def mark_sync_required(state: dict[str, Any]) -> None:
-    current_revision = record_revision(state.get("record"))
-    state["record_revision"] = current_revision
-    state["sync_required"] = bool(state.get("record"))
+def refresh_sync_requirement(state: dict[str, Any], force_record: bool = False) -> None:
+    record, snapshot, outside = record_revisions(state.get("record"))
+    state["record_revision"] = record
+    state["snapshot_revision"] = snapshot
+    state["outside_revision"] = outside
+    scope = None
+    if force_record:
+        scope = "record"
+    elif record != state.get("acknowledged_revision"):
+        if (
+            snapshot is not None
+            and snapshot != state.get("acknowledged_snapshot_revision")
+            and outside == state.get("acknowledged_outside_revision")
+        ):
+            scope = "snapshot"
+        else:
+            scope = "record"
+    state["sync_scope"] = scope
+    state["sync_required"] = scope is not None
 
 
 def record_is_synced(state: dict[str, Any]) -> bool:
-    current_revision = record_revision(state.get("record"))
-    state["record_revision"] = current_revision
+    refresh_sync_requirement(state)
     return bool(
-        current_revision
+        state.get("record_revision")
         and not state.get("sync_required")
-        and state.get("acknowledged_revision") == current_revision
+        and state.get("acknowledged_revision") == state.get("record_revision")
     )
 
 
@@ -412,18 +468,26 @@ def handle_control(
                     "WORKFLOW_HANDOFF_NOT_DURABLE: record lacks required markers: "
                     + ", ".join(missing)
                 )
+        revision, snapshot_revision, outside_revision = record_revisions(absolute_record)
         state = {
             "active": True,
             "mode": mode,
             "record": absolute_record,
             "action": None,
             "stop_warning_issued": False,
-            "record_revision": record_revision(absolute_record),
+            "record_revision": revision,
+            "snapshot_revision": snapshot_revision,
+            "outside_revision": outside_revision,
+            "profile": record_profile(absolute_record),
             "tracker_id": record_tracker_id(absolute_record),
             "acknowledged_revision": None,
+            "acknowledged_snapshot_revision": None,
+            "acknowledged_outside_revision": None,
             "sync_required": bool(absolute_record),
+            "sync_scope": "record" if absolute_record else None,
             "checkpoint_required": False,
-            "turn_start_revision": record_revision(absolute_record),
+            "pending_write_revision": None,
+            "turn_start_revision": revision,
             "updated_at": utc_now(),
         }
         store.mutate(key, lambda _old: state)
@@ -450,7 +514,19 @@ def handle_control(
         record = control.get("record")
         if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
             return deny_tool("WORKFLOW_RECORD_MISMATCH: sync record differs from active tracker.")
-        revision = record_revision(str(current.get("record")))
+        scope = control.get("scope", "record")
+        if scope not in {"record", "snapshot"}:
+            return deny_tool("WORKFLOW_SYNC_SCOPE_INVALID: sync scope must be record or snapshot.")
+        if not current.get("sync_required"):
+            refresh_sync_requirement(current)
+        if scope == "snapshot" and current.get("sync_scope") != "snapshot":
+            return deny_tool(
+                "WORKFLOW_RECORD_SYNC_REQUIRED: snapshot sync cannot satisfy the currently "
+                "required record scope."
+            )
+        revision, snapshot_revision, outside_revision = record_revisions(
+            str(current.get("record"))
+        )
         if revision is None:
             return deny_tool("WORKFLOW_RECORD_UNREADABLE: the tracker must exist and be readable.")
         tracker_id = record_tracker_id(str(current.get("record")))
@@ -459,15 +535,73 @@ def handle_control(
                 "WORKFLOW_RECORD_IDENTITY_MISMATCH: the active path now contains a different "
                 "tracker ID; restore the record or explicitly rebind the workflow."
             )
+        if scope == "snapshot" and (
+            snapshot_revision is None
+            or outside_revision != current.get("acknowledged_outside_revision")
+        ):
+            return deny_tool(
+                "WORKFLOW_RECORD_SYNC_REQUIRED: snapshot-only sync cannot acknowledge "
+                "missing snapshot state or changes outside the active snapshot."
+            )
         current["tracker_id"] = tracker_id or current.get("tracker_id")
         current["record_revision"] = revision
+        current["snapshot_revision"] = snapshot_revision
+        current["outside_revision"] = outside_revision
         current["acknowledged_revision"] = revision
+        current["acknowledged_snapshot_revision"] = snapshot_revision
+        current["acknowledged_outside_revision"] = outside_revision
         current["sync_required"] = False
+        current["sync_scope"] = None
+        current["pending_write_revision"] = None
+        current["profile"] = record_profile(str(current.get("record")))
         current["updated_at"] = utc_now()
         store.mutate(key, lambda _old: current)
         return context_output(
             "PreToolUse",
             f"WORKFLOW_RECORD_SYNCED: mode={current.get('mode')}, "
+            f"record={current.get('record')}, scope={scope}, revision={revision}.",
+        )
+    if action == "ack-write":
+        record = control.get("record")
+        if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
+            return deny_tool("WORKFLOW_RECORD_MISMATCH: ack-write record differs from active tracker.")
+        previous = control.get("previous_revision")
+        if (
+            previous != current.get("acknowledged_revision")
+            or previous != current.get("pending_write_revision")
+            or current.get("sync_required")
+        ):
+            return deny_tool(
+                "WORKFLOW_ACK_WRITE_STALE: previous revision is not the acknowledged baseline "
+                "observed immediately before this tracker write; read and reconcile the tracker."
+            )
+        revision, snapshot_revision, outside_revision = record_revisions(
+            str(current.get("record"))
+        )
+        if revision is None or revision == previous:
+            return deny_tool(
+                "WORKFLOW_ACK_WRITE_INVALID: the tracker must be readable and have a new revision."
+            )
+        tracker_id = record_tracker_id(str(current.get("record")))
+        if current.get("tracker_id") and tracker_id != current.get("tracker_id"):
+            return deny_tool(
+                "WORKFLOW_RECORD_IDENTITY_MISMATCH: ack-write cannot acknowledge a different tracker."
+            )
+        current["record_revision"] = revision
+        current["snapshot_revision"] = snapshot_revision
+        current["outside_revision"] = outside_revision
+        current["acknowledged_revision"] = revision
+        current["acknowledged_snapshot_revision"] = snapshot_revision
+        current["acknowledged_outside_revision"] = outside_revision
+        current["sync_required"] = False
+        current["sync_scope"] = None
+        current["pending_write_revision"] = None
+        current["profile"] = record_profile(str(current.get("record")))
+        current["updated_at"] = utc_now()
+        store.mutate(key, lambda _old: current)
+        return context_output(
+            "PreToolUse",
+            f"WORKFLOW_WRITE_ACKNOWLEDGED: mode={current.get('mode')}, "
             f"record={current.get('record')}, revision={revision}.",
         )
     if action == "checkpoint":
@@ -490,8 +624,9 @@ def handle_control(
             )
         current["record_revision"] = current_revision
         changed = current_revision != current.get("turn_start_revision")
-        if not changed and current.get("acknowledged_revision") != current_revision:
+        if current.get("acknowledged_revision") != current_revision:
             current["sync_required"] = True
+            current["sync_scope"] = "record"
             store.mutate(key, lambda _old: current)
             return deny_tool(
                 "WORKFLOW_RECORD_SYNC_REQUIRED: the active tracker revision was not acknowledged."
@@ -665,6 +800,17 @@ def handle_pre_tool(
     cwd = str(payload.get("cwd", os.getcwd()))
     paths = paths_for_tool(payload)
     if paths and all(record_or_housekeeping_path(path, state, cwd) for path in paths):
+        record = state.get("record")
+        requested = {normalized(path, cwd) for path in paths}
+        if isinstance(record, str) and record in requested:
+            if not record_is_synced(state):
+                store.mutate(key, lambda _old: state)
+                return deny_tool(
+                    "WORKFLOW_RECORD_SYNC_REQUIRED: tracker writes require an acknowledged "
+                    "baseline; read the required scope and sync before writing."
+                )
+            state["pending_write_revision"] = state.get("acknowledged_revision")
+            store.mutate(key, lambda _old: state)
         return None
     if not record_is_synced(state):
         store.mutate(key, lambda _old: state)
@@ -739,8 +885,10 @@ def mode_message(state: dict[str, Any]) -> str:
     common = (
         "<workflow-anchor version=\"2\"> "
         f"mode={mode}; record={state.get('record')}; tracker_id={state.get('tracker_id')}; "
-        f"record_revision={state.get('record_revision')}; sync_status=required; "
-        "rule=read the exact tracker completely, then run sync before substantive work; "
+        f"record_revision={state.get('record_revision')}; profile={state.get('profile')}; "
+        f"sync_status={state.get('sync_scope') or 'current'}; "
+        "rule=when sync is required, read the requested record or active snapshot scope, "
+        "then run matching sync before substantive work; "
         "rule=persist material turn changes and run checkpoint before final response. "
     )
     if mode == "discuss":
@@ -796,7 +944,7 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
         state = store.get(key)
         if not state:
             return None
-        mark_sync_required(state)
+        refresh_sync_requirement(state, force_record=state.get("profile") == "audited")
         state["checkpoint_required"] = True
         state["turn_start_revision"] = state.get("record_revision")
         store.mutate(key, lambda _old: state)
@@ -805,7 +953,7 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
         state = store.get(key)
         if not state:
             return None
-        mark_sync_required(state)
+        refresh_sync_requirement(state, force_record=True)
         store.mutate(key, lambda _old: state)
         return {"systemMessage": mode_message(state)}
     if event == "Stop":
