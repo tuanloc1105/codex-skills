@@ -1,4 +1,4 @@
 interface:
   display_name: "Interact with Jira"
-  short_description: "Use Jira MCP first, with approved ACLI fallback"
-  default_prompt: "Use $interact-with-jira to handle this Jira Cloud task through Atlassian MCP first, and ask before falling back to ACLI."
+  short_description: "Use Jira MCP, allowlisted REST, then approved ACLI"
+  default_prompt: "Use $interact-with-jira for this Jira Cloud task: use Atlassian MCP first, automatically route missing allowlisted capabilities to official REST, and ask before ACLI elsewhere."
