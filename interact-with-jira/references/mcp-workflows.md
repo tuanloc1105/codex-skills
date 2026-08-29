@@ -91,12 +91,13 @@ Common write capabilities include creating/editing work items, comments, worklog
 
 If a tool times out or returns an uncertain result, do not invoke it again through MCP, REST, or ACLI. Read the target first to avoid a duplicate mutation.
 
-## Route an unsupported capability
+## Probe and route an unsupported capability
 
 - If MCP is unconfigured, unavailable, disconnected, unauthenticated, or blocked by policy, stop and tell the user which MCP condition was observed. Ask whether they want to use ACLI instead; do not inspect or invoke ACLI before they approve.
-- If MCP is connected and authenticated but lacks a capability in the closed REST allowlist in `../SKILL.md`, route directly to `rest-api-workflows.md` without fallback approval or an ACLI check. Independently verify REST credentials/site; exact write authorization remains required.
+- Resolve the exact requested capability first, then inspect the live server tool list and candidate schemas. A published supported-tools snapshot is discovery evidence only; it neither proves a runtime tool is loaded nor proves absence.
+- If MCP is connected and authenticated but lacks the exact capability, look up one capability ID in `rest-capability-registry.json`. Route directly to `rest-api-workflows.md` only on an exact registry match, without fallback approval or an ACLI check. Independently verify REST credentials/site; Tier B authorization remains separate.
 - When MCP is unavailable, allowlisted REST may proceed only when the explicit target is known and existing REST credentials independently identify the intended site. Otherwise preserve the ACLI approval branch.
-- For capabilities outside the REST allowlist, explain the limitation and ask whether the user wants ACLI. Unlisted REST endpoints are not an alternative.
+- For capabilities outside the registry, explain the limitation and ask whether the user wants ACLI. Unlisted REST endpoints and neighboring capability IDs are not alternatives.
 - Treat approval as scoped to the current Jira task. Do not make ACLI the default for later tasks.
 - After approval, follow `references/command-workflows.md`, verify the ACLI site/account/target, and repeat any mutation preview when the execution tool or impact changes.
 
@@ -106,5 +107,5 @@ If a tool times out or returns an uncertain result, do not invoke it again throu
 - `enabled` but tools cannot be called: run a live read-only check; inspect OAuth, token expiration, organization permissions, domain/IP allowlists, and network access.
 - OAuth does not open or the callback fails: retry login after checking browser/callback behavior and the domain allowlist; do not automatically switch to a token.
 - `Access denied`: verify the user's Jira permissions and Read/Write/Search groups in Atlassian Administration.
-- Expected tool is absent: check the official tool list/schema. Use REST only for an allowlisted capability; otherwise ask whether the user wants ACLI.
+- Expected tool is absent: recheck the live tool list/schema. Use REST only for an exact registered capability; otherwise ask whether the user wants ACLI.
 - Multiple sites or incorrect `cloudId`: repeat resource discovery and ask the user to select the target.
