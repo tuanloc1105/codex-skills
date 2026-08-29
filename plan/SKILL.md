@@ -10,6 +10,7 @@ description: Plan-first collaboration workflow for Codex. Use when the user expl
 When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`. Invoke it with the configured Python interpreter because the installed script may not have executable permissions, and pass `--marker workflow-modes-v1` after the lifecycle action's other required arguments, as advertised by that action's local `--help` output.
 
 - On fresh `$plan` entry, resolve and exclusively reserve the draft plan path before substantive inspection, initialize its draft metadata, and run `activate plan --record <plan-path>`. Keep this exact file from planning discussion through approval and execute handoff.
+- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <plan-path> --reference <path>...` before substantive work or a final response.
 - On entry from `$discuss`, require its persisted `transition plan --record <discussion-tracker>` result instead of reactivating a different mode.
 - On entry from `$discuss`, resolve and initialize the separate draft plan immediately, then run `activate plan --record <plan-path>` to rebind plan mode from the discussion context to its exact record.
 - At activation and after every `PostCompact` reminder, read the exact draft plan completely and run `sync --record <plan-path> --scope record` before substantive work.
@@ -21,7 +22,7 @@ When the `workflow-modes` plugin is installed and its hooks are trusted, resolve
 
 Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin is unavailable, planning may continue because it is read-only apart from plan housekeeping, but state that lifecycle enforcement is unavailable. Never mutate source in plan or bypass a denied hook decision.
 
-New plans use the `Lightweight` profile. Profiles affect reread and persistence cadence only, not the plan boundary or transition gates. Respect `Durable` or `Audited` when already required. Treat a version 2 plan without an Active Snapshot as `Audited` until its next valid update adds the version 3 snapshot.
+New plans use the `Lightweight` profile. Profiles affect reread and persistence cadence only, not the plan boundary or transition gates. Respect `Durable` or `Audited` when already required. Treat a version 2 plan without an Active Snapshot as `Audited` until its next valid update adds the workflow-record version 3 header and Active Snapshot version 2.
 
 Use this skill to turn an ambiguous or important request into an approved execution plan while keeping one durable Markdown record from the beginning of planning.
 
@@ -31,6 +32,7 @@ Load only the reference needed for the current stage, and read it completely bef
 
 - Read [references/plan-record.md](references/plan-record.md) before creating, updating, approving, or handing off the Markdown plan.
 - Read [references/phase-planning.md](references/phase-planning.md) only when phases, dependencies, waves, or subagent eligibility materially improve the plan.
+- Keep `Required references` minimal: always `references/plan-record.md`; add `references/phase-planning.md` while phases, dependencies, waves, or subagent eligibility are in use. Persist and acknowledge each set change before reading the new reference and running `rules-sync`.
 
 ## Plan-First Boundary
 

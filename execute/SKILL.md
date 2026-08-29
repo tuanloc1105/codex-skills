@@ -10,6 +10,7 @@ description: Persistent execution and evidence-tracking mode for an approved Mar
 When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run lifecycle calls with the exact absolute path and `--marker workflow-modes-v1`.
 
 - On fresh-session adoption, after validating and persisting `Execute mode: Active`, run `activate execute --record <execution-record>` before implementation.
+- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <execution-record> --reference <path>...` before substantive work or a final response.
 - On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then run `activate execute --record <execution-record>` to confirm or rebind the same active record.
 - When the user explicitly exits execute and the exit metadata is durable, run `deactivate`. Implementation completion alone must never call `deactivate`.
 - At activation and after every `PostCompact` reminder, read the exact execution record completely and run `sync --record <execution-record> --scope record` before substantive work.
@@ -42,6 +43,7 @@ Load only the reference needed for the current stage, and read it completely bef
 - Read [references/implementation.md](references/implementation.md) before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
 - Read [references/completion.md](references/completion.md) after implementation work is integrated and before claiming completion, simplifying, updating agent docs, offering security review, or sending the final implementation response.
 - Read-only adoption and summary turns do not require either implementation reference unless their conditions arise.
+- Keep `Required references: None` for read-only adoption when neither routed reference applies. Add `references/implementation.md` before implementation, amendment, commit, or recovery; add `references/completion.md` before simplify or completion. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
 
 ## Persistent Mode Contract
 
@@ -63,7 +65,7 @@ Resume instruction: Invoke $execute, read this file completely, keep this exact 
 
 Preserve the implementation `Status` independently from the execute mode. An implemented plan may remain `Status: Implemented` while `Execute mode: Active`; reopen the implementation status only when new executable work starts.
 
-Also ensure a version 3 Active Snapshot exists near the top and contains the current goal, execution state, accepted decisions, open items, and next safe action. This migration is tracker housekeeping; retain existing history and evidence.
+Also ensure an Active Snapshot version 2 exists near the top and contains the current goal, execution state, accepted decisions, open items, next safe action, and stage-appropriate Required references. Keep the workflow-record header at version 3. This migration is tracker housekeeping; retain existing history and evidence.
 
 ## Completion Contract
 

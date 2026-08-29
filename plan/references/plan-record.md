@@ -24,7 +24,7 @@ Resolve, create, and freeze the draft plan file automatically at the start of `$
 - For an agent-generated filename, use the current local date unless the user requests another date.
 - Slugify an agent-generated `<plan-name>` with lowercase ASCII words joined by hyphens.
 - Initialize the reserved file with `Status: Draft planning discussion`, `Plan mode: Active`, `Execution readiness: Not ready`, a stable non-secret tracker ID, the machine-readable workflow-record header from the template, and an exact resume checkpoint. Update it after every material planning turn.
-- Initialize the version 3 Active Snapshot with `Profile: Lightweight` and keep its goal, current state, accepted decisions, open items, and next safe action concise and current.
+- Initialize the version 2 Active Snapshot with `Profile: Lightweight` and `Required references: references/plan-record.md`; add `references/phase-planning.md` only while phase structure is in use.
 - Keep the saved file self-contained. A future session should not need the original chat to understand the work.
 - Include the mode markers, last-updated timestamp, and status-appropriate resume instruction from the handoff template. A draft resumes with `$plan`; after approval the same line changes to the persistent `$execute` instruction, which remains authoritative even when implementation status later becomes `Implemented`.
 - Tell the user the exact path when the draft is established and again when it is finalized.
@@ -49,10 +49,11 @@ Execution readiness: <Not ready | Ready>
 Execute mode: <Inactive | Ready>
 Resume instruction: <While draft: Invoke $plan, read this file completely, and continue this exact draft before substantive work. | After approval: Invoke $execute, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute.>
 
-<!-- workflow-active-snapshot:start version:1 -->
+<!-- workflow-active-snapshot:start version:2 -->
 ## Active Snapshot
 
 Profile: <Lightweight | Durable | Audited>
+Required references: <references/plan-record.md[, references/phase-planning.md]>
 Goal: <current concrete goal>
 Current state: <draft, awaiting decision, approved, or executing state>
 Accepted decisions: <active decision IDs or concise values, or None>

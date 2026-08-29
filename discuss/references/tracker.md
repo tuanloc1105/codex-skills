@@ -31,7 +31,7 @@ For every new tracker:
 
 - Record that `$discuss` is active, the source-code action authorization boundary, and that only `$plan` or `$execute` can durably exit the mode.
 - Include this resume instruction near the top: `Invoke $discuss, read this tracker completely, and continue this exact file before substantive work.`
-- Create the version 3 Active Snapshot near the top with `Profile: Lightweight`, unless an existing tracker or repository policy requires `Durable` or `Audited`. Keep it concise and update it whenever its current goal, state, accepted decisions, open items, or next safe action changes.
+- Create the version 2 Active Snapshot near the top with `Profile: Lightweight` and `Required references: references/tracker.md`, unless an existing tracker or repository policy requires `Durable` or `Audited`. Keep it concise and current.
 - Initialize `Execution readiness: Not ready` and `Execute mode: Inactive`; these markers change only through `Direct Execute Handoff`.
 - Record the captured working directory, containing repository root when applicable, current branch and commit when available, creation time, last-updated time, and local timezone. Mark unavailable values explicitly instead of inventing them.
 - Give the discussion a stable tracker ID that does not change when the file moves. Use a locally generated non-secret identifier; do not derive it from credentials or private data.
@@ -90,6 +90,7 @@ Mutation boundary: $discuss exited by direct execute handoff at <timestamp and t
 ```
 
 Set the Active Snapshot profile to `Durable` during this handoff unless it is already `Audited`; never downgrade `Audited`.
+Replace its Required references with the target mode's minimum set; never retain discuss paths after handoff.
 
 Record the user's transition instruction and timestamp in `## Log`, update `Last updated` and `## Resume Checkpoint`, and complete `Tracker Durability Gate`. Only then may `$execute` adopt the exact path, set `Execute mode: Active`, and begin work under its own authorization and verification rules. A bare `$execute` transition is an implementation request when the active tracker already defines concrete executable work; an explicit read-, inspect-, summarize-, or adopt-only qualifier activates execute without authorizing implementation.
 
@@ -144,10 +145,11 @@ Workspace: <captured working directory>
 Repository: <root, branch, and commit when available>
 Mutation boundary: <active boundary, or exit instruction and time when Exited>
 
-<!-- workflow-active-snapshot:start version:1 -->
+<!-- workflow-active-snapshot:start version:2 -->
 ## Active Snapshot
 
 Profile: <Lightweight | Durable | Audited>
+Required references: <references/tracker.md[, references/actions.md]>
 Goal: <current concrete goal>
 Current state: <current mode state and active work>
 Accepted decisions: <active decision IDs or None>

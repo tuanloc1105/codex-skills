@@ -2,6 +2,8 @@
 
 Read this reference completely after implementation is integrated and before claiming completion, simplifying, updating agent docs, offering security review, or sending the final implementation response.
 
+First ensure the Active Snapshot also lists `references/completion.md`; acknowledge that write, read this file completely, and complete `rules-sync`.
+
 ## Required Simplify Pass
 
 After the plan's implementation units are committed, invoke `$simplify` on the complete current-session changes before the final response.

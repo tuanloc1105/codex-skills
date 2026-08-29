@@ -15,6 +15,11 @@ HOOK = PLUGIN_ROOT / "scripts" / "workflow_modes_hook.py"
 CONTROL = PLUGIN_ROOT / "scripts" / "workflow_modes_control.py"
 HOOKS = PLUGIN_ROOT / "hooks" / "hooks.json"
 MARKER = "workflow-modes-v1"
+MODE_REFERENCES = {
+    "discuss": ("references/tracker.md", "references/actions.md"),
+    "plan": ("references/plan-record.md", "references/phase-planning.md"),
+    "execute": ("references/implementation.md", "references/completion.md"),
+}
 
 
 class WorkflowModesHookTests(unittest.TestCase):
@@ -88,8 +93,9 @@ class WorkflowModesHookTests(unittest.TestCase):
                 "Status: Draft\nExecute mode: Inactive\n"
             )
         content += (
-            "<!-- workflow-active-snapshot:start version:1 -->\n"
-            f"Profile: {profile}\nGoal: Test workflow\nCurrent state: Active\n"
+            "<!-- workflow-active-snapshot:start version:2 -->\n"
+            f"Profile: {profile}\nRequired references: {', '.join(MODE_REFERENCES[mode])}\n"
+            "Goal: Test workflow\nCurrent state: Active\n"
             "Accepted decisions: None\nOpen items: None\nNext safe action: Continue\n"
             "<!-- workflow-active-snapshot:end -->\n"
         )
@@ -98,6 +104,11 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("WORKFLOW_MODE_ACTIVE", json.dumps(output))
         synced = self.control("sync", "--record", str(self.record))
         self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(synced))
+        rules = self.control(
+            "rules-sync", "--record", str(self.record),
+            *(item for reference in MODE_REFERENCES[mode] for item in ("--reference", reference)),
+        )
+        self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(rules))
 
     def test_dormant_until_skill_activates_mode(self) -> None:
         self.assertIsNone(self.patch("app.py"))
@@ -118,6 +129,93 @@ class WorkflowModesHookTests(unittest.TestCase):
             "sync", "--record", str(self.record), "--scope", "snapshot"
         )
         self.assertIn("currently required record scope", json.dumps(rejected))
+        self.assertIn("Recovery order", json.dumps(output))
+        self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assertIn(
+            "WORKFLOW_RULES_SYNC_REQUIRED",
+            json.dumps(self.run_hook("Stop", stop_hook_active=False)),
+        )
+
+    def test_activation_requires_exact_rules_sync_before_mutation(self) -> None:
+        self.record.parent.mkdir(parents=True, exist_ok=True)
+        self.record.write_text(
+            "<!-- workflow-record version:3 kind:discuss tracker-id:T -->\n"
+            "Mode: $discuss\nMode status: Active\n"
+            "<!-- workflow-active-snapshot:start version:2 -->\n"
+            "Profile: Lightweight\nRequired references: references/tracker.md\n"
+            "<!-- workflow-active-snapshot:end -->\n",
+            encoding="utf-8",
+        )
+        self.control("activate", "discuss", "--record", str(self.record))
+        self.control("sync", "--record", str(self.record))
+        self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch("app.py")))
+        missing = self.control("rules-sync", "--record", str(self.record))
+        self.assertIn("WORKFLOW_RULES_SYNC_INVALID", json.dumps(missing))
+        extra = self.control(
+            "rules-sync", "--record", str(self.record),
+            "--reference", "references/tracker.md",
+            "--reference", "references/actions.md",
+        )
+        self.assertIn("WORKFLOW_RULES_SYNC_INVALID", json.dumps(extra))
+        accepted = self.control(
+            "rules-sync", "--record", str(self.record),
+            "--reference", "references/tracker.md",
+        )
+        self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(accepted))
+
+    def test_invalid_mode_reference_is_never_accepted(self) -> None:
+        self.record.parent.mkdir(parents=True, exist_ok=True)
+        self.record.write_text(
+            "<!-- workflow-record version:3 kind:plan tracker-id:T -->\n"
+            "Status: Draft\n<!-- workflow-active-snapshot:start version:2 -->\n"
+            "Profile: Lightweight\nRequired references: references/tracker.md\n"
+            "<!-- workflow-active-snapshot:end -->\n",
+            encoding="utf-8",
+        )
+        self.control("activate", "plan", "--record", str(self.record))
+        self.control("sync", "--record", str(self.record))
+        denied = self.control(
+            "rules-sync", "--record", str(self.record),
+            "--reference", "references/plan-record.md",
+            "--reference", "references/phase-planning.md",
+        )
+        self.assertIn("WORKFLOW_RULES_SYNC_INVALID", json.dumps(denied))
+
+    def test_reference_set_change_reopens_rules_gate(self) -> None:
+        self.activate("discuss")
+        text = self.record.read_text(encoding="utf-8")
+        self.record.write_text(
+            text.replace(
+                "Required references: references/tracker.md, references/actions.md",
+                "Required references: references/tracker.md",
+            ),
+            encoding="utf-8",
+        )
+        self.control("sync", "--record", str(self.record), "--scope", "snapshot")
+        self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch("app.py")))
+
+    def test_ack_write_reference_change_reopens_rules_gate(self) -> None:
+        self.activate("discuss")
+        previous = "sha256:" + hashlib.sha256(self.record.read_bytes()).hexdigest()
+        self.assertIsNone(self.patch(str(self.record)))
+        self.record.write_text(
+            self.record.read_text(encoding="utf-8").replace(
+                "Required references: references/tracker.md, references/actions.md",
+                "Required references: references/tracker.md",
+            ),
+            encoding="utf-8",
+        )
+        acknowledged = self.control(
+            "ack-write", "--record", str(self.record),
+            "--previous-revision", previous,
+        )
+        self.assertIn("WORKFLOW_WRITE_ACKNOWLEDGED", json.dumps(acknowledged))
+        self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch("app.py")))
+
+    def test_ordinary_prompt_does_not_reopen_rules_gate(self) -> None:
+        self.activate("discuss")
+        output = self.run_hook("UserPromptSubmit", prompt="Continue")
+        self.assertIn("rules_sync_required=false", json.dumps(output))
 
     def test_user_prompt_keeps_unchanged_record_synced_and_requires_checkpoint(self) -> None:
         self.activate("discuss")
@@ -149,6 +247,24 @@ class WorkflowModesHookTests(unittest.TestCase):
         output = self.run_hook("UserPromptSubmit", prompt="Continue")
         self.assertIn("profile=audited", json.dumps(output))
         self.assertIn("sync_status=record", json.dumps(output))
+
+    def test_snapshot_v1_uses_full_mode_reference_fallback(self) -> None:
+        self.record.parent.mkdir(parents=True, exist_ok=True)
+        self.record.write_text(
+            "<!-- workflow-record version:3 kind:discuss tracker-id:T -->\n"
+            "Mode: $discuss\nMode status: Active\n"
+            "<!-- workflow-active-snapshot:start version:1 -->\n"
+            "Profile: Lightweight\n<!-- workflow-active-snapshot:end -->\n",
+            encoding="utf-8",
+        )
+        self.control("activate", "discuss", "--record", str(self.record))
+        self.control("sync", "--record", str(self.record))
+        accepted = self.control(
+            "rules-sync", "--record", str(self.record),
+            "--reference", "references/tracker.md",
+            "--reference", "references/actions.md",
+        )
+        self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(accepted))
 
     def test_snapshot_only_change_requests_snapshot_sync(self) -> None:
         self.activate("discuss")
@@ -316,6 +432,11 @@ class WorkflowModesHookTests(unittest.TestCase):
         plan = self.control("transition", "plan", "--record", str(self.record))
         self.assertIn("mode=plan", json.dumps(plan))
         self.control("sync", "--record", str(self.record))
+        self.control(
+            "rules-sync", "--record", str(self.record),
+            "--reference", "references/plan-record.md",
+            "--reference", "references/phase-planning.md",
+        )
         blocked = self.patch("app.py")
         self.assertIn("WORKFLOW_PLAN_READ_ONLY", json.dumps(blocked))
         self.record.write_text(
@@ -325,6 +446,11 @@ class WorkflowModesHookTests(unittest.TestCase):
         execute = self.control("transition", "execute", "--record", str(self.record))
         self.assertIn("mode=execute", json.dumps(execute))
         self.control("sync", "--record", str(self.record))
+        self.control(
+            "rules-sync", "--record", str(self.record),
+            "--reference", "references/implementation.md",
+            "--reference", "references/completion.md",
+        )
         blocked = self.patch("app.py")
         self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(blocked))
 

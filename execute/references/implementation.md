@@ -2,6 +2,8 @@
 
 Read this reference completely before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
 
+First ensure the Active Snapshot lists `references/implementation.md`; acknowledge that write, read this file completely, and complete `rules-sync` before mutation.
+
 ## Dedicated Worktree
 
 Before beginning or resuming implementation in a git repository, work from a dedicated linked worktree for the adopted execution record. Never implement in the user's existing checkout.

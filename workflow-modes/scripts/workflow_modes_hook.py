@@ -17,10 +17,17 @@ from typing import Any, Callable
 
 
 MARKER = "workflow-modes-v1"
-SNAPSHOT_START = "<!-- workflow-active-snapshot:start version:1 -->"
+SNAPSHOT_START_PATTERN = re.compile(
+    r"<!-- workflow-active-snapshot:start version:(?P<version>[12]) -->"
+)
 SNAPSHOT_END = "<!-- workflow-active-snapshot:end -->"
 PROFILES = {"lightweight", "durable", "audited"}
 MODES = {"discuss", "plan", "execute"}
+MODE_REFERENCES = {
+    "discuss": ("references/tracker.md", "references/actions.md"),
+    "plan": ("references/plan-record.md", "references/phase-planning.md"),
+    "execute": ("references/implementation.md", "references/completion.md"),
+}
 GIT_MUTATION_COMMANDS = "add|commit|push|merge|rebase|reset|clean|checkout|switch|restore"
 GIT_MUTATION_PATTERN = rf"\bgit\s+(?:{GIT_MUTATION_COMMANDS})(?=$|[\s;&|])"
 EXTERNAL_MUTATION_PATTERN = (
@@ -204,9 +211,11 @@ def content_revision(text: str) -> str:
 
 
 def record_snapshot(text: str | None) -> str | None:
-    if text is None or text.count(SNAPSHOT_START) != 1 or text.count(SNAPSHOT_END) != 1:
+    if text is None or len(SNAPSHOT_START_PATTERN.findall(text)) != 1 or text.count(SNAPSHOT_END) != 1:
         return None
-    start = text.index(SNAPSHOT_START) + len(SNAPSHOT_START)
+    marker = SNAPSHOT_START_PATTERN.search(text)
+    assert marker is not None
+    start = marker.end()
     end = text.index(SNAPSHOT_END, start)
     snapshot = text[start:end]
     if len(snapshot.encode("utf-8")) > 64 * 1024:
@@ -223,7 +232,9 @@ def record_revisions(path: str | None) -> tuple[str | None, str | None, str | No
     snapshot = record_snapshot(text)
     if snapshot is None:
         return content_revision(text), None, None
-    outside = text.replace(SNAPSHOT_START + snapshot + SNAPSHOT_END, "", 1)
+    marker = SNAPSHOT_START_PATTERN.search(text)
+    assert marker is not None
+    outside = text[:marker.start()] + text[text.index(SNAPSHOT_END, marker.end()) + len(SNAPSHOT_END):]
     return content_revision(text), content_revision(snapshot), content_revision(outside)
 
 
@@ -236,6 +247,41 @@ def record_profile(path: str | None) -> str:
     match = re.search(r"^Profile:\s*(\S+)\s*$", snapshot, flags=re.MULTILINE)
     profile = match.group(1).lower() if match else "audited"
     return profile if profile in PROFILES else "audited"
+
+
+def required_reference_spec(mode: str, text: str | None) -> tuple[tuple[str, ...], bool]:
+    """Return the snapshot allowlist, using the full-mode safe legacy fallback."""
+    allowed = MODE_REFERENCES[mode]
+    snapshot = record_snapshot(text)
+    marker = SNAPSHOT_START_PATTERN.search(text or "")
+    if snapshot is None or marker is None or marker.group("version") == "1":
+        return allowed, True
+    match = re.search(r"^Required references:\s*(.*?)\s*$", snapshot, re.MULTILINE)
+    if not match:
+        return allowed, True
+    value = match.group(1)
+    if value == "None":
+        return (), True
+    references = tuple(part.strip() for part in value.split(",") if part.strip())
+    if len(references) != len(set(references)) or not set(references).issubset(allowed):
+        return allowed, False
+    return tuple(reference for reference in allowed if reference in references), True
+
+
+def required_references(mode: str, text: str | None) -> tuple[str, ...]:
+    return required_reference_spec(mode, text)[0]
+
+
+def refresh_required_references(state: dict[str, Any]) -> bool:
+    references, valid = required_reference_spec(
+        str(state["mode"]), read_record(str(state.get("record")))
+    )
+    changed = list(references) != state.get("required_references")
+    state["required_references"] = list(references)
+    state["required_references_valid"] = valid
+    if changed:
+        state["rules_sync_required"] = True
+    return changed
 
 
 def record_tracker_id(path: str | None) -> str | None:
@@ -335,13 +381,15 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
         token = args[index]
         if token in {
             "--record", "--path", "--result", "--impact", "--evidence-id",
-            "--unscoped", "--reason", "--scope", "--previous-revision",
+            "--unscoped", "--reason", "--scope", "--previous-revision", "--reference",
         } and index + 1 < len(args):
             key = token[2:].replace("-", "_")
             if key == "path":
                 result.setdefault("paths", []).append(args[index + 1])
             elif key == "unscoped":
                 result.setdefault("unscoped", []).append(args[index + 1])
+            elif key == "reference":
+                result.setdefault("references", []).append(args[index + 1])
             else:
                 result[key] = args[index + 1]
             index += 2
@@ -488,6 +536,9 @@ def handle_control(
             "checkpoint_required": False,
             "pending_write_revision": None,
             "turn_start_revision": revision,
+            "required_references": list(required_references(mode, record_text)),
+            "required_references_valid": required_reference_spec(mode, record_text)[1],
+            "rules_sync_required": True,
             "updated_at": utc_now(),
         }
         store.mutate(key, lambda _old: state)
@@ -510,6 +561,33 @@ def handle_control(
         return context_output("PreToolUse", "WORKFLOW_MODE_INACTIVE: execute explicitly exited.")
     if not current:
         return deny_tool("WORKFLOW_MODE_INACTIVE: activate a tracker-backed mode first.")
+    if action == "rules-sync":
+        record = control.get("record")
+        if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
+            return deny_tool("WORKFLOW_RECORD_MISMATCH: rules-sync record differs from active tracker.")
+        expected, valid = required_reference_spec(
+            str(current.get("mode")), read_record(str(current.get("record")))
+        )
+        supplied = control.get("references", [])
+        if not valid or len(supplied) != len(set(supplied)) or set(supplied) != set(expected):
+            return deny_tool(
+                "WORKFLOW_RULES_SYNC_INVALID: --reference values must exactly match the "
+                f"required {current.get('mode')} reference set: {', '.join(expected) or 'None'}."
+            )
+        current["required_references"] = list(expected)
+        current["rules_sync_required"] = False
+        current["updated_at"] = utc_now()
+        store.mutate(key, lambda _old: current)
+        return context_output(
+            "PreToolUse",
+            f"WORKFLOW_RULES_SYNCED: mode={current.get('mode')}, references="
+            f"{','.join(expected) or 'None'}.",
+        )
+    if action in {"action-open", "checkpoint"} and current.get("rules_sync_required"):
+        return deny_tool(
+            "WORKFLOW_RULES_SYNC_REQUIRED: reread the mode SKILL.md and required references, "
+            "then run rules-sync before this control call."
+        )
     if action == "sync":
         record = control.get("record")
         if not isinstance(record, str) or normalized(record, cwd) != current.get("record"):
@@ -554,6 +632,7 @@ def handle_control(
         current["sync_scope"] = None
         current["pending_write_revision"] = None
         current["profile"] = record_profile(str(current.get("record")))
+        refresh_required_references(current)
         current["updated_at"] = utc_now()
         store.mutate(key, lambda _old: current)
         return context_output(
@@ -597,6 +676,7 @@ def handle_control(
         current["sync_scope"] = None
         current["pending_write_revision"] = None
         current["profile"] = record_profile(str(current.get("record")))
+        refresh_required_references(current)
         current["updated_at"] = utc_now()
         store.mutate(key, lambda _old: current)
         return context_output(
@@ -812,6 +892,11 @@ def handle_pre_tool(
             state["pending_write_revision"] = state.get("acknowledged_revision")
             store.mutate(key, lambda _old: state)
         return None
+    if state.get("rules_sync_required"):
+        return deny_tool(
+            "WORKFLOW_RULES_SYNC_REQUIRED: activate the current skill, reread its complete "
+            "SKILL.md and required references, sync the record, then run rules-sync before mutation."
+        )
     if not record_is_synced(state):
         store.mutate(key, lambda _old: state)
         return deny_tool(
@@ -887,6 +972,8 @@ def mode_message(state: dict[str, Any]) -> str:
         f"mode={mode}; record={state.get('record')}; tracker_id={state.get('tracker_id')}; "
         f"record_revision={state.get('record_revision')}; profile={state.get('profile')}; "
         f"sync_status={state.get('sync_scope') or 'current'}; "
+        f"required_references={','.join(state.get('required_references', [])) or 'None'}; "
+        f"rules_sync_required={str(bool(state.get('rules_sync_required'))).lower()}; "
         "rule=when sync is required, read the requested record or active snapshot scope, "
         "then run matching sync before substantive work; "
         "rule=persist material turn changes and run checkpoint before final response. "
@@ -902,6 +989,12 @@ def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[st
     state = store.get(key)
     if not state:
         return None
+    if state.get("rules_sync_required"):
+        return {
+            "decision": "block",
+            "reason": "WORKFLOW_RULES_SYNC_REQUIRED: reread the mode SKILL.md and required "
+            "references, sync the record, and run rules-sync before stopping.",
+        }
     if not state.get("action") and state.get("checkpoint_required"):
         return {
             "decision": "block",
@@ -954,8 +1047,15 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
         if not state:
             return None
         refresh_sync_requirement(state, force_record=True)
+        state["rules_sync_required"] = True
         store.mutate(key, lambda _old: state)
-        return {"systemMessage": mode_message(state)}
+        references = ", ".join(state.get("required_references", [])) or "None"
+        return {"systemMessage": (
+            mode_message(state) + " Recovery order: (1) activate the current skill and read its "
+            "complete SKILL.md; (2) read all Required references: " + references + "; (3) read "
+            "and sync the active record using the required scope; (4) run rules-sync before "
+            "substantive work or a final response."
+        )}
     if event == "Stop":
         return handle_stop(store, key, payload)
     if event == "SessionEnd":

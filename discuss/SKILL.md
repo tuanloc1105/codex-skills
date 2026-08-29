@@ -16,6 +16,7 @@ Keep the mode active across analysis and every scoped action. Completing an acti
 When the `workflow-modes` plugin is installed and its hooks are trusted, use its control script as a lifecycle guard. Resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run it with the exact absolute path. Every call must end with `--marker workflow-modes-v1`; confirm the hook returns model-visible `WORKFLOW_*` context.
 
 - After the tracker is established and its active discuss metadata is persisted, run `activate discuss --record <tracker>`.
+- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <tracker> --reference <path>...` before substantive work or a final response.
 - At activation and after every `PostCompact` reminder, read the exact tracker completely and run `sync --record <tracker> --scope record` before substantive work.
 - After `UserPromptSubmit`, follow the hook's `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running `sync --record <tracker> --scope snapshot`; `record` requires a complete read and record-scope sync. A changed or unacknowledged required scope remains a hard boundary for non-record mutation.
 - After writing a tracker that was synced before the write, run `ack-write --record <tracker> --previous-revision <last acknowledged record revision>`. If acknowledgement is denied, read the exact tracker completely, reconcile it, and run record-scope sync; never bypass the denial.
@@ -36,6 +37,7 @@ Load only the reference needed for the current stage, and read that reference co
 
 - Read [references/tracker.md](references/tracker.md) before creating, resuming, migrating, persisting, or handing off a discussion tracker.
 - Read [references/actions.md](references/actions.md) before baseline analysis of an existing mechanism, any scoped mutation, or combining discuss with another skill.
+- Keep `Required references` minimal: always `references/tracker.md`; add `references/actions.md` while baseline analysis, a scoped action, or a skill combination is active. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
 - The decision gate, question rules, and response sequence remain in this entrypoint and apply throughout the mode.
 
 ## Immediate Decision Gate
