@@ -134,7 +134,7 @@ Workflow State: MODE_UNRESOLVED
 - Schedule and timezone: <absolute timestamp/timezone or not applicable>
 - Pinned execution identity: <repository, branch, expected HEAD, diff identity, remote, target, Jira key, commit message, MR title/body file, and checks>
 - Scheduler artifacts: <Python worker, immutable job config, native service definition, logs, state, or not applicable>
-- Persistent scheduler: <launchd/systemd identity, installed path, loaded/enabled state, next run, or not applicable>
+- Persistent scheduler: <launchd, systemd, or Windows Task Scheduler identity; installed path/task path; principal; loaded/enabled state; next run; or not applicable>
 - Independent-of-chat evidence: <native scheduler inspection after load or not applicable>
 - Dry-run and failure-path evidence: <commands/results or pending>
 - Idempotency and drift result: <evidence or pending>
