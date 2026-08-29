@@ -24,7 +24,7 @@ branch:
     - "<prefix>/"
 mr:
   title_pattern: "<documented placeholders>"
-  maximum_changed_line_limit: <positive integer no greater than 400>
+  maximum_changed_line_limit: <positive integer no greater than 155>
 jira:
   project_mapping:
     story_type: "<local story type>"
@@ -72,7 +72,7 @@ All sections except `version` are optional. Within a present section, allow only
 - Routing globs classify only authorized target paths. Reject routing that overlaps ambiguously for an affected path unless mode is `mixed` and both policies intentionally apply.
 - Branch patterns may use `{jira_id}`, `{username}`, `{task-slug}`, and `{task-title}` only and must contain `{jira_id}` and `{username}`.
 - `permitted_prefixes` may narrow prefixes but cannot remove Jira traceability.
-- `maximum_changed_line_limit` must be positive and no greater than 400. It may make the default PR-size boundary stricter but cannot weaken or broaden the scoped artifact exception in core policy. Treat the former `advisory_changed_line_limit` key as invalid configuration drift because ordinary PR size is not advisory.
+- `maximum_changed_line_limit` must be positive and no greater than 155. It may make the default PR-size boundary stricter but cannot weaken or broaden the indivisible-change exception in core policy. Treat the former `advisory_changed_line_limit` key as invalid configuration drift because reducible PR-size excess is not advisory.
 - Jira mapping changes labels only; it cannot change the peer Story/Task/Bug level, their direct Epic parentage, or the rule that a Subtask may have a Story, Task, or Bug as its direct parent.
 - A profile cannot silently replace, create, or weaken the default Tech-Lead-owned Epic base or the rule that it remains every MR target. A verified working branch from the same Epic may be the development base only through the stacked-ticket procedure in core policy; any other exception requires a recorded user override for the exact fallback branch and action.
 - All paths and globs are repository relative and grant no mutation authority. Reject paths escaping the repository.
