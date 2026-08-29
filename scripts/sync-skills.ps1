@@ -41,8 +41,7 @@ if ($skillNames.Count -eq 0) {
     throw 'No skill directories containing SKILL.md were found.'
 }
 
-New-Item -ItemType Directory -Path $destinationRoot -Force | Out-Null
-
+$validatedSkillNames = @()
 foreach ($skillName in $skillNames) {
     if (
         [string]::IsNullOrWhiteSpace($skillName) -or
@@ -57,6 +56,16 @@ foreach ($skillName in $skillNames) {
     if (-not (Test-Path -LiteralPath $skillFile -PathType Leaf)) {
         throw "Skill not found or missing SKILL.md: $skillName"
     }
+
+    if ($validatedSkillNames -notcontains $skillName) {
+        $validatedSkillNames += $skillName
+    }
+}
+
+New-Item -ItemType Directory -Path $destinationRoot -Force | Out-Null
+
+foreach ($skillName in $validatedSkillNames) {
+    $source = Join-Path -Path $repoRoot -ChildPath $skillName
 
     $destination = Join-Path -Path $destinationRoot -ChildPath $skillName
     New-Item -ItemType Directory -Path $destination -Force | Out-Null

@@ -5,7 +5,8 @@
 Both scripts copy skill directories from this repository to
 `~/.codex/skills`. Run them without arguments to sync every top-level
 directory that contains a `SKILL.md`, or pass one or more skill names to sync
-only those skills.
+only those skills. All supplied names are validated before copying starts, so
+an invalid name does not leave a partially synced selection.
 
 ### macOS and Linux
 
@@ -23,7 +24,7 @@ and PowerShell 7+.
 
 ```powershell
 powershell.exe -ExecutionPolicy Bypass -File .\scripts\sync-skills.ps1
-pwsh -File .\scripts\sync-skills.ps1 data-debug plan
+pwsh -ExecutionPolicy Bypass -File .\scripts\sync-skills.ps1 data-debug plan
 ```
 
 The scripts update and add files but intentionally leave destination-only

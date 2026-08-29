@@ -31,8 +31,7 @@ if (( ${#skill_names[@]} == 0 )); then
   exit 1
 fi
 
-mkdir -p -- "$destination_root"
-
+validated_skill_names=()
 for skill_name in "${skill_names[@]}"; do
   case "$skill_name" in
     ''|.|..|*/*|*\\*)
@@ -42,12 +41,31 @@ for skill_name in "${skill_names[@]}"; do
   esac
 
   source="$repo_root/$skill_name"
-  destination="$destination_root/$skill_name"
 
   if [[ ! -f "$source/SKILL.md" ]]; then
     printf 'Error: skill not found or missing SKILL.md: %s\n' "$skill_name" >&2
     exit 1
   fi
+
+  duplicate=false
+  if (( ${#validated_skill_names[@]} > 0 )); then
+    for validated_skill_name in "${validated_skill_names[@]}"; do
+      if [[ "$validated_skill_name" == "$skill_name" ]]; then
+        duplicate=true
+        break
+      fi
+    done
+  fi
+  if [[ "$duplicate" == false ]]; then
+    validated_skill_names+=("$skill_name")
+  fi
+done
+
+mkdir -p -- "$destination_root"
+
+for skill_name in "${validated_skill_names[@]}"; do
+  source="$repo_root/$skill_name"
+  destination="$destination_root/$skill_name"
 
   mkdir -p -- "$destination"
   rsync -a \
