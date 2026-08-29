@@ -1,6 +1,6 @@
 # Official sources and freshness policy
 
-ACLI and Rovo MCP sources were checked on 2026-08-03; Jira REST sources were checked on 2026-08-29. Recheck the relevant interface when using this skill.
+ACLI sources were checked on 2026-08-03; Rovo MCP and Jira REST sources were checked on 2026-08-29. Recheck the relevant interface when using this skill.
 
 ## Source precedence
 
@@ -25,13 +25,14 @@ ACLI and Rovo MCP sources were checked on 2026-08-03; Jira REST sources were che
 
 ## Jira Cloud REST API v3
 
-1. [Get attachment metadata](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-attachments/#api-rest-api-3-attachment-id-get): endpoint, permissions, scopes, and response.
-2. [Get attachment content](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-attachments/#api-rest-api-3-attachment-content-id-get): content, redirects, ranges, permissions, and scopes.
-3. [Add comment](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-comments/#api-rest-api-3-issue-issueidorkey-comment-post): ADF, visibility, permissions, scopes, and `201`.
-4. [OAuth 2.0 (3LO)](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/): accessible resources, cloud ID, gateway URL, scopes, and token lifecycle.
-5. [Basic auth with API tokens](https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/): account/site-bound token authentication.
+1. [Issues](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/), [changelogs](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-changelog-get), and [transitions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-transitions-get): issue detail/edit metadata/edit and transition routes, scopes, statuses, fields, and pagination.
+2. [Comments](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-comments/), [worklogs](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/), [watchers](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-watchers/), and [links](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-links/): bounded reads and selected Tier B writes.
+3. [Issue attachments](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-attachments/): metadata, content, redirects, ranges, permissions, and scopes.
+4. [Project versions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-project-versions/) and [versions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-project-versions/): release/version reads.
+5. [Jira Software boards](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/) and [sprints](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/): board/backlog/sprint/version reads, pagination, and enhanced endpoint families.
+6. [OAuth 2.0 (3LO)](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/) and [API-token basic auth](https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/): resource correlation, scopes, lifecycle, and account/site binding.
 
-The runtime MCP schema decides whether MCP has a capability. Current official REST pages decide endpoint behavior, but the closed allowlist in `SKILL.md` remains the authorization boundary.
+The runtime MCP schema decides whether MCP has a capability. Official REST pages decide endpoint behavior; `rest-capability-registry.json` is the closed authorization boundary.
 
 ## Freshness rules
 
@@ -41,7 +42,7 @@ The runtime MCP schema decides whether MCP has a capability. Current official RE
 - Do not hard-code “latest version” in automation. Atlassian requires frequent updates, and the changelog may introduce new OAuth requirements.
 - For MCP, the tool schema/list exposed by the current server determines executable inputs. The Supported tools page verifies capability and scope but does not replace the runtime schema.
 - Use the Streamable HTTP endpoint currently published by Getting started. Do not revert to the retired SSE endpoint.
-- Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Never expand the allowlist because another official endpoint exists.
+- Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Never expand the registry because another official endpoint exists.
 - Correlate OAuth accessible resources/cloud ID or the API-token account/site with the intended MCP target.
 
 ## Distinguish TWG CLI
