@@ -1,6 +1,6 @@
 # Official sources and freshness policy
 
-The sources below were checked on 2026-08-03. Atlassian updates ACLI and Rovo MCP independently of the model/client, so recheck them when using this skill.
+ACLI and Rovo MCP sources were checked on 2026-08-03; Jira REST sources were checked on 2026-08-29. Recheck the relevant interface when using this skill.
 
 ## Source precedence
 
@@ -23,6 +23,16 @@ The sources below were checked on 2026-08-03. Atlassian updates ACLI and Rovo MC
 6. [Permissions](https://support.atlassian.com/security-and-access-policies/docs/Configure-Atlassian-Rovo-MCP-server-permission/): Read, Write, and Search access controlled by organization administrators.
 7. [Domain, authentication, and IP controls](https://support.atlassian.com/security-and-access-policies/docs/control-atlassian-rovo-mcp-server-settings/): domain allowlist, API-token policy, and IP allowlist.
 
+## Jira Cloud REST API v3
+
+1. [Get attachment metadata](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-attachments/#api-rest-api-3-attachment-id-get): endpoint, permissions, scopes, and response.
+2. [Get attachment content](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-attachments/#api-rest-api-3-attachment-content-id-get): content, redirects, ranges, permissions, and scopes.
+3. [Add comment](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-comments/#api-rest-api-3-issue-issueidorkey-comment-post): ADF, visibility, permissions, scopes, and `201`.
+4. [OAuth 2.0 (3LO)](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/): accessible resources, cloud ID, gateway URL, scopes, and token lifecycle.
+5. [Basic auth with API tokens](https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/): account/site-bound token authentication.
+
+The runtime MCP schema decides whether MCP has a capability. Current official REST pages decide endpoint behavior, but the closed allowlist in `SKILL.md` remains the authorization boundary.
+
 ## Freshness rules
 
 - Read the changelog when the version differs from the previous use, authentication suddenly lacks a scope, or a command/flag conflicts with this skill.
@@ -31,6 +41,8 @@ The sources below were checked on 2026-08-03. Atlassian updates ACLI and Rovo MC
 - Do not hard-code “latest version” in automation. Atlassian requires frequent updates, and the changelog may introduce new OAuth requirements.
 - For MCP, the tool schema/list exposed by the current server determines executable inputs. The Supported tools page verifies capability and scope but does not replace the runtime schema.
 - Use the Streamable HTTP endpoint currently published by Getting started. Do not revert to the retired SSE endpoint.
+- Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Never expand the allowlist because another official endpoint exists.
+- Correlate OAuth accessible resources/cloud ID or the API-token account/site with the intended MCP target.
 
 ## Distinguish TWG CLI
 
