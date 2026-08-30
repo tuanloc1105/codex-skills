@@ -49,7 +49,7 @@ test('Story Follow frames the exact previous, current, and next authored stops t
   assert.match(template, /ids\.push\(step\.nodeId\)/);
   assert.match(template, /step\.index \+ 1 < storySteps\.length/);
   assert.match(template, /var ids = storyFrameIds\(step\)/);
-  assert.match(template, /Technical Diagrams\.view\.reveal\(ids, \{/);
+  assert.match(template, /TechnicalDiagrams\.view\.reveal\(ids, \{/);
   assert.match(template, /reason: options\.manual === true \? 'story-beat' : 'story-follow'/);
   assert.match(template, /padding: 64/);
   assert.match(template, /maxScale: 1\.65/);
@@ -79,7 +79,7 @@ test('adaptive dwell, Still, reduced motion, hidden pages, and print keep camera
   assert.match(template, /window\.matchMedia\('print'\)\.matches/);
   assert.match(template, /instant: options\.instant === true \|\| reducedMotion\(\) \|\| document\.documentElement\.getAttribute\('data-motion'\) !== 'live'/);
   assert.match(template, /function storyAutomaticPlaybackAllowed\(\)/);
-  assert.match(template, /Technical Diagrams\.motionGovernor && Technical Diagrams\.motionGovernor\.capable\) return !Technical Diagrams\.motionGovernor\.isPaused\(\)/);
+  assert.match(template, /TechnicalDiagrams\.motionGovernor && TechnicalDiagrams\.motionGovernor\.capable\) return !TechnicalDiagrams\.motionGovernor\.isPaused\(\)/);
   assert.match(template, /play\.disabled = !playing && !automaticPlaybackAllowed/);
   assert.match(template, /'viewer\.guided\.motionUnavailable'/);
   assert.match(template, /function startPlayback\(\) \{[\s\S]*?if \(!storyAutomaticPlaybackAllowed\(\)\)/);
@@ -95,7 +95,7 @@ test('pause, settle, overview, and manual camera takeover cancel Story Follow st
   assert.match(template, /function pausePlayback\(options\)[\s\S]*?clearStoryFollow\(\)/);
   assert.match(template, /function settleStoryBeats\(\)[\s\S]*?clearStoryFollow\(\)/);
   assert.match(template, /function clearStoryTrail\(\)[\s\S]*?clearStoryFollow\(\)/);
-  assert.match(template, /function interruptCamera\(reason\)[\s\S]*?Technical Diagrams\.guidedViews\.pause\(\)/);
+  assert.match(template, /function interruptCamera\(reason\)[\s\S]*?TechnicalDiagrams\.guidedViews\.pause\(\)/);
   assert.match(template, /clone\.removeAttribute\('data-story-follow'\)/);
   assert.match(template, /!clone\.hasAttribute\('data-story-follow'\)/);
 });

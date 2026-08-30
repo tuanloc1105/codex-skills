@@ -55,7 +55,7 @@ function loadRuntime({
     localStorage,
   };
   vm.runInNewContext(fs.readFileSync(source, 'utf8'), { window, URL, URLSearchParams });
-  return { language: window.Technical DiagramsSiteLanguage, values, url: () => new URL(currentUrl) };
+  return { language: window.TechnicalDiagramsSiteLanguage, values, url: () => new URL(currentUrl) };
 }
 
 async function evaluate(browser, sessionId, expression) {
@@ -279,8 +279,8 @@ test('all site pages consume one language runtime and one navigation contract', 
     assert.match(html, /<script src="assets\/site-language\.js"><\/script>/, `${relative}: shared runtime missing`);
     assert.match(html, /<link rel="stylesheet" href="assets\/site-navigation\.css">/, `${relative}: shared navigation missing`);
     assert.match(html, /<nav class="site-nav" aria-label="Primary navigation">/, `${relative}: canonical navigation root missing`);
-    assert.match(html, /Technical DiagramsSiteLanguage\.read\(/, `${relative}: shared language read missing`);
-    assert.match(html, /Technical DiagramsSiteLanguage\.write\(/, `${relative}: shared language write missing`);
+    assert.match(html, /TechnicalDiagramsSiteLanguage\.read\(/, `${relative}: shared language read missing`);
+    assert.match(html, /TechnicalDiagramsSiteLanguage\.write\(/, `${relative}: shared language write missing`);
     assert.match(html, /href="guide\.html"/, `${relative}: Guide navigation missing`);
     assert.match(html, /href="gallery\.html"/, `${relative}: Proof Lab navigation missing`);
     assert.match(html, /href="start\.html"/, `${relative}: Start navigation missing`);

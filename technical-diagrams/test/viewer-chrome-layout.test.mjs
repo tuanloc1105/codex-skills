@@ -138,7 +138,7 @@ async function finalGeometry(browser, sessionId) {
     var lens = document.getElementById('semantic-lens');
     var radar = document.getElementById('overview-map');
     var passport = document.getElementById('focus-chip');
-    var chromeReceipt = window.Technical Diagrams && TechnicalDiagrams.viewerChromeLayout
+    var chromeReceipt = window.TechnicalDiagrams && TechnicalDiagrams.viewerChromeLayout
       && typeof TechnicalDiagrams.viewerChromeLayout.receipt === 'function'
       ? TechnicalDiagrams.viewerChromeLayout.receipt()
       : null;
@@ -160,7 +160,7 @@ async function finalGeometry(browser, sessionId) {
     }
     var legendRect = legend && getComputedStyle(legend).display !== 'none' ? legend.getBoundingClientRect() : null;
     var navRect = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect() : null;
-    var stageRect = window.Technical Diagrams && TechnicalDiagrams.viewerChromeLayout
+    var stageRect = window.TechnicalDiagrams && TechnicalDiagrams.viewerChromeLayout
       && typeof TechnicalDiagrams.viewerChromeLayout.stageRect === 'function'
       ? TechnicalDiagrams.viewerChromeLayout.stageRect()
       : null;

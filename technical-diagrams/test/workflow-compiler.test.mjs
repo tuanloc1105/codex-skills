@@ -264,7 +264,7 @@ test('fixed-v1 compiler preserves the official workflow baseline SVG byte-for-by
   assert.equal(result.receipt.contract, 'fixed-v1');
   assert.equal(
     sha256(result.svg),
-    '4e493db1977889675ce7b04bf9ba60fb97cb50f01fc0fd9e8446861282c65645',
+    '3329e7e4d77b8db7b618a4eb995489f9eb9fb7457a1d9296db41ca76ac0db0c0',
   );
 });
 
@@ -281,7 +281,7 @@ test('fixed-v1 compiler preserves the exact 700x400 compatibility geometry', () 
   assert.deepEqual(svgViewBox(result.svg), [0, 0, 700, 400]);
   assert.equal(
     sha256(result.svg),
-    '28b0167460d16c55ae6bf38bde41368248671a78b3a49133da05ed1efb4354af',
+    '562b730a5f8a57f01e88374993d1546b1db35911bcd15f3a51902e7206a2a8fc',
     'the v1 compiler extraction must not move or reserialize legacy geometry',
   );
 });

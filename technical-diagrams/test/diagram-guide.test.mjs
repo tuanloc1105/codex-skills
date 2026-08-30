@@ -37,9 +37,9 @@ test('all typed renderers inherit one viewer-only Diagram Guide', () => {
     const html = render(mode, example);
     assert.match(html, /id="diagram-guide" hidden role="dialog" aria-modal="false" aria-labelledby="diagram-guide-title"/, mode);
     assert.match(html, /id="btn-diagram-guide"[^>]+aria-label="Open diagram guide"[^>]+aria-haspopup="dialog"[^>]+aria-expanded="false"/, mode);
-    assert.match(html, /Technical Diagrams\.guide = \(function \(\)/, mode);
+    assert.match(html, /TechnicalDiagrams\.guide = \(function \(\)/, mode);
     assert.match(html, /Diagram Guide — a factual command deck over existing interactions/, mode);
-    assert.doesNotMatch(canonicalSvg(html), /diagram-guide|Technical Diagrams\.guide|Explore this system/, mode);
+    assert.doesNotMatch(canonicalSvg(html), /diagram-guide|TechnicalDiagrams\.guide|Explore this system/, mode);
   }
 });
 
@@ -48,7 +48,7 @@ test('Diagram Guide reports compiled semantic facts and honest story availabilit
   assert.match(html, /svg\.querySelectorAll\('\[data-node-id\]'\)\.length/);
   assert.match(html, /svg\.querySelectorAll\('\[data-edge-from\]\[data-edge-to\]'\)/);
   assert.match(html, /edge\.getAttribute\('data-edge-key'\)/);
-  assert.match(html, /return Technical Diagrams\.guidedViews && Number\(Technical Diagrams\.guidedViews\.count\) \|\| 0/);
+  assert.match(html, /return TechnicalDiagrams\.guidedViews && Number\(TechnicalDiagrams\.guidedViews\.count\) \|\| 0/);
   assert.match(html, /storyBtn\.disabled = views === 0/);
   assert.match(html, /viewerCount\('viewer\.guide\.fact\.view', views\)/);
   assert.match(html, /viewerText\('viewer\.guide\.story\.unavailable'\)/);
@@ -56,24 +56,24 @@ test('Diagram Guide reports compiled semantic facts and honest story availabilit
 
 test('Diagram Guide delegates its task rows to existing production interactions', () => {
   const html = render('architecture', CASES.architecture);
-  assert.match(html, /if \(action === 'find'\) return Technical Diagrams\.finder\.open\(\)/);
-  assert.match(html, /if \(action === 'route'\) return Technical Diagrams\.routeProbe\.begin\(\{ focusNode: true \}\)/);
-  assert.match(html, /if \(action === 'map'\) return Technical Diagrams\.radar\.open\(\)/);
-  assert.match(html, /if \(action === 'story'\) return Technical Diagrams\.guidedViews\.play\(\)/);
-  assert.match(html, /if \(action === 'present'\) return Technical Diagrams\.presentation\.enter\(\)/);
-  assert.match(html, /if \(action === 'export'\) return Technical Diagrams\.exportMenu\.open\(\)/);
-  assert.match(html, /if \(action === 'theme'\) return Technical Diagrams\.theme\.toggle\(\)/);
-  assert.match(html, /if \(action === 'reset'\) return Technical Diagrams\.view\.reset\(\)/);
-  assert.match(html, /Technical Diagrams\.guidedViews\.pause\(\)/);
-  assert.match(html, /Technical Diagrams\.finder\.close\(\{ restoreFocus: false \}\)/);
-  assert.match(html, /Technical Diagrams\.radar\.close\(\{ restoreFocus: false \}\)/);
+  assert.match(html, /if \(action === 'find'\) return TechnicalDiagrams\.finder\.open\(\)/);
+  assert.match(html, /if \(action === 'route'\) return TechnicalDiagrams\.routeProbe\.begin\(\{ focusNode: true \}\)/);
+  assert.match(html, /if \(action === 'map'\) return TechnicalDiagrams\.radar\.open\(\)/);
+  assert.match(html, /if \(action === 'story'\) return TechnicalDiagrams\.guidedViews\.play\(\)/);
+  assert.match(html, /if \(action === 'present'\) return TechnicalDiagrams\.presentation\.enter\(\)/);
+  assert.match(html, /if \(action === 'export'\) return TechnicalDiagrams\.exportMenu\.open\(\)/);
+  assert.match(html, /if \(action === 'theme'\) return TechnicalDiagrams\.theme\.toggle\(\)/);
+  assert.match(html, /if \(action === 'reset'\) return TechnicalDiagrams\.view\.reset\(\)/);
+  assert.match(html, /TechnicalDiagrams\.guidedViews\.pause\(\)/);
+  assert.match(html, /TechnicalDiagrams\.finder\.close\(\{ restoreFocus: false \}\)/);
+  assert.match(html, /TechnicalDiagrams\.radar\.close\(\{ restoreFocus: false \}\)/);
   assert.match(html, /event\.stopPropagation\(\);[\s\S]+execute\(button\.getAttribute\('data-guide-action'\)\)/);
 });
 
 test('Diagram Guide is keyboard-first, mobile-contained, motion-safe, and embed-clean', () => {
   const html = render('sequence', CASES.sequence);
   assert.match(html, /e\.key === '\?'/);
-  assert.match(html, /Technical Diagrams\.guide\.toggle\(\)/);
+  assert.match(html, /TechnicalDiagrams\.guide\.toggle\(\)/);
   assert.match(html, /event\.key === 'ArrowRight'/);
   assert.match(html, /event\.key === 'ArrowDown'/);
   assert.match(html, /event\.key === 'Home'/);

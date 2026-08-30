@@ -32,7 +32,7 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
   const manifestPath = path.join(generatedRoot, 'gallery', 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   assert.equal(manifest.schemaVersion, 1);
-  assert.equal(manifest.technical-diagramsVersion, JSON.parse(fs.readFileSync(path.join(skillRoot, 'package.json'))).version);
+  assert.equal(manifest.technicalDiagramsVersion, JSON.parse(fs.readFileSync(path.join(skillRoot, 'package.json'))).version);
   assert.equal(manifest.entryCount, 11);
   assert.equal(manifest.checkCount, 99);
   assert.deepEqual(new Set(manifest.entries.map((entry) => entry.type)), new Set([

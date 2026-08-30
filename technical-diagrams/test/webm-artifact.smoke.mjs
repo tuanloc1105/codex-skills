@@ -372,7 +372,7 @@ try {
     async function inspectKinds(file, expectedKinds, theme) {
       const url = new URL(pathToFileURL(file).href);
       url.searchParams.set('theme', theme);
-      await navigateReady(url, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens)', `legend ${theme}`);
+      await navigateReady(url, '!!(window.TechnicalDiagrams && TechnicalDiagrams.semanticLens)', `legend ${theme}`);
       const result = await evaluate(cdp, sessionId, `(() => {
         var svg = document.querySelector('.diagram-container > svg');
         var entries = Array.from(svg.querySelectorAll('[data-legend-semantic-kind]'));
@@ -408,7 +408,7 @@ try {
       assert.equal(lifecycle.bridge, true);
     }
 
-    await navigateReady(outputs.dataflow, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens && TechnicalDiagrams.exportMenu)', 'Dataflow database legend runtime');
+    await navigateReady(outputs.dataflow, '!!(window.TechnicalDiagrams && TechnicalDiagrams.semanticLens && TechnicalDiagrams.exportMenu)', 'Dataflow database legend runtime');
     const databaseRuntime = await evaluate(cdp, sessionId, String.raw`(async function () {
       var entry = document.querySelector('[data-legend-kind="database"]');
       entry.focus();
@@ -441,7 +441,7 @@ try {
     assert.deepEqual(databaseRuntime.exportedKinds, ['database', 'default']);
     assert.equal(databaseRuntime.exportedBridgeResidue, 0);
 
-    await navigateReady(outputs.custom, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens && TechnicalDiagrams.exportMenu)', 'custom legend runtime');
+    await navigateReady(outputs.custom, '!!(window.TechnicalDiagrams && TechnicalDiagrams.semanticLens && TechnicalDiagrams.exportMenu)', 'custom legend runtime');
     const runtime = await evaluate(cdp, sessionId, String.raw`(async function () {
       var svg = document.querySelector('.diagram-container > svg');
       var entries = Array.from(svg.querySelectorAll('[data-legend-semantic-kind]'));
@@ -532,7 +532,7 @@ try {
 
     const embedUrl = new URL(pathToFileURL(outputs.custom).href);
     embedUrl.searchParams.set('embed', '1');
-    await navigateReady(embedUrl, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens)', 'embedded legend');
+    await navigateReady(embedUrl, '!!(window.TechnicalDiagrams && TechnicalDiagrams.semanticLens)', 'embedded legend');
     const embed = await evaluate(cdp, sessionId, `(() => ({
       roles: document.querySelectorAll('[data-legend-kind][role]').length,
       runtime: document.querySelectorAll('[data-legend-bridge-runtime]').length,
@@ -540,7 +540,7 @@ try {
     }))()`);
     assert.deepEqual(embed, { roles: 0, runtime: 0, kinds: ['frontend', 'database', 'external'] });
 
-    await navigateReady(outputs.hidden, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens)', 'hidden legend');
+    await navigateReady(outputs.hidden, '!!(window.TechnicalDiagrams && TechnicalDiagrams.semanticLens)', 'hidden legend');
     const hidden = await evaluate(cdp, sessionId, `(() => ({
       root: !!document.querySelector('[data-legend]'),
       bridge: !!document.querySelector('[data-legend-bridge]'),
@@ -551,7 +551,7 @@ try {
   }
 
   async function verifySemanticPassportDismissal(file) {
-    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.focus && document.querySelector("#btn-focus-clear"))', 'Semantic Passport dismissal');
+    await navigateReady(file, '!!(window.TechnicalDiagrams && TechnicalDiagrams.focus && document.querySelector("#btn-focus-clear"))', 'Semantic Passport dismissal');
     const result = await evaluate(cdp, sessionId, `(() => {
       var chip = document.querySelector('#focus-chip');
       var close = document.querySelector('#btn-focus-clear');
@@ -832,7 +832,7 @@ try {
       var frames = Array.from(document.querySelectorAll('.snapshot-frame'));
       var explorers = frames.map(function (frame) {
         var child = frame.contentWindow;
-        return Boolean(child && child.Technical Diagrams && child.TechnicalDiagrams.focus && child.TechnicalDiagrams.routeProbe && child.document.querySelector('#btn-node-finder') && child.document.querySelector('#guided-view-play'));
+        return Boolean(child && child.TechnicalDiagrams && child.TechnicalDiagrams.focus && child.TechnicalDiagrams.routeProbe && child.document.querySelector('#btn-node-finder') && child.document.querySelector('#guided-view-play'));
       });
       var svgA = TechnicalDiagrams.deltaExport.canonicalSvg();
       document.querySelector('#theme').click();
@@ -870,7 +870,7 @@ try {
   }
 
   async function captureShareCard(file, label) {
-    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.shareCard)', label);
+    await navigateReady(file, '!!(window.TechnicalDiagrams && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.shareCard)', label);
     const sharePayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
         var blob = await TechnicalDiagrams.exportMenu.shareCard();
@@ -919,7 +919,7 @@ try {
   }
 
   async function captureCopiedShareCard(file, label) {
-    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.copyShareCard)', label);
+    await navigateReady(file, '!!(window.TechnicalDiagrams && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.copyShareCard)', label);
     const copiedPayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
         Object.defineProperty(window, 'ClipboardItem', {
@@ -930,14 +930,14 @@ try {
           configurable: true,
           value: {
             write: async function (items) {
-              window.__technical-diagramsCopiedShareCard = await Promise.resolve(items[0].items['image/png']);
+              window.__technicalDiagramsCopiedShareCard = await Promise.resolve(items[0].items['image/png']);
             }
           }
         });
-        window.alert = function (message) { window.__technical-diagramsCopyAlert = message; };
+        window.alert = function (message) { window.__technicalDiagramsCopyAlert = message; };
         await TechnicalDiagrams.exportMenu.copyShareCard();
-        var blob = window.__technical-diagramsCopiedShareCard;
-        if (!blob) throw new Error(window.__technical-diagramsCopyAlert || 'clipboard received no blob');
+        var blob = window.__technicalDiagramsCopiedShareCard;
+        if (!blob) throw new Error(window.__technicalDiagramsCopyAlert || 'clipboard received no blob');
         var bytes = new Uint8Array(await blob.arrayBuffer());
         var binary = '';
         for (var offset = 0; offset < bytes.length; offset += 32768) {
@@ -979,10 +979,10 @@ try {
   }
 
   async function captureRouteShareCard(file, label, sourceId, targetId, options = {}) {
-    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.downloadRouteShareCard)', label);
+    await navigateReady(file, '!!(window.TechnicalDiagrams && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.downloadRouteShareCard)', label);
     const routePayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
-        window.alert = function (message) { window.__technical-diagramsRouteAlert = message; };
+        window.alert = function (message) { window.__technicalDiagramsRouteAlert = message; };
         TechnicalDiagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
         if (!TechnicalDiagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) {
           throw new Error('route did not resolve');
@@ -1380,7 +1380,7 @@ try {
     await cdp.send('Emulation.setEmulatedMedia', {
       features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
     }, sessionId);
-    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu && TechnicalDiagrams.motionGovernor)', label);
+    await navigateReady(file, '!!(window.TechnicalDiagrams && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu && TechnicalDiagrams.motionGovernor)', label);
 
     async function sourceFingerprint() {
       return withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
@@ -1443,7 +1443,7 @@ try {
   }
 
   async function captureRouteVisualMatrix(file, label, sourceId, targetId) {
-    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.preset && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu)', label);
+    await navigateReady(file, '!!(window.TechnicalDiagrams && TechnicalDiagrams.preset && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu)', label);
     const matrix = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       TechnicalDiagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
       if (!TechnicalDiagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) {
@@ -1491,10 +1491,10 @@ try {
   }
 
   async function captureReachShareCard(file, label, originId, direction, options = {}) {
-    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.focus && TechnicalDiagrams.focus.reachabilitySnapshot && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.downloadReachShareCard)', label);
+    await navigateReady(file, '!!(window.TechnicalDiagrams && TechnicalDiagrams.focus && TechnicalDiagrams.focus.reachabilitySnapshot && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.downloadReachShareCard)', label);
     const reachPayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
-        window.alert = function (message) { window.__technical-diagramsReachAlert = String(message); };
+        window.alert = function (message) { window.__technicalDiagramsReachAlert = String(message); };
         if (!TechnicalDiagrams.focus.set(${JSON.stringify(originId)}, { toggle: false, updateUrl: false })) {
           throw new Error('focus origin did not resolve');
         }
@@ -1791,7 +1791,7 @@ try {
     console.log(`ok external Reach Card artifact: ${externalReachOutput}`);
   }
   await verifyDynamicReducedMotionRoute(routeOutputs.architecture, 'architecture-route reduced motion', 'users', 'api');
-  await navigateReady(output, '!!(window.Technical Diagrams && TechnicalDiagrams.motion && TechnicalDiagrams.motion.canRecord())', 'motion artifact');
+  await navigateReady(output, '!!(window.TechnicalDiagrams && TechnicalDiagrams.motion && TechnicalDiagrams.motion.canRecord())', 'motion artifact');
 
   const payload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
     try {

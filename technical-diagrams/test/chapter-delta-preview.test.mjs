@@ -120,7 +120,7 @@ test('pointer and keyboard inspect while touch and native activation still commi
     html.indexOf('function chapterPreviewBlocked()'),
     html.indexOf('function sharePlaybackRequested()'),
   );
-  assert.doesNotMatch(previewRuntime, /Technical Diagrams\.view\.|updateUrl\(|Technical Diagrams\.focus\.|renderStoryTrail\(/);
+  assert.doesNotMatch(previewRuntime, /TechnicalDiagrams\.view\.|updateUrl\(|TechnicalDiagrams\.focus\.|renderStoryTrail\(/);
 });
 
 test('latest intent, stronger owners, playback, and lifecycle cleanup remain bounded', () => {
@@ -133,8 +133,8 @@ test('latest intent, stronger owners, playback, and lifecycle cleanup remain bou
   assert.match(html, /data-lens-active'[\s\S]*?data-legend-preview-active/);
   assert.match(html, /data-relationship-preview-active'[\s\S]*?data-intent-trace-active/);
   assert.match(html, /if \(playing\) pausePlayback\(\)/);
-  assert.match(html, /Technical Diagrams\.motionGovernor\.claim\('chapter-preview'/);
-  assert.match(html, /Technical Diagrams\.motionGovernor\.release\(token\)/);
+  assert.match(html, /TechnicalDiagrams\.motionGovernor\.claim\('chapter-preview'/);
+  assert.match(html, /TechnicalDiagrams\.motionGovernor\.release\(token\)/);
   assert.match(html, /handoff\.resolve[\s\S]*?syncChapterPreview\(\)/);
   assert.match(html, /visibilitychange'[\s\S]*?clearChapterPreview/);
   assert.match(html, /beforeprint'[\s\S]*?clearChapterPreview[\s\S]*?settleHandoff/);

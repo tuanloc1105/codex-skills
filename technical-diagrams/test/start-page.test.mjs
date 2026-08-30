@@ -82,14 +82,14 @@ function executeStartPage(html) {
     location: { href: 'https://example.test/start.html', search: '', pathname: '/start.html' },
     isSecureContext: true,
     dispatchEvent() {},
-    Technical DiagramsSiteLanguage: {
+    TechnicalDiagramsSiteLanguage: {
       read() { return 'en'; },
       write(value) { return value; },
     },
   };
   const context = {
     window,
-    Technical DiagramsSiteLanguage: window.Technical DiagramsSiteLanguage,
+    TechnicalDiagramsSiteLanguage: window.TechnicalDiagramsSiteLanguage,
     document,
     navigator: { languages: ['en'], language: 'en', clipboard: { async writeText(value) { copied.push(value); } } },
     history: { replaceState(_state, _title, url) { replacedUrl = url; } },
@@ -221,7 +221,7 @@ test('start page: input mode drives rendered prompt, copy, keyboard, and URL wit
   assert.match(page.copied.at(-1), /Then start any new chat and tell Codex:/);
   assert.ok(page.copied.at(-1).endsWith(descriptionPrompt));
 
-  const [viewEvent, promptEvent, starterEvent] = page.window.Technical DiagramsStartMetrics.snapshot();
+  const [viewEvent, promptEvent, starterEvent] = page.window.TechnicalDiagramsStartMetrics.snapshot();
   for (const event of [viewEvent, promptEvent, starterEvent]) {
     assert.deepEqual(Object.keys(event), ['schemaVersion', 'step', 'source', 'type', 'agent', 'language']);
     assert.equal('input' in event, false);

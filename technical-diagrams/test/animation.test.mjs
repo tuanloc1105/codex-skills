@@ -66,11 +66,11 @@ test('signal-flow preset reaches the page, SVG, and motion export surface', () =
   assert.match(html, /data-preset-badge-signal-flow="SIGNAL FLOW"/);
   assert.match(html, /data-format="webm"/);
   assert.match(html, /data-last-motion-bytes/);
-  assert.match(html, /Technical Diagrams\.motion = \{ canRecord: canRecordMotion, recordWebm: recordWebm \}/);
+  assert.match(html, /TechnicalDiagrams\.motion = \{ canRecord: canRecordMotion, recordWebm: recordWebm \}/);
   assert.match(html, /recorder\.requestData\(\)/);
   assert.match(html, /aria-label="Diagram view controls"/);
-  assert.match(html, /Technical Diagrams\.focus = \(function \(\)/);
-  assert.match(html, /Technical Diagrams\.view = \(function \(\)/);
+  assert.match(html, /TechnicalDiagrams\.focus = \(function \(\)/);
+  assert.match(html, /TechnicalDiagrams\.view = \(function \(\)/);
   assert.match(html, /clone\.style\.removeProperty\('transform'\)/);
   assert.match(html, /clone\.removeAttribute\('data-view-scale'\)/);
   assert.match(html, /data-last-export-canonical/);
