@@ -19,7 +19,7 @@ const template = fs.readFileSync(path.join(skillRoot, 'assets', 'template.html')
 const skill = fs.readFileSync(path.join(skillRoot, 'SKILL.md'), 'utf8');
 const reader = template.slice(
   template.indexOf('Adaptive Reader Shell'),
-  template.indexOf('Technical Diagrams.view = (function ()'),
+  template.indexOf('TechnicalDiagrams.view = (function ()'),
 );
 
 test('wide desktop diagrams use one height-budgeted reader shell instead of breakpoint jumps', () => {

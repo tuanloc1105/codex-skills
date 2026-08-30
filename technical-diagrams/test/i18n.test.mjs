@@ -316,7 +316,7 @@ test('real Chrome keeps zh-CN Finder, Route, Export, and accessibility UI locali
         var originalGetContext = HTMLCanvasElement.prototype.getContext;
         HTMLCanvasElement.prototype.getContext = function () { return null; };
         try {
-          await Technical Diagrams.exportMenu.shareCard();
+          await TechnicalDiagrams.exportMenu.shareCard();
           return { rejected: false, message: '' };
         } catch (error) {
           return { rejected: true, message: String(error && error.message || error) };

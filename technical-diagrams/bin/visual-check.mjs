@@ -360,20 +360,20 @@ export class ChromeVisualBrowser {
         ? document.fonts.ready.catch(function () {})
         : Promise.resolve();
       return fontsReady.then(function () {
-        if (window.Technical Diagrams && Technical Diagrams.readerLayout && typeof Technical Diagrams.readerLayout.whenStable === 'function') {
-          return Technical Diagrams.readerLayout.whenStable();
+        if (window.TechnicalDiagrams && TechnicalDiagrams.readerLayout && typeof TechnicalDiagrams.readerLayout.whenStable === 'function') {
+          return TechnicalDiagrams.readerLayout.whenStable();
         }
       }).then(function () {
-        if (window.Technical Diagrams && Technical Diagrams.viewerChromeLayout && typeof Technical Diagrams.viewerChromeLayout.whenStable === 'function') {
-          return Technical Diagrams.viewerChromeLayout.whenStable();
+        if (window.TechnicalDiagrams && TechnicalDiagrams.viewerChromeLayout && typeof TechnicalDiagrams.viewerChromeLayout.whenStable === 'function') {
+          return TechnicalDiagrams.viewerChromeLayout.whenStable();
         }
       }).then(function () {
-        if (window.Technical Diagrams && Technical Diagrams.readerLayout && typeof Technical Diagrams.readerLayout.whenStable === 'function') {
-          return Technical Diagrams.readerLayout.whenStable();
+        if (window.TechnicalDiagrams && TechnicalDiagrams.readerLayout && typeof TechnicalDiagrams.readerLayout.whenStable === 'function') {
+          return TechnicalDiagrams.readerLayout.whenStable();
         }
       }).then(function () {
-        if (window.Technical Diagrams && Technical Diagrams.viewerChromeLayout && typeof Technical Diagrams.viewerChromeLayout.whenStable === 'function') {
-          return Technical Diagrams.viewerChromeLayout.whenStable();
+        if (window.TechnicalDiagrams && TechnicalDiagrams.viewerChromeLayout && typeof TechnicalDiagrams.viewerChromeLayout.whenStable === 'function') {
+          return TechnicalDiagrams.viewerChromeLayout.whenStable();
         }
         return new Promise(function (resolve) {
           requestAnimationFrame(function () { requestAnimationFrame(resolve); });
@@ -422,15 +422,15 @@ export class ChromeVisualBrowser {
         return width * height;
       }
       var legendRect = legend ? legend.getBoundingClientRect() : null;
-      var stageRect = window.Technical Diagrams && Technical Diagrams.viewerChromeLayout
-        && typeof Technical Diagrams.viewerChromeLayout.stageRect === 'function'
-        ? Technical Diagrams.viewerChromeLayout.stageRect()
+      var stageRect = window.TechnicalDiagrams && TechnicalDiagrams.viewerChromeLayout
+        && typeof TechnicalDiagrams.viewerChromeLayout.stageRect === 'function'
+        ? TechnicalDiagrams.viewerChromeLayout.stageRect()
         : (stage ? stage.getBoundingClientRect() : null);
       var navigationDockRect = navigationDock ? navigationDock.getBoundingClientRect() : null;
       var stageDockIntersectionArea = intersectionArea(stageRect, navigationDockRect);
-      var viewerChromeReceipt = window.Technical Diagrams && Technical Diagrams.viewerChromeLayout
-        && typeof Technical Diagrams.viewerChromeLayout.receipt === 'function'
-        ? Technical Diagrams.viewerChromeLayout.receipt()
+      var viewerChromeReceipt = window.TechnicalDiagrams && TechnicalDiagrams.viewerChromeLayout
+        && typeof TechnicalDiagrams.viewerChromeLayout.receipt === 'function'
+        ? TechnicalDiagrams.viewerChromeLayout.receipt()
         : null;
       return {
         innerWidth: window.innerWidth,

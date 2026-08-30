@@ -372,7 +372,7 @@ try {
     async function inspectKinds(file, expectedKinds, theme) {
       const url = new URL(pathToFileURL(file).href);
       url.searchParams.set('theme', theme);
-      await navigateReady(url, '!!(window.Technical Diagrams && Technical Diagrams.semanticLens)', `legend ${theme}`);
+      await navigateReady(url, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens)', `legend ${theme}`);
       const result = await evaluate(cdp, sessionId, `(() => {
         var svg = document.querySelector('.diagram-container > svg');
         var entries = Array.from(svg.querySelectorAll('[data-legend-semantic-kind]'));
@@ -408,7 +408,7 @@ try {
       assert.equal(lifecycle.bridge, true);
     }
 
-    await navigateReady(outputs.dataflow, '!!(window.Technical Diagrams && Technical Diagrams.semanticLens && Technical Diagrams.exportMenu)', 'Dataflow database legend runtime');
+    await navigateReady(outputs.dataflow, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens && TechnicalDiagrams.exportMenu)', 'Dataflow database legend runtime');
     const databaseRuntime = await evaluate(cdp, sessionId, String.raw`(async function () {
       var entry = document.querySelector('[data-legend-kind="database"]');
       entry.focus();
@@ -422,12 +422,12 @@ try {
       };
       HTMLAnchorElement.prototype.click = function () {};
       try {
-        await Technical Diagrams.exportMenu.run('svg');
+        await TechnicalDiagrams.exportMenu.run('svg');
         var exportedText = await captured;
         var exported = new DOMParser().parseFromString(exportedText, 'image/svg+xml').documentElement;
         return {
-          selected: Technical Diagrams.semanticLens.active(),
-          lensOpen: Technical Diagrams.semanticLens.isOpen(),
+          selected: TechnicalDiagrams.semanticLens.active(),
+          lensOpen: TechnicalDiagrams.semanticLens.isOpen(),
           exportedKinds: Array.from(exported.querySelectorAll('[data-legend-semantic-kind]')).map(function (item) { return item.getAttribute('data-legend-semantic-kind'); }),
           exportedBridgeResidue: exported.querySelectorAll('[data-legend-bridge], [data-legend-kind], [data-legend-label], [data-legend-count], [data-legend-bridge-runtime]').length
         };
@@ -441,7 +441,7 @@ try {
     assert.deepEqual(databaseRuntime.exportedKinds, ['database', 'default']);
     assert.equal(databaseRuntime.exportedBridgeResidue, 0);
 
-    await navigateReady(outputs.custom, '!!(window.Technical Diagrams && Technical Diagrams.semanticLens && Technical Diagrams.exportMenu)', 'custom legend runtime');
+    await navigateReady(outputs.custom, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens && TechnicalDiagrams.exportMenu)', 'custom legend runtime');
     const runtime = await evaluate(cdp, sessionId, String.raw`(async function () {
       var svg = document.querySelector('.diagram-container > svg');
       var entries = Array.from(svg.querySelectorAll('[data-legend-semantic-kind]'));
@@ -452,12 +452,12 @@ try {
       first.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
       var arrowMoved = document.activeElement === second;
       second.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      var selected = Technical Diagrams.semanticLens.active();
-      var guidedActivated = Technical Diagrams.guidedViews.activate('main', { updateUrl: false });
-      var guidedActive = Technical Diagrams.guidedViews.active();
+      var selected = TechnicalDiagrams.semanticLens.active();
+      var guidedActivated = TechnicalDiagrams.guidedViews.activate('main', { updateUrl: false });
+      var guidedActive = TechnicalDiagrams.guidedViews.active();
       var visualMatrix = [];
       for (var preset of ['classic', 'signal-flow', 'blueprint', 'editorial']) {
-        if (!Technical Diagrams.preset.apply(preset)) throw new Error('could not apply preset ' + preset);
+        if (!TechnicalDiagrams.preset.apply(preset)) throw new Error('could not apply preset ' + preset);
         for (var theme of ['dark', 'light']) {
           document.documentElement.setAttribute('data-theme', theme);
           visualMatrix.push({
@@ -478,7 +478,7 @@ try {
       };
       HTMLAnchorElement.prototype.click = function () {};
       try {
-        await Technical Diagrams.exportMenu.run('svg');
+        await TechnicalDiagrams.exportMenu.run('svg');
         var exportedText = await captured;
         var exported = new DOMParser().parseFromString(exportedText, 'image/svg+xml').documentElement;
         return {
@@ -488,7 +488,7 @@ try {
           tabStops: interactive.filter(function (entry) { return entry.getAttribute('tabindex') === '0'; }).length,
           arrowMoved: arrowMoved,
           selected: selected,
-          lensOpen: Technical Diagrams.semanticLens.isOpen(),
+          lensOpen: TechnicalDiagrams.semanticLens.isOpen(),
           guidedActivated: guidedActivated,
           guidedActive: guidedActive,
           visualMatrix: visualMatrix,
@@ -532,7 +532,7 @@ try {
 
     const embedUrl = new URL(pathToFileURL(outputs.custom).href);
     embedUrl.searchParams.set('embed', '1');
-    await navigateReady(embedUrl, '!!(window.Technical Diagrams && Technical Diagrams.semanticLens)', 'embedded legend');
+    await navigateReady(embedUrl, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens)', 'embedded legend');
     const embed = await evaluate(cdp, sessionId, `(() => ({
       roles: document.querySelectorAll('[data-legend-kind][role]').length,
       runtime: document.querySelectorAll('[data-legend-bridge-runtime]').length,
@@ -540,7 +540,7 @@ try {
     }))()`);
     assert.deepEqual(embed, { roles: 0, runtime: 0, kinds: ['frontend', 'database', 'external'] });
 
-    await navigateReady(outputs.hidden, '!!(window.Technical Diagrams && Technical Diagrams.semanticLens)', 'hidden legend');
+    await navigateReady(outputs.hidden, '!!(window.Technical Diagrams && TechnicalDiagrams.semanticLens)', 'hidden legend');
     const hidden = await evaluate(cdp, sessionId, `(() => ({
       root: !!document.querySelector('[data-legend]'),
       bridge: !!document.querySelector('[data-legend-bridge]'),
@@ -551,7 +551,7 @@ try {
   }
 
   async function verifySemanticPassportDismissal(file) {
-    await navigateReady(file, '!!(window.Technical Diagrams && Technical Diagrams.focus && document.querySelector("#btn-focus-clear"))', 'Semantic Passport dismissal');
+    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.focus && document.querySelector("#btn-focus-clear"))', 'Semantic Passport dismissal');
     const result = await evaluate(cdp, sessionId, `(() => {
       var chip = document.querySelector('#focus-chip');
       var close = document.querySelector('#btn-focus-clear');
@@ -561,10 +561,10 @@ try {
       var neighbor = svg.querySelector('[data-node-id]:not([data-node-id="clients"])');
       if (!origin || !neighbor) return { ok: false, error: 'missing smoke-test nodes' };
       function state() {
-        return { hidden: chip.hidden, active: Technical Diagrams.focus.active() };
+        return { hidden: chip.hidden, active: TechnicalDiagrams.focus.active() };
       }
 
-      Technical Diagrams.focus.set('clients', { toggle: false, updateUrl: false });
+      TechnicalDiagrams.focus.set('clients', { toggle: false, updateUrl: false });
       var cardRect = chip.getBoundingClientRect();
       var closeRect = close.getBoundingClientRect();
       var layout = {
@@ -578,13 +578,13 @@ try {
       var afterClose = state();
       var restoredFocus = document.activeElement && document.activeElement.getAttribute('data-node-id');
 
-      Technical Diagrams.focus.set('clients', { toggle: false, updateUrl: false });
+      TechnicalDiagrams.focus.set('clients', { toggle: false, updateUrl: false });
       chip.querySelector('.relationship-lens-head').dispatchEvent(new MouseEvent('click', { bubbles: true }));
       var afterInside = state();
       container.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       var afterOutside = state();
 
-      Technical Diagrams.focus.set('clients', { toggle: false, updateUrl: false });
+      TechnicalDiagrams.focus.set('clients', { toggle: false, updateUrl: false });
       neighbor.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       var afterNode = state();
       return {
@@ -832,16 +832,16 @@ try {
       var frames = Array.from(document.querySelectorAll('.snapshot-frame'));
       var explorers = frames.map(function (frame) {
         var child = frame.contentWindow;
-        return Boolean(child && child.Technical Diagrams && child.Technical Diagrams.focus && child.Technical Diagrams.routeProbe && child.document.querySelector('#btn-node-finder') && child.document.querySelector('#guided-view-play'));
+        return Boolean(child && child.Technical Diagrams && child.TechnicalDiagrams.focus && child.TechnicalDiagrams.routeProbe && child.document.querySelector('#btn-node-finder') && child.document.querySelector('#guided-view-play'));
       });
-      var svgA = Technical Diagrams.deltaExport.canonicalSvg();
+      var svgA = TechnicalDiagrams.deltaExport.canonicalSvg();
       document.querySelector('#theme').click();
       document.querySelector('#preset').click();
       document.querySelector('.change-row').click();
-      var svgB = Technical Diagrams.deltaExport.canonicalSvg();
+      var svgB = TechnicalDiagrams.deltaExport.canonicalSvg();
       var parsed = new DOMParser().parseFromString(svgB, 'image/svg+xml');
       var exportStyle = parsed.querySelector('style')?.textContent || '';
-      var blob = await Technical Diagrams.deltaExport.shareCard();
+      var blob = await TechnicalDiagrams.deltaExport.shareCard();
       var bytes = new Uint8Array(await blob.arrayBuffer());
       return {
         explorers: explorers,
@@ -870,10 +870,10 @@ try {
   }
 
   async function captureShareCard(file, label) {
-    await navigateReady(file, '!!(window.Technical Diagrams && Technical Diagrams.exportMenu && Technical Diagrams.exportMenu.shareCard)', label);
+    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.shareCard)', label);
     const sharePayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
-        var blob = await Technical Diagrams.exportMenu.shareCard();
+        var blob = await TechnicalDiagrams.exportMenu.shareCard();
         var bytes = new Uint8Array(await blob.arrayBuffer());
         var binary = '';
         for (var offset = 0; offset < bytes.length; offset += 32768) {
@@ -919,7 +919,7 @@ try {
   }
 
   async function captureCopiedShareCard(file, label) {
-    await navigateReady(file, '!!(window.Technical Diagrams && Technical Diagrams.exportMenu && Technical Diagrams.exportMenu.copyShareCard)', label);
+    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.copyShareCard)', label);
     const copiedPayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
         Object.defineProperty(window, 'ClipboardItem', {
@@ -935,7 +935,7 @@ try {
           }
         });
         window.alert = function (message) { window.__technical-diagramsCopyAlert = message; };
-        await Technical Diagrams.exportMenu.copyShareCard();
+        await TechnicalDiagrams.exportMenu.copyShareCard();
         var blob = window.__technical-diagramsCopiedShareCard;
         if (!blob) throw new Error(window.__technical-diagramsCopyAlert || 'clipboard received no blob');
         var bytes = new Uint8Array(await blob.arrayBuffer());
@@ -979,17 +979,17 @@ try {
   }
 
   async function captureRouteShareCard(file, label, sourceId, targetId, options = {}) {
-    await navigateReady(file, '!!(window.Technical Diagrams && Technical Diagrams.routeProbe && Technical Diagrams.exportMenu && Technical Diagrams.exportMenu.downloadRouteShareCard)', label);
+    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.downloadRouteShareCard)', label);
     const routePayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
         window.alert = function (message) { window.__technical-diagramsRouteAlert = message; };
-        Technical Diagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
-        if (!Technical Diagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) {
+        TechnicalDiagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
+        if (!TechnicalDiagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) {
           throw new Error('route did not resolve');
         }
-        var snapshot = Technical Diagrams.routeProbe.exportSnapshot();
+        var snapshot = TechnicalDiagrams.routeProbe.exportSnapshot();
         if (!snapshot) throw new Error('resolved route exposed no export snapshot');
-        Technical Diagrams.exportMenu.syncRouteShare();
+        TechnicalDiagrams.exportMenu.syncRouteShare();
         var routeMenuItem = document.querySelector('[data-action="route-share-card"]');
         var menuResolved = !!routeMenuItem && !routeMenuItem.hidden && !routeMenuItem.disabled;
         var svg = document.querySelector('.diagram-container svg');
@@ -1006,9 +1006,9 @@ try {
           duplicateGeometry.setAttribute('d', duplicateGeometry.getAttribute('d') + ' M 0 0 L 1 1');
         }
         svg.appendChild(duplicateCarrier);
-        var duplicateGeometryRejected = Technical Diagrams.routeProbe.exportSnapshot() === null;
+        var duplicateGeometryRejected = TechnicalDiagrams.routeProbe.exportSnapshot() === null;
         var duplicateExportError = '';
-        try { await Technical Diagrams.exportMenu.shareCard({ variant: 'route' }); }
+        try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' }); }
         catch (error) { duplicateExportError = String(error && error.message || error); }
         duplicateCarrier.remove();
         var primaryGeometry = /^(path|line|polyline)$/i.test(primaryCarrier.tagName)
@@ -1018,9 +1018,9 @@ try {
           primaryGeometry.tagName.toLowerCase() === 'polyline' ? 'points' : 'x2';
         var originalGeometry = primaryGeometry.getAttribute(geometryAttribute);
         primaryGeometry.setAttribute(geometryAttribute, '');
-        var emptyGeometryRejected = Technical Diagrams.routeProbe.exportSnapshot() === null;
+        var emptyGeometryRejected = TechnicalDiagrams.routeProbe.exportSnapshot() === null;
         var emptyGeometryExportError = '';
-        try { await Technical Diagrams.exportMenu.shareCard({ variant: 'route' }); }
+        try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' }); }
         catch (error) { emptyGeometryExportError = String(error && error.message || error); }
         primaryGeometry.setAttribute(geometryAttribute, originalGeometry);
         await new Promise(function (resolve) {
@@ -1066,7 +1066,7 @@ try {
         var ordinaryReceipt;
         var routeFingerprints = [];
         try {
-          blob = await Technical Diagrams.exportMenu.downloadRouteShareCard();
+          blob = await TechnicalDiagrams.exportMenu.downloadRouteShareCard();
           routeReceipt = {
             format: document.documentElement.getAttribute('data-last-export-format'),
             variant: document.documentElement.getAttribute('data-last-export-variant'),
@@ -1091,41 +1091,41 @@ try {
             async function captureJourneySource(action) {
               action();
               var captureIndex = captured.length;
-              await Technical Diagrams.exportMenu.shareCard({ variant: 'route' });
+              await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' });
               routeFingerprints.push(fingerprint(await captured[captureIndex]));
             }
-            await captureJourneySource(function () { Technical Diagrams.routeProbe.selectJourneyIndex(0); });
-            await captureJourneySource(function () { Technical Diagrams.routeProbe.selectJourneyIndex(Math.floor(snapshot.nodeIds.length / 2)); });
-            await captureJourneySource(function () { Technical Diagrams.routeProbe.selectJourneyIndex(snapshot.nodeIds.length - 1); });
-            Technical Diagrams.routeProbe.showOverview({ reveal: false });
-            var started = Technical Diagrams.routeProbe.playJourney();
+            await captureJourneySource(function () { TechnicalDiagrams.routeProbe.selectJourneyIndex(0); });
+            await captureJourneySource(function () { TechnicalDiagrams.routeProbe.selectJourneyIndex(Math.floor(snapshot.nodeIds.length / 2)); });
+            await captureJourneySource(function () { TechnicalDiagrams.routeProbe.selectJourneyIndex(snapshot.nodeIds.length - 1); });
+            TechnicalDiagrams.routeProbe.showOverview({ reveal: false });
+            var started = TechnicalDiagrams.routeProbe.playJourney();
             if (!started) throw new Error('Route Journey could not enter playing state for invariance check');
             await captureJourneySource(function () {});
-            Technical Diagrams.routeProbe.pauseJourney({ preserveElapsed: false });
+            TechnicalDiagrams.routeProbe.pauseJourney({ preserveElapsed: false });
             await captureJourneySource(function () {});
             document.documentElement.setAttribute('data-motion', 'still');
             await captureJourneySource(function () {});
             document.documentElement.setAttribute('data-motion', 'live');
-            Technical Diagrams.routeProbe.showOverview({ reveal: false });
+            TechnicalDiagrams.routeProbe.showOverview({ reveal: false });
           }
 
           var toBlobError = '';
           var originalToBlob = HTMLCanvasElement.prototype.toBlob;
           HTMLCanvasElement.prototype.toBlob = function (callback) { callback(null); };
-          try { await Technical Diagrams.exportMenu.shareCard({ variant: 'route' }); }
+          try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' }); }
           catch (error) { toBlobError = String(error && error.message || error); }
           finally { HTMLCanvasElement.prototype.toBlob = originalToBlob; }
 
           var missingToBlobError = '';
           HTMLCanvasElement.prototype.toBlob = undefined;
-          try { await Technical Diagrams.exportMenu.shareCard({ variant: 'route' }); }
+          try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' }); }
           catch (error) { missingToBlobError = String(error && error.message || error); }
           finally { HTMLCanvasElement.prototype.toBlob = originalToBlob; }
 
           var missingContextError = '';
           var originalGetContext = HTMLCanvasElement.prototype.getContext;
           HTMLCanvasElement.prototype.getContext = function () { return null; };
-          try { await Technical Diagrams.exportMenu.shareCard({ variant: 'route' }); }
+          try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' }); }
           catch (error) { missingContextError = String(error && error.message || error); }
           finally { HTMLCanvasElement.prototype.getContext = originalGetContext; }
 
@@ -1141,18 +1141,18 @@ try {
             }
           });
           window.Image = FailingImage;
-          try { await Technical Diagrams.exportMenu.shareCard({ variant: 'route' }); }
+          try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' }); }
           catch (error) { imageDecodeError = String(error && error.message || error); }
           finally { window.Image = OriginalImage; }
 
           var unknownVariantError = '';
-          try { await Technical Diagrams.exportMenu.shareCard({ variant: 'unknown' }); }
+          try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'unknown' }); }
           catch (error) { unknownVariantError = String(error && error.message || error); }
 
           var canonicalIndex = captured.length;
-          canonicalBlob = await Technical Diagrams.exportMenu.shareCard();
+          canonicalBlob = await TechnicalDiagrams.exportMenu.shareCard();
           var canonicalSvgText = captured[canonicalIndex] ? await captured[canonicalIndex] : '';
-          await Technical Diagrams.exportMenu.run('share-card');
+          await TechnicalDiagrams.exportMenu.run('share-card');
           ordinaryReceipt = {
             format: document.documentElement.getAttribute('data-last-export-format'),
             variant: document.documentElement.getAttribute('data-last-export-variant'),
@@ -1163,14 +1163,14 @@ try {
             error: document.documentElement.getAttribute('data-last-export-error')
           };
           var svgDownloadIndex = captured.length;
-          await Technical Diagrams.exportMenu.run('svg');
+          await TechnicalDiagrams.exportMenu.run('svg');
           var exportedSvgText = captured[svgDownloadIndex] ? await captured[svgDownloadIndex] : '';
           var svgReceipt = {
             format: document.documentElement.getAttribute('data-last-export-format'),
             variant: document.documentElement.getAttribute('data-last-export-variant'),
             canonical: document.documentElement.getAttribute('data-last-export-canonical')
           };
-          await Technical Diagrams.exportMenu.run('png');
+          await TechnicalDiagrams.exportMenu.run('png');
           var pngReceipt = {
             format: document.documentElement.getAttribute('data-last-export-format'),
             variant: document.documentElement.getAttribute('data-last-export-variant'),
@@ -1215,16 +1215,16 @@ try {
           }
 
           var asyncClearIndex = captured.length;
-          var asyncClearPromise = Technical Diagrams.exportMenu.shareCard({ variant: 'route' });
-          Technical Diagrams.routeProbe.clear({ updateUrl: false, preserveView: true });
+          var asyncClearPromise = TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' });
+          TechnicalDiagrams.routeProbe.clear({ updateUrl: false, preserveView: true });
           var asyncClearBlob = await asyncClearPromise;
           var asyncClearFingerprint = fingerprint(await captured[asyncClearIndex]);
           var hiddenAfterClear = routeMenuItem.hidden && routeMenuItem.disabled &&
             getComputedStyle(routeMenuItem).display === 'none';
           var staleError = '';
-          try { await Technical Diagrams.exportMenu.shareCard({ variant: 'route' }); }
+          try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' }); }
           catch (error) { staleError = String(error && error.message || error); }
-          await Technical Diagrams.exportMenu.downloadRouteShareCard();
+          await TechnicalDiagrams.exportMenu.downloadRouteShareCard();
           var failedReceipt = {
             format: document.documentElement.getAttribute('data-last-export-format'),
             variant: document.documentElement.getAttribute('data-last-export-variant'),
@@ -1273,7 +1273,7 @@ try {
             exportedSvgDualTheme: /prefers-color-scheme:\s*light/.test(Array.from(exportedSvg.querySelectorAll('style')).map(function (style) { return style.textContent; }).join('\n')),
             asyncClearStable: asyncClearBlob && asyncClearBlob.type === 'image/png' && asyncClearFingerprint === routeFingerprints[0],
             hiddenAfterClear: hiddenAfterClear,
-            staleSnapshot: Technical Diagrams.routeProbe.exportSnapshot(),
+            staleSnapshot: TechnicalDiagrams.routeProbe.exportSnapshot(),
             staleError: staleError,
             routeFingerprints: routeFingerprints,
             downloads: downloads,
@@ -1380,7 +1380,7 @@ try {
     await cdp.send('Emulation.setEmulatedMedia', {
       features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
     }, sessionId);
-    await navigateReady(file, '!!(window.Technical Diagrams && Technical Diagrams.routeProbe && Technical Diagrams.exportMenu && Technical Diagrams.motionGovernor)', label);
+    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu && TechnicalDiagrams.motionGovernor)', label);
 
     async function sourceFingerprint() {
       return withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
@@ -1391,7 +1391,7 @@ try {
           return originalCreateObjectURL(blob);
         };
         try {
-          await Technical Diagrams.exportMenu.shareCard({ variant: 'route' });
+          await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' });
           var source = await sourcePromise;
           var hash = 2166136261;
           for (var index = 0; index < source.length; index++) {
@@ -1406,13 +1406,13 @@ try {
     }
 
     const setup = await evaluate(cdp, sessionId, `(function () {
-      Technical Diagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
-      if (!Technical Diagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) return { resolved: false };
-      Technical Diagrams.routeProbe.showOverview({ reveal: false });
+      TechnicalDiagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
+      if (!TechnicalDiagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) return { resolved: false };
+      TechnicalDiagrams.routeProbe.showOverview({ reveal: false });
       return {
         resolved: true,
-        started: Technical Diagrams.routeProbe.playJourney(),
-        playing: Technical Diagrams.routeProbe.isJourneyPlaying(),
+        started: TechnicalDiagrams.routeProbe.playJourney(),
+        playing: TechnicalDiagrams.routeProbe.isJourneyPlaying(),
         motion: document.documentElement.getAttribute('data-motion')
       };
     })()`);
@@ -1427,7 +1427,7 @@ try {
       reduced = await evaluate(cdp, sessionId, `({
         matches: matchMedia('(prefers-reduced-motion: reduce)').matches,
         motion: document.documentElement.getAttribute('data-motion'),
-        playing: Technical Diagrams.routeProbe.isJourneyPlaying()
+        playing: TechnicalDiagrams.routeProbe.isJourneyPlaying()
       })`);
       if (reduced.matches && reduced.motion === 'still' && !reduced.playing) break;
       await delay(20);
@@ -1443,19 +1443,19 @@ try {
   }
 
   async function captureRouteVisualMatrix(file, label, sourceId, targetId) {
-    await navigateReady(file, '!!(window.Technical Diagrams && Technical Diagrams.preset && Technical Diagrams.routeProbe && Technical Diagrams.exportMenu)', label);
+    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.preset && TechnicalDiagrams.routeProbe && TechnicalDiagrams.exportMenu)', label);
     const matrix = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
-      Technical Diagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
-      if (!Technical Diagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) {
+      TechnicalDiagrams.routeProbe.begin({ source: ${JSON.stringify(sourceId)}, focusNode: false });
+      if (!TechnicalDiagrams.routeProbe.choose(${JSON.stringify(targetId)}, { updateUrl: false })) {
         throw new Error('route did not resolve');
       }
-      var identity = JSON.stringify(Technical Diagrams.routeProbe.exportSnapshot());
+      var identity = JSON.stringify(TechnicalDiagrams.routeProbe.exportSnapshot());
       var results = [];
       for (var preset of ['classic', 'signal-flow', 'blueprint', 'editorial']) {
-        if (!Technical Diagrams.preset.apply(preset)) throw new Error('could not apply preset ' + preset);
+        if (!TechnicalDiagrams.preset.apply(preset)) throw new Error('could not apply preset ' + preset);
         for (var theme of ['dark', 'light']) {
           document.documentElement.setAttribute('data-theme', theme);
-          var blob = await Technical Diagrams.exportMenu.shareCard({ variant: 'route' });
+          var blob = await TechnicalDiagrams.exportMenu.shareCard({ variant: 'route' });
           var bytes = new Uint8Array(await blob.arrayBuffer());
           var hash = 2166136261;
           for (var index = 0; index < bytes.length; index++) {
@@ -1471,7 +1471,7 @@ try {
             width: view.getUint32(16),
             height: view.getUint32(20),
             hash: (hash >>> 0).toString(16),
-            identity: JSON.stringify(Technical Diagrams.routeProbe.exportSnapshot())
+            identity: JSON.stringify(TechnicalDiagrams.routeProbe.exportSnapshot())
           });
         }
       }
@@ -1491,19 +1491,19 @@ try {
   }
 
   async function captureReachShareCard(file, label, originId, direction, options = {}) {
-    await navigateReady(file, '!!(window.Technical Diagrams && Technical Diagrams.focus && Technical Diagrams.focus.reachabilitySnapshot && Technical Diagrams.exportMenu && Technical Diagrams.exportMenu.downloadReachShareCard)', label);
+    await navigateReady(file, '!!(window.Technical Diagrams && TechnicalDiagrams.focus && TechnicalDiagrams.focus.reachabilitySnapshot && TechnicalDiagrams.exportMenu && TechnicalDiagrams.exportMenu.downloadReachShareCard)', label);
     const reachPayload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
       try {
         window.alert = function (message) { window.__technical-diagramsReachAlert = String(message); };
-        if (!Technical Diagrams.focus.set(${JSON.stringify(originId)}, { toggle: false, updateUrl: false })) {
+        if (!TechnicalDiagrams.focus.set(${JSON.stringify(originId)}, { toggle: false, updateUrl: false })) {
           throw new Error('focus origin did not resolve');
         }
-        if (!Technical Diagrams.focus.reach(${JSON.stringify(direction)}, { toggle: false, updateUrl: false, reveal: false })) {
+        if (!TechnicalDiagrams.focus.reach(${JSON.stringify(direction)}, { toggle: false, updateUrl: false, reveal: false })) {
           throw new Error('authored reach did not resolve');
         }
-        var snapshot = Technical Diagrams.focus.reachabilitySnapshot();
+        var snapshot = TechnicalDiagrams.focus.reachabilitySnapshot();
         if (!snapshot) throw new Error('active authored reach exposed no export snapshot');
-        Technical Diagrams.exportMenu.syncReachShare();
+        TechnicalDiagrams.exportMenu.syncReachShare();
         var reachMenuItem = document.querySelector('[data-action="reach-share-card"]');
         var menuResolved = !!reachMenuItem && !reachMenuItem.hidden && !reachMenuItem.disabled &&
           getComputedStyle(reachMenuItem).display !== 'none';
@@ -1522,12 +1522,12 @@ try {
           duplicateGeometry.setAttribute('d', duplicateGeometry.getAttribute('d') + ' M 0 0 L 1 1');
         }
         svg.appendChild(duplicateCarrier);
-        var duplicateGeometryRejected = Technical Diagrams.focus.reachabilitySnapshot() === null;
+        var duplicateGeometryRejected = TechnicalDiagrams.focus.reachabilitySnapshot() === null;
         var duplicateExportError = '';
-        try { await Technical Diagrams.exportMenu.shareCard({ variant: 'reach' }); }
+        try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'reach' }); }
         catch (error) { duplicateExportError = String(error && error.message || error); }
         duplicateCarrier.remove();
-        snapshot = Technical Diagrams.focus.reachabilitySnapshot();
+        snapshot = TechnicalDiagrams.focus.reachabilitySnapshot();
         if (!snapshot) throw new Error('reach snapshot did not recover after geometry restoration');
 
         function stableLiveSnapshot() {
@@ -1558,9 +1558,9 @@ try {
         HTMLAnchorElement.prototype.click = function () { downloads.push(this.download); };
 
         try {
-          var blob = await Technical Diagrams.exportMenu.shareCard({ variant: 'reach' });
+          var blob = await TechnicalDiagrams.exportMenu.shareCard({ variant: 'reach' });
           var reachSvgText = captured[0] ? await captured[0] : '';
-          var downloadedBlob = await Technical Diagrams.exportMenu.downloadReachShareCard();
+          var downloadedBlob = await TechnicalDiagrams.exportMenu.downloadReachShareCard();
           var reachReceipt = {
             format: document.documentElement.getAttribute('data-last-export-format'),
             variant: document.documentElement.getAttribute('data-last-export-variant'),
@@ -1603,10 +1603,10 @@ try {
           if (${JSON.stringify(options.matrix === true)}) {
             var identity = JSON.stringify(snapshot);
             for (var preset of ['classic', 'signal-flow', 'blueprint', 'editorial']) {
-              if (!Technical Diagrams.preset.apply(preset)) throw new Error('could not apply preset ' + preset);
+              if (!TechnicalDiagrams.preset.apply(preset)) throw new Error('could not apply preset ' + preset);
               for (var theme of ['dark', 'light']) {
                 document.documentElement.setAttribute('data-theme', theme);
-                var matrixBlob = await Technical Diagrams.exportMenu.shareCard({ variant: 'reach' });
+                var matrixBlob = await TechnicalDiagrams.exportMenu.shareCard({ variant: 'reach' });
                 var matrixBytes = new Uint8Array(await matrixBlob.arrayBuffer());
                 var matrixView = new DataView(matrixBytes.buffer, matrixBytes.byteOffset, matrixBytes.byteLength);
                 matrix.push({
@@ -1617,7 +1617,7 @@ try {
                   width: matrixView.getUint32(16),
                   height: matrixView.getUint32(20),
                   hash: fingerprintBytes(matrixBytes),
-                  identity: JSON.stringify(Technical Diagrams.focus.reachabilitySnapshot())
+                  identity: JSON.stringify(TechnicalDiagrams.focus.reachabilitySnapshot())
                 });
               }
             }
@@ -1626,14 +1626,14 @@ try {
             }
           }
 
-          Technical Diagrams.focus.clearReach({ updateUrl: false });
-          Technical Diagrams.exportMenu.syncReachShare();
+          TechnicalDiagrams.focus.clearReach({ updateUrl: false });
+          TechnicalDiagrams.exportMenu.syncReachShare();
           var hiddenAfterClear = reachMenuItem.hidden && reachMenuItem.disabled &&
             getComputedStyle(reachMenuItem).display === 'none';
           var staleError = '';
-          try { await Technical Diagrams.exportMenu.shareCard({ variant: 'reach' }); }
+          try { await TechnicalDiagrams.exportMenu.shareCard({ variant: 'reach' }); }
           catch (error) { staleError = String(error && error.message || error); }
-          await Technical Diagrams.exportMenu.downloadReachShareCard();
+          await TechnicalDiagrams.exportMenu.downloadReachShareCard();
           var failedReceipt = {
             format: document.documentElement.getAttribute('data-last-export-format'),
             variant: document.documentElement.getAttribute('data-last-export-variant'),
@@ -1641,7 +1641,7 @@ try {
             error: document.documentElement.getAttribute('data-last-export-error')
           };
           var canonicalIndex = captured.length;
-          var canonicalBlob = await Technical Diagrams.exportMenu.shareCard();
+          var canonicalBlob = await TechnicalDiagrams.exportMenu.shareCard();
           var canonicalSvgText = captured[canonicalIndex] ? await captured[canonicalIndex] : '';
           var canonicalSvg = parser.parseFromString(canonicalSvgText, 'image/svg+xml').documentElement;
           var canonicalReachResidue = canonicalSvg.hasAttribute('data-share-reach') ||
@@ -1680,7 +1680,7 @@ try {
             downloads: downloads,
             reachReceipt: reachReceipt,
             hiddenAfterClear: hiddenAfterClear,
-            staleSnapshot: Technical Diagrams.focus.reachabilitySnapshot(),
+            staleSnapshot: TechnicalDiagrams.focus.reachabilitySnapshot(),
             staleError: staleError,
             failedReceipt: failedReceipt,
             canonicalSize: canonicalBlob.size,
@@ -1791,11 +1791,11 @@ try {
     console.log(`ok external Reach Card artifact: ${externalReachOutput}`);
   }
   await verifyDynamicReducedMotionRoute(routeOutputs.architecture, 'architecture-route reduced motion', 'users', 'api');
-  await navigateReady(output, '!!(window.Technical Diagrams && Technical Diagrams.motion && Technical Diagrams.motion.canRecord())', 'motion artifact');
+  await navigateReady(output, '!!(window.Technical Diagrams && TechnicalDiagrams.motion && TechnicalDiagrams.motion.canRecord())', 'motion artifact');
 
   const payload = await withTimeout(evaluate(cdp, sessionId, String.raw`(async function () {
     try {
-      var blob = await Technical Diagrams.motion.recordWebm({ duration: 1400, fps: 12 });
+      var blob = await TechnicalDiagrams.motion.recordWebm({ duration: 1400, fps: 12 });
       var bytes = new Uint8Array(await blob.arrayBuffer());
       var binary = '';
       for (var offset = 0; offset < bytes.length; offset += 32768) {

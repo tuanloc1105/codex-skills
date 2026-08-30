@@ -138,9 +138,9 @@ async function finalGeometry(browser, sessionId) {
     var lens = document.getElementById('semantic-lens');
     var radar = document.getElementById('overview-map');
     var passport = document.getElementById('focus-chip');
-    var chromeReceipt = window.Technical Diagrams && Technical Diagrams.viewerChromeLayout
-      && typeof Technical Diagrams.viewerChromeLayout.receipt === 'function'
-      ? Technical Diagrams.viewerChromeLayout.receipt()
+    var chromeReceipt = window.Technical Diagrams && TechnicalDiagrams.viewerChromeLayout
+      && typeof TechnicalDiagrams.viewerChromeLayout.receipt === 'function'
+      ? TechnicalDiagrams.viewerChromeLayout.receipt()
       : null;
     var viewBox = svg && svg.viewBox && svg.viewBox.baseVal;
     var projectedScale = svg && viewBox && viewBox.width > 0
@@ -160,9 +160,9 @@ async function finalGeometry(browser, sessionId) {
     }
     var legendRect = legend && getComputedStyle(legend).display !== 'none' ? legend.getBoundingClientRect() : null;
     var navRect = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect() : null;
-    var stageRect = window.Technical Diagrams && Technical Diagrams.viewerChromeLayout
-      && typeof Technical Diagrams.viewerChromeLayout.stageRect === 'function'
-      ? Technical Diagrams.viewerChromeLayout.stageRect()
+    var stageRect = window.Technical Diagrams && TechnicalDiagrams.viewerChromeLayout
+      && typeof TechnicalDiagrams.viewerChromeLayout.stageRect === 'function'
+      ? TechnicalDiagrams.viewerChromeLayout.stageRect()
       : null;
     var lensRect = lens && !lens.hidden && getComputedStyle(lens).display !== 'none' ? lens.getBoundingClientRect() : null;
     var radarRect = radar && !radar.hidden && getComputedStyle(radar).display !== 'none' ? radar.getBoundingClientRect() : null;
@@ -816,8 +816,8 @@ test('Radar, Passport, Legend, and Dock remain mutually clear on desktop and nar
       await evaluate(browser, sessionId, `(function () {
         var container = document.querySelector('.diagram-container');
         window.scrollTo(0, Math.max(0, container.offsetTop));
-        Technical Diagrams.focus.set('lb', { toggle: false });
-        Technical Diagrams.radar.open();
+        TechnicalDiagrams.focus.set('lb', { toggle: false });
+        TechnicalDiagrams.radar.open();
         window.dispatchEvent(new Event('resize'));
       })()`);
       await waitForLayout(browser, sessionId);

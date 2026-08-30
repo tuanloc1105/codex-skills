@@ -1073,8 +1073,8 @@ html[data-theme="dark"] body{background:#071019!important;background-image:none!
   }
 
   window.Technical Diagrams = window.Technical Diagrams || {};
-  window.Technical Diagrams.deltaExport = { canonicalSvg: canonicalDeltaSvg, shareCard, exportSvg: exportCanonicalSvg, downloadShareCard };
-  window.Technical Diagrams.exportMenu = {
+  window.TechnicalDiagrams.deltaExport = { canonicalSvg: canonicalDeltaSvg, shareCard, exportSvg: exportCanonicalSvg, downloadShareCard };
+  window.TechnicalDiagrams.exportMenu = {
     shareCard,
     run(format) {
       if (format === 'svg') return exportCanonicalSvg();
@@ -1181,7 +1181,7 @@ export function validateArchitectureDeltaHtml(html, receipt) {
   if (!html.includes('aria-label="Authored change review"')) failures.push('missing exact-ID change navigator');
   if ((html.match(/class="change-row"/g) || []).length !== rows.length) failures.push('change navigator row count does not match the receipt');
   if (!html.includes('id="export-svg"') || !html.includes('id="share-card"')
-    || !html.includes('window.Technical Diagrams.deltaExport = { canonicalSvg: canonicalDeltaSvg, shareCard')) {
+    || !html.includes('window.TechnicalDiagrams.deltaExport = { canonicalSvg: canonicalDeltaSvg, shareCard')) {
     failures.push('missing canonical Delta SVG or Share Card export contract');
   }
   for (const [index, row] of rows.entries()) {

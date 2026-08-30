@@ -226,7 +226,7 @@ test('Semantic Radar stays above the measured MAP control strip', {
     const rects = await radarRects(browser, sessionId, `
       var container = document.querySelector('.diagram-container');
       window.scrollTo(0, Math.max(0, container.offsetTop + container.offsetHeight - window.innerHeight + 8));
-      Technical Diagrams.radar.open();
+      TechnicalDiagrams.radar.open();
     `);
     const controlGap = rects.controls.top - rects.radar.bottom;
     assert.ok(controlGap >= 15, JSON.stringify({ ...rects, controlGap }, null, 2));
@@ -254,9 +254,9 @@ test('Semantic Radar avoids an expanded mobile Passport without hiding a collisi
     const state = await evaluate(browser, sessionId, `(function () {
       var container = document.querySelector('.diagram-container');
       window.scrollTo(0, Math.max(0, container.offsetTop));
-      Technical Diagrams.focus.set('lb', { toggle: false });
+      TechnicalDiagrams.focus.set('lb', { toggle: false });
       document.getElementById('btn-focus-relations').click();
-      Technical Diagrams.radar.open();
+      TechnicalDiagrams.radar.open();
       return new Promise(function (resolve) {
         setTimeout(function () {
             var radar = document.getElementById('overview-map');
@@ -338,9 +338,9 @@ test('Semantic Radar reports a consistent unavailable state and recovers when sp
     const unavailable = await evaluate(browser, sessionId, `(function () {
       var container = document.querySelector('.diagram-container');
       window.scrollTo(0, Math.max(0, container.offsetTop));
-      Technical Diagrams.focus.set('lb', { toggle: false });
+      TechnicalDiagrams.focus.set('lb', { toggle: false });
       document.getElementById('btn-focus-relations').click();
-      Technical Diagrams.radar.open();
+      TechnicalDiagrams.radar.open();
       return new Promise(function (resolve) {
         setTimeout(function () {
           var panel = document.getElementById('overview-map');
@@ -431,8 +431,8 @@ test('Semantic Radar automatically avoids a tall Semantic Passport', {
     const rects = await radarRects(browser, sessionId, `
       var container = document.querySelector('.diagram-container');
       window.scrollTo(0, Math.max(0, container.offsetTop));
-      Technical Diagrams.focus.set('hub', { toggle: false });
-      Technical Diagrams.radar.open();
+      TechnicalDiagrams.focus.set('hub', { toggle: false });
+      TechnicalDiagrams.radar.open();
     `);
     assert.ok(rects.passport, JSON.stringify(rects, null, 2));
     assert.equal(overlaps(rects.radar, rects.passport, 10), false, JSON.stringify(rects, null, 2));
@@ -491,14 +491,14 @@ test('Semantic Radar titlebar drag persists while surface drag still pans the di
     const geometry = await evaluate(browser, sessionId, `(function () {
       var container = document.querySelector('.diagram-container');
       window.scrollTo(0, Math.max(0, container.offsetTop + container.offsetHeight - window.innerHeight + 8));
-      Technical Diagrams.radar.open();
+      TechnicalDiagrams.radar.open();
       var radar = document.getElementById('overview-map').getBoundingClientRect();
       var head = document.querySelector('.overview-map-head').getBoundingClientRect();
       var containerRect = container.getBoundingClientRect();
       return {
         radar: { left: radar.left, top: radar.top, width: radar.width, height: radar.height },
         head: { left: head.left, top: head.top, width: head.width, height: head.height },
-        state: Technical Diagrams.view.state(),
+        state: TechnicalDiagrams.view.state(),
         target: {
           left: Math.max(24, containerRect.left + 360),
           top: Math.max(24, containerRect.top + 20)
@@ -516,9 +516,9 @@ test('Semantic Radar titlebar drag persists while surface drag still pans the di
     await dragMouse(browser, sessionId, titleStart, titleTarget);
 
     const manuallyPlaced = await evaluate(browser, sessionId, `(function () {
-      Technical Diagrams.radar.sync();
+      TechnicalDiagrams.radar.sync();
       var radar = document.getElementById('overview-map').getBoundingClientRect();
-      return { left: radar.left, top: radar.top, state: Technical Diagrams.view.state() };
+      return { left: radar.left, top: radar.top, state: TechnicalDiagrams.view.state() };
     })()`);
     assert.ok(Math.abs(manuallyPlaced.left - geometry.target.left) <= 2, JSON.stringify({ geometry, manuallyPlaced }, null, 2));
     assert.ok(Math.abs(manuallyPlaced.top - geometry.target.top) <= 2, JSON.stringify({ geometry, manuallyPlaced }, null, 2));
@@ -529,7 +529,7 @@ test('Semantic Radar titlebar drag persists while surface drag still pans the di
       var surface = document.getElementById('overview-map-surface').getBoundingClientRect();
       return {
         radar: { left: radar.left, top: radar.top },
-        state: Technical Diagrams.view.state(),
+        state: TechnicalDiagrams.view.state(),
         start: { x: surface.left + 8, y: surface.top + 8 },
         end: { x: surface.right - 8, y: surface.bottom - 8 }
       };
@@ -539,7 +539,7 @@ test('Semantic Radar titlebar drag persists while surface drag still pans the di
       var radar = document.getElementById('overview-map').getBoundingClientRect();
       return {
         radar: { left: radar.left, top: radar.top },
-        state: Technical Diagrams.view.state()
+        state: TechnicalDiagrams.view.state()
       };
     })()`);
     assert.deepEqual(afterSurfaceDrag.radar, surfaceState.radar);
