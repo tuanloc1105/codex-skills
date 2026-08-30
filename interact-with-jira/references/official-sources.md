@@ -23,7 +23,7 @@ ACLI sources were checked on 2026-08-03; Rovo MCP and Jira REST sources were che
 6. [Permissions](https://support.atlassian.com/security-and-access-policies/docs/Configure-Atlassian-Rovo-MCP-server-permission/): Read, Write, and Search access controlled by organization administrators.
 7. [Domain, authentication, and IP controls](https://support.atlassian.com/security-and-access-policies/docs/control-atlassian-rovo-mcp-server-settings/): domain allowlist, API-token policy, and IP allowlist.
 
-## Jira Cloud REST API v3
+## Jira Cloud REST APIs
 
 1. [Issues](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/), [changelogs](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-changelog-get), and [transitions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-transitions-get): issue detail/edit metadata/edit and transition routes, scopes, statuses, fields, and pagination.
 2. [Comments](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-comments/), [worklogs](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-worklogs/), [watchers](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-watchers/), and [links](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-links/): bounded reads and selected Tier B writes.
@@ -31,8 +31,9 @@ ACLI sources were checked on 2026-08-03; Rovo MCP and Jira REST sources were che
 4. [Project versions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-project-versions/) and [versions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-project-versions/): release/version reads.
 5. [Jira Software boards](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/) and [sprints](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/): board/backlog/sprint/version reads, pagination, and enhanced endpoint families.
 6. [OAuth 2.0 (3LO)](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/) and [API-token basic auth](https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/): resource correlation, scopes, lifecycle, and account/site binding.
+7. [Jira Service Management REST API](https://developer.atlassian.com/cloud/jira/service-desk/rest/): service desks, requests, customers, organizations, Assets, product-specific scopes, permissions, experimental headers, and its `/rest/servicedeskapi` URI family.
 
-The runtime MCP schema decides whether MCP has a capability. Official REST pages decide endpoint behavior; `rest-capability-registry.json` is the closed authorization boundary.
+The runtime MCP schema decides whether MCP has a capability. The registry is the preferred pre-verified REST path. For an unregistered capability, the exact current official REST endpoint page is authoritative for a task-scoped dynamic contract; documentation does not supply user authorization, target provenance, credentials, permissions, or confirmation.
 
 ## Freshness rules
 
@@ -42,7 +43,7 @@ The runtime MCP schema decides whether MCP has a capability. Official REST pages
 - Do not hard-code “latest version” in automation. Atlassian requires frequent updates, and the changelog may introduce new OAuth requirements.
 - For MCP, the tool schema/list exposed by the current server determines executable inputs. The Supported tools page verifies capability and scope but does not replace the runtime schema.
 - Use the Streamable HTTP endpoint currently published by Getting started. Do not revert to the retired SSE endpoint.
-- Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Never expand the registry because another official endpoint exists.
+- Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Use an unregistered endpoint only through the dynamic contract workflow; never expand the persistent registry merely because another official endpoint exists.
 - Correlate OAuth accessible resources/cloud ID or the API-token account/site with the intended MCP target.
 
 ## Distinguish TWG CLI

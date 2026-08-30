@@ -93,11 +93,10 @@ If a tool times out or returns an uncertain result, do not invoke it again throu
 
 ## Probe and route an unsupported capability
 
-- If MCP is unconfigured, unavailable, disconnected, unauthenticated, or blocked by policy, stop and tell the user which MCP condition was observed. Ask whether they want to use ACLI instead; do not inspect or invoke ACLI before they approve.
+- If MCP is unconfigured, unavailable, disconnected, unauthenticated, or blocked by policy, tell the user which condition was observed. Continue to REST when existing credentials independently identify the intended site and the registered or dynamic capability contract's target and authorization requirements are satisfied; otherwise ask whether they want to use ACLI. Do not inspect or invoke ACLI before they approve.
 - Resolve the exact requested capability first, then inspect the live server tool list and candidate schemas. A published supported-tools snapshot is discovery evidence only; it neither proves a runtime tool is loaded nor proves absence.
-- If MCP is connected and authenticated but lacks the exact capability, look up one capability ID in `rest-capability-registry.json`. Route directly to `rest-api-workflows.md` only on an exact registry match, without fallback approval or an ACLI check. Independently verify REST credentials/site; Tier B authorization remains separate.
-- When MCP is unavailable, allowlisted REST may proceed only when the explicit target is known and existing REST credentials independently identify the intended site. Otherwise preserve the ACLI approval branch.
-- For capabilities outside the registry, explain the limitation and ask whether the user wants ACLI. Unlisted REST endpoints and neighboring capability IDs are not alternatives.
+- If MCP is connected and authenticated but lacks the exact capability, prefer one exact capability ID in `rest-capability-registry.json`. If none matches, route to `rest-api-workflows.md` and derive a dynamic capability contract from the exact current official endpoint page. Independently verify REST credentials/site; route selection never supplies mutation authorization.
+- If no exact official Jira Cloud endpoint or complete dynamic contract can be established, explain the limitation and ask whether the user wants ACLI. Neighboring endpoints and undocumented method/path pairs are not alternatives.
 - Treat approval as scoped to the current Jira task. Do not make ACLI the default for later tasks.
 - After approval, follow `references/command-workflows.md`, verify the ACLI site/account/target, and repeat any mutation preview when the execution tool or impact changes.
 
@@ -107,5 +106,5 @@ If a tool times out or returns an uncertain result, do not invoke it again throu
 - `enabled` but tools cannot be called: run a live read-only check; inspect OAuth, token expiration, organization permissions, domain/IP allowlists, and network access.
 - OAuth does not open or the callback fails: retry login after checking browser/callback behavior and the domain allowlist; do not automatically switch to a token.
 - `Access denied`: verify the user's Jira permissions and Read/Write/Search groups in Atlassian Administration.
-- Expected tool is absent: recheck the live tool list/schema. Use REST only for an exact registered capability; otherwise ask whether the user wants ACLI.
+- Expected tool is absent: recheck the live tool list/schema, then use a registered capability or derive an exact dynamic REST contract from current official documentation.
 - Multiple sites or incorrect `cloudId`: repeat resource discovery and ask the user to select the target.

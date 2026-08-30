@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the closed Jira REST registry and its documentation contracts."""
+"""Validate the verified Jira REST registry and fallback documentation contracts."""
 
 from __future__ import annotations
 
@@ -91,15 +91,31 @@ def main() -> int:
 
     skill = (ROOT / "SKILL.md").read_text()
     registry_doc = (ROOT / "references" / "rest-capability-registry.md").read_text()
+    rest_workflow = (ROOT / "references" / "rest-api-workflows.md").read_text()
     attachments = (ROOT / "references" / "rest-attachments.md").read_text()
     platform = (ROOT / "references" / "rest-platform-issues.md").read_text()
     mcp = (ROOT / "references" / "mcp-workflows.md").read_text()
     required_contracts = {
-        "SKILL default deny": "defaults to deny" in skill,
-        "no Tier C registry": "no Tier C entries" in skill,
-        "no arbitrary REST": "arbitrary REST execution" in skill,
+        "dynamic REST contract": "dynamic capability contract" in skill,
+        "Tier C confirmation": "request exact confirmation immediately before execution" in skill,
+        "no inferred endpoint": "never infer an endpoint by resemblance" in skill,
         "ACLI approval": "requires a task-scoped user request or approval" in skill,
-        "registry generic execution denial": "generic REST execution" in registry_doc,
+        "registry generic execution denial": "Generic arbitrary REST execution is prohibited" in registry_doc,
+        "registry dynamic route": "dynamic contract" in registry_doc,
+        "dynamic official source": "developer.atlassian.com/cloud/jira/" in rest_workflow,
+        "dynamic contract fields": all(
+            field in rest_workflow
+            for field in (
+                "method", "path template", "success statuses", "scopes",
+                "target provenance", "risk tier", "bounds", "retry rule",
+                "post-operation verification",
+            )
+        ),
+        "dynamic risk tiers": all(
+            f"Tier {tier}:" in rest_workflow for tier in ("A", "B", "C")
+        ),
+        "dynamic mutation disclosure": "Disclose a concise contract summary before any dynamic mutation" in rest_workflow,
+        "dynamic contract not persisted": "Do not persist it to the registry automatically" in rest_workflow,
         "attachment atomic rename": "Atomically rename" in attachments,
         "attachment no overwrite": "refuse existing targets" in attachments,
         "comment explicit target": "one explicit issue" in platform,
@@ -108,13 +124,13 @@ def main() -> int:
     }
     for contract, present in required_contracts.items():
         if not present:
-            fail(errors, f"missing preservation/default-deny contract: {contract}")
+            fail(errors, f"missing safety or fallback contract: {contract}")
 
     if errors:
         for error in errors:
             print(f"ERROR: {error}", file=sys.stderr)
         return 1
-    print(f"Validated {len(entries)} closed Jira REST capabilities and documentation contracts.")
+    print(f"Validated {len(entries)} registered Jira REST capabilities and dynamic fallback contracts.")
     return 0
 
 

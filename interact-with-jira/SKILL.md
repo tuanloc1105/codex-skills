@@ -1,6 +1,6 @@
 ---
 name: interact-with-jira
-description: Work with Jira Cloud through Atlassian Rovo MCP first, a closed risk-tiered registry of official Jira REST fallbacks when the live MCP schema lacks an exact capability, and official Atlassian CLI `acli` only when explicitly requested or approved. Use for Jira reads, bounded single-target writes, attachments, boards, sprints, releases, configuration, authentication, and safety gates.
+description: Work with Jira Cloud through Atlassian Rovo MCP first, registered or dynamically verified official Jira REST fallbacks when MCP lacks a capability or is unavailable, and official Atlassian CLI `acli` only when explicitly requested or approved. Use for Jira reads, writes, attachments, boards, sprints, releases, configuration, authentication, and safety gates.
 ---
 
 # Interact with Jira
@@ -8,7 +8,7 @@ description: Work with Jira Cloud through Atlassian Rovo MCP first, a closed ris
 ## Boundary
 
 - Jira Cloud only. Exclude Data Center, Forge CLI, TWG CLI `twg`, browser automation, unofficial clients, and arbitrary REST execution.
-- MCP is primary. REST is permitted only through the exact machine-readable [capability registry](references/rest-capability-registry.md), which defaults to deny.
+- MCP is primary. Prefer the exact machine-readable [capability registry](references/rest-capability-registry.md). When it has no match, REST requires a task-scoped dynamic capability contract derived from current official Atlassian documentation as defined in [REST API workflow](references/rest-api-workflows.md); never infer an endpoint by resemblance.
 - ACLI requires a task-scoped user request or approval. Do not inspect or invoke it merely because another route fails.
 - Automatic MCP-to-REST selection authorizes only the route. It never authorizes a write, selects a target/payload, configures credentials, or retries an uncertain result.
 
@@ -16,9 +16,9 @@ description: Work with Jira Cloud through Atlassian Rovo MCP first, a closed ris
 
 1. Name the capability, product family, read/write class, and target provenance.
 2. Inspect live official Rovo MCP tools and schemas. Use MCP when it exposes the exact capability; documentation snapshots do not prove runtime presence or absence.
-3. If connected/authenticated MCP lacks it, resolve one exact registry capability ID. Apply method/path, scopes, tier, bounds, retry, and verification together. Never infer a neighboring endpoint.
-4. If MCP is unavailable, registry REST may proceed only when an explicit target is known and existing REST credentials independently identify the site. Otherwise ask whether to use ACLI.
-5. If no registry entry matches, report the limitation and ask about ACLI when useful. Unlisted REST remains prohibited.
+3. If connected/authenticated MCP lacks it, use one exact registry capability when available. Otherwise build and disclose a dynamic capability contract from the exact official Jira Cloud REST endpoint page.
+4. If MCP is unavailable, REST may proceed when existing credentials independently identify the site and the target/selector and authorization required by the operation's risk tier are satisfied. Otherwise ask whether to use ACLI.
+5. If no exact official endpoint, required scope, target provenance, risk classification, bounds, or verification can be established, stop and ask about ACLI when useful.
 6. If ACLI was requested initially, use its workflow directly; verify executable, version/help, authentication, site/account, and target.
 
 Read [MCP workflow](references/mcp-workflows.md) before MCP, [REST API workflow](references/rest-api-workflows.md) plus the registry/domain reference before REST, and [ACLI workflow](references/command-workflows.md) before ACLI. Consult [official sources](references/official-sources.md) for current interfaces.
@@ -40,9 +40,9 @@ Before writing:
 3. Execute once and require the documented success status.
 4. Re-read the entry's verification state. If the result is uncertain, do not retry through MCP, REST, or ACLI.
 
-### Tier C and prohibited REST
+### Tier C — sensitive, broad, or destructive
 
-The registry has no Tier C entries. Delete, unlink/removal, bulk, destructive, administrative, broad-selector/JQL-selected writes, Agile mutation, and every unlisted pair are prohibited over REST. For ACLI or MCP bulk/destructive work, perform read-only preflight and request exact confirmation immediately before execution, including site/account, selector, count/IDs, payload, impact, and reversibility.
+Tier C covers delete, unlink/removal, bulk, destructive, administrative, broad-selector/JQL-selected writes, permission/configuration changes, and Agile mutations. Perform a read-only preflight, enumerate or count affected targets, explain impact and reversibility, then request exact confirmation immediately before execution. Confirmation must include site/account, endpoint, selector, count/IDs, and payload; it is invalid if any of those change. Execute once, stop on partial or uncertain results, and verify with a safe read when the official API provides one.
 
 ## Identity, credentials, and configuration
 
@@ -54,8 +54,8 @@ The registry has no Tier C entries. Delete, unlink/removal, bulk, destructive, a
 
 ## Execute and report
 
-- Match the live MCP schema, registry entry, or current ACLI help exactly. Bound arguments/payloads and keep credentials out of commands/logs.
+- Match the live MCP schema, registry entry, dynamic capability contract, or current ACLI help exactly. Bound arguments/payloads and keep credentials out of commands/logs.
 - Check native exit code, MCP result, or HTTP status before parsing. Respect `Retry-After` for reads; never automatically retry uncertain mutations.
 - Report route/capability family, verified site, target, result, post-operation verification, and limitations. For attachments include final path and byte count. Do not repeat private content or secrets.
 
-Stop when identity/site/target/payload/visibility is ambiguous, credentials cannot be correlated, permissions/scopes are absent, no exact registry entry exists, or a mutation result is uncertain. Never silently switch to ACLI or browser automation.
+Stop when identity/site/target/payload/visibility is ambiguous, credentials cannot be correlated, permissions/scopes are absent, the exact official endpoint contract cannot be established, required Tier C confirmation is absent, or a mutation result is uncertain. Never silently switch to ACLI or browser automation.

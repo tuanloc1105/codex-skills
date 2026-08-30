@@ -1,4 +1,4 @@
 interface:
   display_name: "Interact with Jira"
-  short_description: "Use Jira MCP, risk-tiered REST, then approved ACLI"
-  default_prompt: "Use $interact-with-jira for this Jira Cloud task: probe live Atlassian MCP first, route only an exact missing registered capability to bounded official REST, and ask before ACLI elsewhere."
+  short_description: "Use Jira MCP, verified REST fallback, then ACLI"
+  default_prompt: "Use $interact-with-jira for this Jira Cloud task: probe live Atlassian MCP first, prefer registered REST, derive a risk-tiered dynamic contract from official Jira REST documentation when needed, and ask before ACLI."

@@ -1,6 +1,6 @@
 # Jira Platform issue REST workflows
 
-Use only exact registry IDs. Identifiers provide provenance, not write authorization.
+Prefer exact registry IDs. For other official Jira Platform issue endpoints, first build the dynamic contract required by [REST API workflow](rest-api-workflows.md). Identifiers provide provenance, not write authorization.
 
 ## Bounded reads
 
@@ -20,3 +20,5 @@ Use only exact registry IDs. Identifiers provide provenance, not write authoriza
 - Field edit: fetch edit metadata/current values; allow only requested editable fields, show exact patch, PUT once, require `204`, then re-read changed fields.
 
 An ambiguous write triggers one safe re-read and a report—not another mutation through any tool.
+
+Unregistered single-target create/update operations follow Tier B. Delete/removal, bulk, selector-based, permission, or administrative operations follow Tier C even when the endpoint itself targets one resource.
