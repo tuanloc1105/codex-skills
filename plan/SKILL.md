@@ -12,7 +12,7 @@ When the `workflow-modes` plugin is installed and its hooks are trusted, resolve
 - On fresh `$plan` entry, reserve and initialize the draft bundle before substantive inspection, then run `activate plan --record <bundle-root>`. Keep this exact bundle through approval and execute handoff.
 - After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <plan-path> --reference <path>...` before substantive work or a final response.
 - On entry from `$discuss`, require its persisted `transition plan --record <discussion-tracker>` result instead of reactivating a different mode.
-- On entry from `$discuss`, resolve and initialize a separate plan bundle immediately, link its source discussion bundle, then activate the new root.
+- On entry from `$discuss`, resolve the separate target root, run `plan-init --record <discussion-root> --target <plan-root>`, initialize the complete bundle only beneath that declared target, then run `activate plan --record <plan-root>`. `plan-init` is a narrow bootstrap guard, not general plan-mode mutation permission.
 - At activation and after every `PostCompact` reminder, read `index.md` and every manifest file completely and run record-scope sync.
 - After `UserPromptSubmit`, follow `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running snapshot-scope sync; `record` requires a complete read and record-scope sync.
 - Before bundle edits, run `write-open` with the acknowledged revision and declare new phase paths with `--path`; run `write-close` only after manifest, phase links, dependencies, and lifecycle state agree.
