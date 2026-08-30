@@ -1,0 +1,31 @@
+{
+  "name": "technical-diagrams",
+  "version": "2.16.0",
+  "private": true,
+  "type": "module",
+  "description": "JSON-IR diagram renderers (architecture / workflow / sequence / dataflow / lifecycle).",
+  "license": "MIT",
+  "bin": {
+    "technical-diagrams": "./bin/technical-diagrams.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "generate:brand-marks": "node scripts/generate-brand-marks.mjs",
+    "check:brand-marks": "node scripts/generate-brand-marks.mjs --check",
+    "generate:validators": "node scripts/generate-validators.mjs",
+    "check:validators": "node scripts/generate-validators.mjs --check",
+    "test": "npm run check:brand-marks && npm run check:validators && node test/golden.mjs && node --test test/import-mermaid.test.mjs",
+    "render:examples": "node scripts/render-examples.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "parse5": "7.3.0",
+    "saxes": "6.0.0",
+    "simple-icons": "16.28.0"
+  },
+  "overrides": {
+    "fast-uri": "3.1.5"
+  }
+}
