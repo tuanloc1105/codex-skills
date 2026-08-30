@@ -360,8 +360,11 @@ public final class MssqlConnect {
         properties.setProperty("password", requiredEnv(prefix + "_PASSWORD"));
         properties.setProperty("databaseName", database);
         properties.setProperty("applicationIntent", "ReadOnly");
-        properties.setProperty("encrypt", "true");
-        properties.setProperty("trustServerCertificate", "false");
+        properties.setProperty("encrypt", optionalEnv(prefix + "_ENCRYPT", "false"));
+        properties.setProperty(
+            "trustServerCertificate",
+            optionalEnv(prefix + "_TRUST_SERVER_CERTIFICATE", "false")
+        );
         properties.setProperty("loginTimeout", "10");
         properties.setProperty("socketTimeout", "10000");
 
@@ -397,6 +400,11 @@ public final class MssqlConnect {
             throw new IllegalArgumentException("Missing environment variable: " + name);
         }
         return value;
+    }
+
+    private static String optionalEnv(String name, String defaultValue) {
+        String value = System.getenv(name);
+        return value == null || value.isBlank() ? defaultValue : value;
     }
 
     private static String clean(String value) {

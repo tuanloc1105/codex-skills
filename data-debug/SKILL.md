@@ -74,7 +74,7 @@ Do not silently downgrade a connection. State the selected mode, configure it ex
 - MySQL: use `--ssl-mode=DISABLED` for plaintext or `--ssl-mode=REQUIRED` for encrypted transport without CA or hostname verification.
 - MongoDB: set `tls=false` for plaintext, or set `tls=true`, `tlsAllowInvalidCertificates=true`, and/or `tlsAllowInvalidHostnames=true` in the URI as narrowly as needed.
 - Redis: omit `--tls` for plaintext; use `--tls --insecure` for encrypted transport without certificate verification.
-- Microsoft SQL Server: use `-C` to trust the server certificate or `-No` to make encryption optional with the default ODBC Driver 18 `sqlcmd`. The ODBC Driver 17 `sqlcmd17` compatibility client makes encryption optional by default; use `-N -C` when encrypted transport with an unverified certificate is required.
+- Microsoft SQL Server: use `-No` to make encryption optional or `-Nm` to require it with the default ODBC Driver 18 `sqlcmd`; add `-C` when encrypted transport must trust an unverified server certificate. The ODBC Driver 17 `sqlcmd17` compatibility client makes encryption optional by default; use `-N -C` when encrypted transport with an unverified certificate is required. For `mssql-connect`, `MSSQL_ENCRYPT` defaults to `false`; set it to `true` and set `MSSQL_TRUST_SERVER_CERTIFICATE=true` only when an encrypted connection must accept an unverified certificate. Replace `MSSQL` with the selected environment-variable prefix.
 - Oracle: select a non-TLS connect descriptor for plaintext. For TCPS, relax certificate or distinguished-name matching only in task-owned client configuration and do not overwrite an existing Oracle network configuration.
 
 Treat these transport relaxations separately from authentication. Do not disable or bypass authentication unless the user explicitly requests that distinct action and the target is intentionally configured for it.
@@ -86,7 +86,7 @@ Treat these transport relaxations separately from authentication. Do not disable
 - Modern MongoDB: `mongo-connect`
 - MongoDB 3.4: `mongo-connect --server-version 3.4`
 - Redis: `redis-cli`
-- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` by default. After a confirmed ODBC TLS/pre-login compatibility failure, use the Microsoft JDBC `mssql-connect` client and report the fallback. It reads SQL from standard input, requires an environment-variable prefix, requests `applicationIntent=ReadOnly`, enables verified TLS, limits results to 100 rows, and applies 10-second login, socket, and query timeouts. On AMD64, `sqlcmd17` remains available for legacy ODBC compatibility. Driver 17 is unavailable in the ARM64 image. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
+- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` with an explicit transport mode. After a confirmed ODBC TLS/pre-login compatibility failure, use the Microsoft JDBC `mssql-connect` client and report the fallback. It reads SQL from standard input, requires an environment-variable prefix, requests `applicationIntent=ReadOnly`, does not require encryption unless `<PREFIX>_ENCRYPT=true`, limits results to 100 rows, and applies 10-second login, socket, and query timeouts. On AMD64, `sqlcmd17` remains available for legacy ODBC compatibility. Driver 17 is unavailable in the ARM64 image. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
 - Oracle: prefer `sqlplus`; use `sql` only when SQLcl features are required
 
 Always use `mongo-connect`, not `mongosh` or `mongo-legacy` directly.
@@ -126,7 +126,7 @@ docker run --rm --env-file db.env db-debug:latest bash -lc 'redis-cli -h "$REDIS
 Microsoft SQL Server:
 
 ```sh
-docker run --rm --env-file db.env db-debug:latest bash -lc 'sqlcmd -S "$MSSQL_HOST,$MSSQL_PORT" -U "$MSSQL_USER" -d "$MSSQL_DATABASE" -K ReadOnly -Q "SELECT DB_NAME(), SUSER_SNAME();"'
+docker run --rm --env-file db.env db-debug:latest bash -lc 'sqlcmd -No -S "$MSSQL_HOST,$MSSQL_PORT" -U "$MSSQL_USER" -d "$MSSQL_DATABASE" -K ReadOnly -Q "SELECT DB_NAME(), SUSER_SNAME();"'
 ```
 
 Microsoft SQL Server compatibility fallback on AMD64 after a confirmed Driver 18 TLS/pre-login failure:
