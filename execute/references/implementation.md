@@ -8,6 +8,8 @@ First add `references/implementation.md` through a record write transaction, rea
 
 Before beginning or resuming implementation in a git repository, work from a dedicated linked worktree for the adopted execution record. Never implement in the user's existing checkout.
 
+- Resolve the repository root from the current working directory. If the current directory is not inside a Git repository, skip the dedicated-worktree and Git-ignore steps and continue with the non-Git workflow.
+- Keep execute-created worktrees under `<repository-root>/.worktrees/`. Before creating or reusing one there, ensure the repository root ignores that directory. Prefer an existing matching ignore rule; otherwise append the root-anchored `/.worktrees/` rule to the root `.gitignore` without changing or reordering existing content. Verify the result with `git check-ignore` against a path beneath `.worktrees/`. If the rule cannot be added or the verification fails, do not create the worktree or begin implementation.
 - Inspect the repository's current worktrees first. Reuse one only when it is already dedicated to the same execution record and contains no unrelated work; otherwise create a new linked worktree on the intended task branch or on a new task-focused branch from the approved base.
 - Run all implementation edits, checks, staging, commits, integration, and simplify-driven fixes inside that worktree. The adopted execution record remains at its exact bound path and is the only permitted execute-mode write outside the dedicated worktree when that path lives elsewhere.
 - Record the worktree path and branch in the handoff section of `evidence.md` before implementation so a later session can resume the same isolated workspace.
@@ -138,7 +140,7 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 ## Implementation Workflow
 
 1. Resolve, adopt, and read the complete execution-record path; activate or re-enter execute mode and persist its metadata.
-2. For a git repository, create or safely reuse the dedicated worktree, record its path and branch in the execution record, and perform the remaining implementation workflow there.
+2. When the current directory is inside a Git repository, ensure `<repository-root>/.worktrees/` is ignored, create or safely reuse the dedicated worktree there, record its path and branch in the execution record, and perform the remaining implementation workflow there. Otherwise skip worktree setup and continue in the non-Git directory.
 3. Inspect enough repository context to execute safely.
 4. Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
 5. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
