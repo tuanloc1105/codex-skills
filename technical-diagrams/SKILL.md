@@ -68,6 +68,18 @@ When ambiguous, run `node bin/technical-diagrams.mjs guide "<scenario>" --json`.
 
 Read Mermaid for topology and meaning, then author fresh Technical Diagrams JSON; do not mechanically render Mermaid styling.
 
+For pasted or file-based Mermaid, first translate it into typed IR with:
+
+```bash
+node bin/technical-diagrams.mjs import-mermaid input.mmd candidate.json --json
+```
+
+Add `--target architecture` only when a flowchart is clearly a component map.
+The importer accepts only the supported semantic subset and returns structured
+`mermaid/*` diagnostics for malformed, ambiguous, unsupported, or lossy input.
+Validate and repair the resulting JSON through the normal family renderer; the
+imported IR, never Mermaid styling, is the canonical source.
+
 - `flowchart` / `graph` → `workflow`, or `architecture` for a component map.
 - `sequenceDiagram` → `sequence`; participants become semantic participants and arrows become messages.
 - `stateDiagram` → `lifecycle`; states and transitions retain meaning, not Mermaid style.

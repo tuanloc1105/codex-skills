@@ -20,6 +20,7 @@ function usage() {
   technical-diagrams preview <type> <input.json> [output.html] [--no-open] [--quality standard|showcase] [--repo-root path (architecture only)]
   technical-diagrams validate <type> <input.json> [--json] [--layout-json] [--quality standard|showcase] [--repo-root path (architecture only)]
   technical-diagrams migrate workflow <old.json> <new.json> --to-schema 2 [--json]
+  technical-diagrams import-mermaid <input.mmd> [output.json] [--target workflow|architecture] [--json]
   technical-diagrams inspect <type> <input.json>
   technical-diagrams check <output.html>
   technical-diagrams visual-check <output.html> [--json]
@@ -54,6 +55,28 @@ function runNode(args, options = {}) {
     stdio: options.stdio || 'inherit',
     env: options.env ? { ...process.env, ...options.env } : process.env,
   });
+}
+
+async function commandImportMermaid(args) {
+  const json = args.includes('--json');
+  const targetIndex = args.indexOf('--target');
+  const target = targetIndex >= 0 ? args[targetIndex + 1] : undefined;
+  const rest = args.filter((arg, index) => arg !== '--json' && arg !== '--target' && index !== targetIndex + 1);
+  if (!rest[0] || rest.length > 2 || (target && !['workflow', 'architecture'].includes(target))) fail(usage());
+  const { importMermaidFile, MermaidImportError } = await import('../scripts/import-mermaid.mjs');
+  try {
+    const result = importMermaidFile(rest[0], { target });
+    const serialized = `${JSON.stringify(result, null, 2)}\n`;
+    if (rest[1]) fs.writeFileSync(rest[1], serialized, { flag: 'wx' });
+    if (json || !rest[1]) process.stdout.write(serialized);
+    else console.log(`ok ${result.diagram_type} ${path.resolve(rest[1])}`);
+  } catch (error) {
+    if (!(error instanceof MermaidImportError)) throw error;
+    const receipt = { schemaVersion: 1, ok: false, command: 'import-mermaid', diagnostics: [error.diagnostic] };
+    if (json) process.stdout.write(`${JSON.stringify(receipt, null, 2)}\n`);
+    else console.error(`${error.diagnostic.code}: ${error.message}`);
+    process.exitCode = 1;
+  }
 }
 
 function extractQualityArgs(args) {
@@ -1955,6 +1978,9 @@ switch (command) {
     break;
   case 'migrate':
     await commandMigrate(args);
+    break;
+  case 'import-mermaid':
+    await commandImportMermaid(args);
     break;
   case 'inspect':
     if (args[0] !== 'architecture') {
