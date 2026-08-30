@@ -52,7 +52,7 @@ If the user says yes, use `$security-review` with this scope constraint:
 
 Before sending a response that claims implementation completion, a genuine blocker, or an explicit-exit pause:
 
-- For Git repositories, confirm implementation was performed in the dedicated worktree under `<repository-root>/.worktrees/` recorded in `evidence.md`, that `/.worktrees/` is verified as ignored, and that implementation did not occur in the user's existing checkout. For non-Git directories, confirm the worktree and ignore steps were skipped.
+- For Git repositories, confirm implementation was performed in the current dedicated worktree under `<repository-root>/.worktrees/`, that `/.worktrees/` is verified as ignored, and that `evidence.md` records the latest path and branch after any worktree replacement. Confirm implementation did not occur in the user's existing checkout. For non-Git directories, confirm the worktree and ignore steps were skipped.
 - Re-read every phase file and confirm no in-scope `[ ]`, `[~]`, `Pending`, or `In progress` state remains.
 - Confirm every `[!]` item satisfies the Genuine Blocker Definition.
 - Confirm unrelated ready phases were not skipped because another phase failed.
