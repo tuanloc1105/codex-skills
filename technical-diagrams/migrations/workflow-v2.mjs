@@ -30,8 +30,8 @@ function schemaDiagnostics(workflow) {
     validateSchema('workflow', workflow);
     return [];
   } catch (error) {
-    if (Array.isArray(error?.archifyDiagnostics)) {
-      return error.archifyDiagnostics.map((entry) => ({ ...entry }));
+    if (Array.isArray(error?.technicalDiagramDiagnostics)) {
+      return error.technicalDiagramDiagnostics.map((entry) => ({ ...entry }));
     }
     throw error;
   }
@@ -217,7 +217,7 @@ export function migrateWorkflowDocument(inputWorkflow) {
         code: 'migration/rank-mapping',
         message: 'Could not construct a stable horizontal rank mapping.',
         evidence: { reason: error.message },
-        supportedFixes: ['report the workflow and compiler receipts to the Archify maintainers'],
+        supportedFixes: ['report the workflow and compiler receipts to the Technical Diagrams maintainers'],
       })],
       oldRequiredViewBox,
       newRequiredViewBox: requiredViewBoxFrom(planned),

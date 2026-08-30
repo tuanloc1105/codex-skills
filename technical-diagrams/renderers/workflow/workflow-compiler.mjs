@@ -778,8 +778,8 @@ function compileWorkflowInternal({
   try {
     validateSchema('workflow', qualityResolvedWorkflow);
   } catch (error) {
-    inputDiagnostics = Array.isArray(error?.archifyDiagnostics)
-      ? error.archifyDiagnostics.map((diagnostic) => ({
+    inputDiagnostics = Array.isArray(error?.technicalDiagramDiagnostics)
+      ? error.technicalDiagramDiagnostics.map((diagnostic) => ({
           ...diagnostic,
           supportedFixes: [],
         }))
@@ -3780,7 +3780,7 @@ function readableAutomaticRoute(edge, from, to, primarySides, primaryPorts) {
     );
     const sourceAnchor = primaryPorts?.from || anchor(from, primarySides.fromSide);
     const targetAnchor = primaryPorts?.to || anchor(to, primarySides.toSide);
-    const attemptedEvidence = firstFailure?.archifyDiagnostics?.[0]?.evidence || {};
+    const attemptedEvidence = firstFailure?.technicalDiagramDiagnostics?.[0]?.evidence || {};
     throwExplicitPinConflict(edge, 'readable route feasibility with authored endpoint sides', {
       conflictingPins: conflictPinsFromRemovalSets(
         edge,
@@ -4312,8 +4312,8 @@ ${renderLegend()}
     };
     return { ok: true, svg, receipt };
   } catch (error) {
-    if (!Array.isArray(error?.archifyDiagnostics)) throw error;
-    const diagnostics = error.archifyDiagnostics.map((diagnostic) => ({ ...diagnostic }));
+    if (!Array.isArray(error?.technicalDiagramDiagnostics)) throw error;
+    const diagnostics = error.technicalDiagramDiagnostics.map((diagnostic) => ({ ...diagnostic }));
     return compilerFailure(layout.contract, diagnostics, error.message);
   }
 }

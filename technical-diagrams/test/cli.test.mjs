@@ -10,8 +10,8 @@ import { extractSvgs, parseXml } from './helpers/xml.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-cli-'));
-const cli = path.join(skillRoot, 'bin/archify.mjs');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-cli-'));
+const cli = path.join(skillRoot, 'bin/technical-diagrams.mjs');
 
 function run(args, options = {}) {
   return spawnSync(process.execPath, [cli, ...args], {
@@ -32,7 +32,7 @@ function makeFakeOpeners(name, { exitCode = 0 } = {}) {
   const source = `#!/usr/bin/env node
 const fs = require('node:fs');
 const target = process.argv[process.argv.length - 1];
-fs.writeFileSync(process.env.ARCHIFY_TEST_OPEN_LOG, JSON.stringify({
+fs.writeFileSync(process.env.TECHNICAL_DIAGRAMS_TEST_OPEN_LOG, JSON.stringify({
   argv: process.argv.slice(2),
   target,
   existed: fs.existsSync(target),
@@ -49,7 +49,7 @@ process.exit(${exitCode});
     env: {
       ...process.env,
       PATH: `${bin}${path.delimiter}${process.env.PATH || ''}`,
-      ARCHIFY_TEST_OPEN_LOG: log,
+      TECHNICAL_DIAGRAMS_TEST_OPEN_LOG: log,
     },
   };
 }
@@ -72,16 +72,16 @@ function copyInstalledSkill(target) {
 test('cli: help lists commands and diagram types', () => {
   const result = run(['--help']);
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /archify render <type>/);
-  assert.match(result.stdout, /archify compare architecture <base\.json> <head\.json>/);
-  assert.match(result.stdout, /archify deliver <type>/);
-  assert.match(result.stdout, /archify preview <type>/);
-  assert.match(result.stdout, /archify visual-check <output\.html>/);
+  assert.match(result.stdout, /technical-diagrams render <type>/);
+  assert.match(result.stdout, /technical-diagrams compare architecture <base\.json> <head\.json>/);
+  assert.match(result.stdout, /technical-diagrams deliver <type>/);
+  assert.match(result.stdout, /technical-diagrams preview <type>/);
+  assert.match(result.stdout, /technical-diagrams visual-check <output\.html>/);
   assert.match(result.stdout, /--open/);
   assert.match(result.stdout, /--repo-root path \(architecture only\)/);
-  assert.match(result.stdout, /archify guide \[scenario or question\]/);
-  assert.match(result.stdout, /archify doctor/);
-  assert.match(result.stdout, /archify demo \[output-directory\]/);
+  assert.match(result.stdout, /technical-diagrams guide \[scenario or question\]/);
+  assert.match(result.stdout, /technical-diagrams doctor/);
+  assert.match(result.stdout, /technical-diagrams demo \[output-directory\]/);
   assert.match(result.stdout, /architecture, workflow, sequence, dataflow, lifecycle/);
 });
 
@@ -98,16 +98,16 @@ test('cli: doctor reports a complete installation is ready', () => {
   assert.match(result.stdout, /\[ok\] Standalone schema validators/);
   assert.match(result.stdout, /\[ok\] architecture renderer, schema, and example/);
   assert.match(result.stdout, /\[ok\] lifecycle renderer, schema, and example/);
-  assert.match(result.stdout, /Archify is ready\./);
+  assert.match(result.stdout, /Technical Diagrams is ready\./);
 });
 
 test('cli: doctor identifies an incomplete installation', () => {
   const incompleteRoot = path.join(tmp, 'incomplete-skill');
   const incompleteBin = path.join(incompleteRoot, 'bin');
   fs.mkdirSync(incompleteBin, { recursive: true });
-  fs.copyFileSync(cli, path.join(incompleteBin, 'archify.mjs'));
+  fs.copyFileSync(cli, path.join(incompleteBin, 'technical-diagrams.mjs'));
 
-  const result = spawnSync(process.execPath, [path.join(incompleteBin, 'archify.mjs'), 'doctor'], {
+  const result = spawnSync(process.execPath, [path.join(incompleteBin, 'technical-diagrams.mjs'), 'doctor'], {
     cwd: incompleteRoot,
     encoding: 'utf8',
   });
@@ -116,7 +116,7 @@ test('cli: doctor identifies an incomplete installation', () => {
   assert.match(result.stdout, /\[missing\] Core template/);
   assert.match(result.stdout, /\[missing\] Scenario recipe guide/);
   assert.match(result.stdout, /\[missing\] workflow renderer, schema, and example/);
-  assert.match(result.stderr, /Archify is not ready: \d+ required files? missing\./);
+  assert.match(result.stderr, /Technical Diagrams is not ready: \d+ required files? missing\./);
 });
 
 test('cli: doctor rejects a corrupt standalone validator', () => {
@@ -124,21 +124,21 @@ test('cli: doctor rejects a corrupt standalone validator', () => {
   copyInstalledSkill(corruptRoot);
   fs.writeFileSync(path.join(corruptRoot, 'renderers/shared/generated-validators.mjs'), 'export const workflow = ;\n');
 
-  const result = spawnSync(process.execPath, [path.join(corruptRoot, 'bin/archify.mjs'), 'doctor'], {
+  const result = spawnSync(process.execPath, [path.join(corruptRoot, 'bin/technical-diagrams.mjs'), 'doctor'], {
     cwd: corruptRoot,
     encoding: 'utf8',
   });
 
   assert.equal(result.status, 1);
   assert.match(result.stdout, /\[invalid\] Standalone schema validators/);
-  assert.match(result.stderr, /Archify is not ready: 1 runtime check failed\./);
+  assert.match(result.stderr, /Technical Diagrams is not ready: 1 runtime check failed\./);
 });
 
 test('cli: examples renders from an installed skill', () => {
   const installedRoot = path.join(tmp, 'installed-skill');
   copyInstalledSkill(installedRoot);
 
-  const result = spawnSync(process.execPath, [path.join(installedRoot, 'bin/archify.mjs'), 'examples'], {
+  const result = spawnSync(process.execPath, [path.join(installedRoot, 'bin/technical-diagrams.mjs'), 'examples'], {
     cwd: installedRoot,
     encoding: 'utf8',
   });
@@ -159,7 +159,7 @@ test('cli: guide lists all scenario recipes by diagram type', () => {
   const result = run(['guide']);
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Archify scenario recipes \(11\)/);
+  assert.match(result.stdout, /Technical Diagrams scenario recipes \(11\)/);
   for (const type of ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle']) {
     assert.match(result.stdout, new RegExp(`\\[${type}\\]`));
   }
@@ -190,7 +190,7 @@ test('cli: guide detects Chinese and explains the recommendation boundary', () =
 test('cli: guide works from an installed skill without node_modules', () => {
   const installedRoot = path.join(tmp, 'installed-guide-skill');
   copyInstalledSkill(installedRoot);
-  const installedCli = path.join(installedRoot, 'bin/archify.mjs');
+  const installedCli = path.join(installedRoot, 'bin/technical-diagrams.mjs');
 
   const result = spawnSync(process.execPath, [installedCli, 'guide', 'incident-runbook', '--json'], {
     cwd: installedRoot,
@@ -203,7 +203,7 @@ test('cli: guide works from an installed skill without node_modules', () => {
 
 test('cli: demo creates a ready-to-open diagram in a chosen directory', () => {
   const outputDirectory = path.join(tmp, 'my-demo');
-  const output = path.join(outputDirectory, 'archify-demo.html');
+  const output = path.join(outputDirectory, 'technical-diagrams-demo.html');
   const result = run(['demo', outputDirectory]);
 
   assert.equal(result.status, 0, result.stderr);
@@ -211,7 +211,7 @@ test('cli: demo creates a ready-to-open diagram in a chosen directory', () => {
   assert.match(fs.readFileSync(output, 'utf8'), /Sample Web App Diagram/);
   assert.match(result.stdout, new RegExp(`Demo ready: ${output.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
   assert.match(result.stdout, /Next: open the HTML in your browser/);
-  assert.match(result.stdout, /archify render architecture/);
+  assert.match(result.stdout, /technical-diagrams render architecture/);
 });
 
 test('cli: demo defaults to the current directory', () => {
@@ -220,7 +220,7 @@ test('cli: demo defaults to the current directory', () => {
   const result = run(['demo'], { cwd: workingDirectory });
 
   assert.equal(result.status, 0, result.stderr);
-  assert.equal(fs.existsSync(path.join(workingDirectory, 'archify-demo.html')), true);
+  assert.equal(fs.existsSync(path.join(workingDirectory, 'technical-diagrams-demo.html')), true);
 });
 
 test('cli: render writes a diagram html file', () => {
@@ -237,7 +237,7 @@ test('cli: visual-check returns a skipped receipt with exit 2 when Chrome is una
   fs.writeFileSync(out, '<!doctype html><html><body>delivered</body></html>');
   const missingChrome = path.join(tmp, 'missing-chrome');
   const result = run(['visual-check', out, '--json'], {
-    env: { ...process.env, ARCHIFY_CHROME: missingChrome },
+    env: { ...process.env, TECHNICAL_DIAGRAMS_CHROME: missingChrome },
   });
 
   assert.equal(result.status, 2, result.stderr);
@@ -342,7 +342,7 @@ test('cli: deliver failure never invokes the optional opener', {
 test('cli: a missing optional opener module preserves verified delivery with a fallback receipt', () => {
   const installedRoot = path.join(tmp, 'missing-open-module-skill');
   copyInstalledSkill(installedRoot);
-  const installedCli = path.join(installedRoot, 'bin/archify.mjs');
+  const installedCli = path.join(installedRoot, 'bin/technical-diagrams.mjs');
   fs.rmSync(path.join(installedRoot, 'bin/open-artifact.mjs'));
   const input = path.join(installedRoot, 'examples/agent-tool-call.workflow.json');
   const out = path.join(tmp, 'missing-open-module-delivery.html');
@@ -383,7 +383,7 @@ test('cli: deliver preserves the renderer default output contract', () => {
 test('cli: deliver works from an installed skill without node_modules', () => {
   const installedRoot = path.join(tmp, 'installed-deliver-skill');
   copyInstalledSkill(installedRoot);
-  const installedCli = path.join(installedRoot, 'bin/archify.mjs');
+  const installedCli = path.join(installedRoot, 'bin/technical-diagrams.mjs');
   const cases = [
     ['architecture-boundaries', 'architecture', 'production-deployment.architecture.json'],
     ['architecture-issue-110', 'architecture', 'brand-aware-delivery.architecture.json'],
@@ -430,7 +430,7 @@ test('cli: deliver XML guard parses markup instead of scanning attribute-like te
 test('cli: preview runs from an installed skill without node_modules and exits cleanly', { timeout: 30000 }, async () => {
   const installedRoot = path.join(tmp, 'installed-preview-skill');
   copyInstalledSkill(installedRoot);
-  const installedCli = path.join(installedRoot, 'bin/archify.mjs');
+  const installedCli = path.join(installedRoot, 'bin/technical-diagrams.mjs');
   const input = path.join(installedRoot, 'examples/web-app.architecture.json');
   const output = path.join(tmp, 'installed-preview.html');
   const child = spawn(process.execPath, [installedCli, 'preview', 'architecture', input, output, '--quality', 'showcase', '--no-open'], {
@@ -468,13 +468,13 @@ test('cli: preview runs from an installed skill without node_modules and exits c
   assert.deepEqual(exit, { code: 0, signal: null });
   assert.match(stdout, /stopping preview/);
   await assert.rejects(fetch(previewUrl));
-  assert.deepEqual(fs.readdirSync(path.dirname(output)).filter((name) => name.startsWith('.archify-preview-')), []);
+  assert.deepEqual(fs.readdirSync(path.dirname(output)).filter((name) => name.startsWith('.technical-diagrams-preview-')), []);
 });
 
 test('cli: deliver preserves the previous artifact when the final check fails', () => {
   const installedRoot = path.join(tmp, 'broken-deliver-skill');
   copyInstalledSkill(installedRoot);
-  const installedCli = path.join(installedRoot, 'bin/archify.mjs');
+  const installedCli = path.join(installedRoot, 'bin/technical-diagrams.mjs');
   const templatePath = path.join(installedRoot, 'assets/template.html');
   const template = fs.readFileSync(templatePath, 'utf8');
   fs.writeFileSync(templatePath, template.replace('</body>', '<svg aria-label="accidental second svg"></svg>\n</body>'));
@@ -499,7 +499,7 @@ test('cli: deliver preserves the previous artifact when the final check fails', 
   assert.equal(failure.checker.checks.find((entry) => entry.name === 'single_svg').ok, false);
   assert.equal(fs.readFileSync(out, 'utf8'), trustedPriorArtifact);
   assert.deepEqual(
-    fs.readdirSync(path.dirname(out)).filter((name) => name.includes('.archify-delivery-')),
+    fs.readdirSync(path.dirname(out)).filter((name) => name.includes('.technical-diagrams-delivery-')),
     [],
   );
 });
@@ -640,7 +640,7 @@ test('cli: validate JSON exposes only the primary v1 column-capacity diagnostic'
   }, null, 2)}\n`);
 
   const result = run(['validate', 'workflow', input, '--json'], {
-    env: { ...process.env, ARCHIFY_DIAGNOSTIC_FORMAT: 'json' },
+    env: { ...process.env, TECHNICAL_DIAGRAMS_DIAGNOSTIC_FORMAT: 'json' },
   });
 
   assert.equal(result.status, 1, result.stderr || result.stdout);
@@ -729,14 +729,14 @@ test('cli: validate rejects unknown flags, layout-json assignment typos, and ext
 });
 
 test('cli: inspect emits architecture layout json', () => {
-  const input = path.resolve(skillRoot, '../examples/archify-repo-grid.architecture.json');
+  const input = path.resolve(skillRoot, 'examples/web-app.architecture.json');
   const result = run(['inspect', 'architecture', input]);
   assert.equal(result.status, 0, result.stderr);
   const parsed = JSON.parse(result.stdout);
   assert.equal(parsed.ok, true);
   assert.equal(parsed.diagram_type, 'architecture');
-  assert.equal(parsed.layout.mode, 'grid');
-  assert.ok(parsed.components.length >= 5);
+  assert.equal(parsed.layout.mode, 'free');
+  assert.ok(parsed.components.length >= 4);
   assert.ok(parsed.connections.length >= 1);
 });
 

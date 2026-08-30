@@ -1,13 +1,13 @@
 # Sequence Renderer
 
-Render `diagram_type: "sequence"` JSON files into the standard Archify HTML
+Render `diagram_type: "sequence"` JSON files into the standard Technical Diagrams HTML
 template.
 
 ```bash
-node archify/renderers/sequence/render-sequence.mjs input.sequence.json output.html
+node technical-diagrams/renderers/sequence/render-sequence.mjs input.sequence.json output.html
 ```
 
-The renderer validates input against `archify/schemas/sequence.schema.json`
+The renderer validates input against `technical-diagrams/schemas/sequence.schema.json`
 with the bundled standalone validator. No dependency installation is required.
 
 If `output.html` is omitted, the renderer uses `meta.output` from the JSON file
@@ -36,12 +36,12 @@ Sequence JSON files must set:
 The timeline scales with the viewBox height: a taller `meta.viewBox` buys more
 message room, a shorter one shrinks the readable band instead of clipping. A
 complete worked example lives at
-`archify/examples/cache-miss-request.sequence.json`.
+`technical-diagrams/examples/cache-miss-request.sequence.json`.
 
 The schema lives at:
 
 ```text
-archify/schemas/sequence.schema.json
+technical-diagrams/schemas/sequence.schema.json
 ```
 
 ## Legend

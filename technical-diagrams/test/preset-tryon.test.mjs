@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-preset-tryon-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-preset-tryon-'));
 
 const CASES = {
   architecture: 'web-app.architecture.json',
@@ -36,7 +36,7 @@ function svgBlock(html) {
 }
 
 function presetRuntime(html) {
-  return html.match(/Archify\.preset = \(function \(\) \{[\s\S]*?\n    \}\)\(\);/)?.[0] || '';
+  return html.match(/Technical Diagrams\.preset = \(function \(\) \{[\s\S]*?\n    \}\)\(\);/)?.[0] || '';
 }
 
 test('all five renderers expose one reader-controlled visual style picker', () => {
@@ -49,7 +49,7 @@ test('all five renderers expose one reader-controlled visual style picker', () =
     for (const preset of ['classic', 'signal-flow', 'blueprint', 'editorial']) {
       assert.match(html, new RegExp(`data-preset-value="${preset}"[^>]+role="menuitemradio"`), `${mode}: ${preset}`);
     }
-    assert.match(html, /Archify\.preset = \(function \(\)/, mode);
+    assert.match(html, /Technical Diagrams\.preset = \(function \(\)/, mode);
     assert.match(html, /S -> cycle visual style/, mode);
   }
 });
@@ -67,11 +67,11 @@ test('style selection synchronizes page, picker, and canonical SVG without touch
 
 test('omitted visual preset opens as Classic and theme switching cannot change it', () => {
   const html = render('architecture');
-  const themeRuntime = html.match(/Archify\.theme = \(function \(\) \{[\s\S]*?\n    \}\)\(\);/)?.[0] || '';
+  const themeRuntime = html.match(/Technical Diagrams\.theme = \(function \(\) \{[\s\S]*?\n    \}\)\(\);/)?.[0] || '';
   assert.match(html, /<html lang="en" data-theme="dark" data-preset="classic">/);
   assert.match(svgBlock(html), /<svg\b[^>]* data-preset="classic"/);
   assert.match(themeRuntime, /html\.setAttribute\('data-theme', theme\)/);
-  assert.doesNotMatch(themeRuntime, /data-preset|Archify\.preset/);
+  assert.doesNotMatch(themeRuntime, /data-preset|Technical Diagrams\.preset/);
 });
 
 test('style picker follows the accessible menu-button interaction contract', () => {

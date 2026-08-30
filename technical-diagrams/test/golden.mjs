@@ -1,6 +1,6 @@
-// Golden-file harness for the archify renderers. No test framework needed:
+// Golden-file harness for the technical-diagrams renderers. No test framework needed:
 // renderers are deterministic, so fresh renders must match both checked-in
-// development and packaged example HTML aside from platform checkout line endings. Also covers schema enforcement (negative cases),
+// packaged example HTML aside from platform checkout line endings. Also covers schema enforcement (negative cases),
 // template freshness of the architecture-mode example, and version sync.
 //
 // Run from the skill folder: npm test
@@ -13,8 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const repoRoot = path.resolve(skillRoot, '..');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-test-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-test-'));
 
 let failures = 0;
 
@@ -86,12 +85,9 @@ for (const [mode, input, golden] of GOLDEN) {
   try {
     render(mode, path.join(skillRoot, 'examples', input), out);
     const fresh = fs.readFileSync(out, 'utf8');
-    const checked = fs.readFileSync(path.join(repoRoot, 'examples', golden), 'utf8');
     const packaged = fs.readFileSync(path.join(skillRoot, 'examples', golden), 'utf8');
-    check(`${mode}: ${golden}`, normalizeNewlines(fresh) === normalizeNewlines(checked),
-      `fresh render differs from examples/${golden}; if the change is intentional, re-render the examples and commit them`);
-    check(`${mode}: packaged ${golden}`, normalizeNewlines(fresh) === normalizeNewlines(packaged),
-      `fresh render differs from archify/examples/${golden}; re-render the packaged examples and rebuild archify.zip`);
+    check(`${mode}: ${golden}`, normalizeNewlines(fresh) === normalizeNewlines(packaged),
+      `fresh render differs from technical-diagrams/examples/${golden}; re-render the packaged examples and rebuild technical-diagrams.zip`);
   } catch (err) {
     check(`${mode}: ${golden}`, false, String(err.stderr || err.message).slice(0, 300));
   }
@@ -149,7 +145,7 @@ function blocks(html, tag) {
 }
 
 const template = fs.readFileSync(path.join(skillRoot, 'assets/template.html'), 'utf8');
-const webApp = fs.readFileSync(path.join(repoRoot, 'examples/web-app.html'), 'utf8');
+const webApp = fs.readFileSync(path.join(skillRoot, 'examples/web-app-rendered.html'), 'utf8');
 // <style> and <script> blocks pass through applyTemplate untouched, so the
 // architecture-mode example must contain them verbatim or it has drifted.
 for (const tag of ['style', 'script']) {
@@ -168,7 +164,7 @@ console.log('version sync');
 
 const pkg = JSON.parse(fs.readFileSync(path.join(skillRoot, 'package.json'), 'utf8'));
 check('template generator meta matches package.json version',
-  template.includes(`<meta name="generator" content="archify ${pkg.version}">`),
+  template.includes(`<meta name="generator" content="technical-diagrams ${pkg.version}">`),
   `package.json says ${pkg.version}`);
 
 const lock = JSON.parse(fs.readFileSync(path.join(skillRoot, 'package-lock.json'), 'utf8'));
@@ -182,21 +178,6 @@ const packageMajorMinor = pkg.version.match(/^(\d+\.\d+)\./)?.[1];
 check('SKILL.md metadata version matches package.json major.minor',
   !!packageMajorMinor && skillVersion === packageMajorMinor,
   `SKILL.md says ${skillVersion}, package.json says ${pkg.version}`);
-
-for (const readmeName of ['README.md', 'README_EN.md', 'README_ZH.md']) {
-  const readme = fs.readFileSync(path.join(repoRoot, readmeName), 'utf8');
-  const badgeVersions = shieldsBadgeMessages(readme, 'version');
-  check(`${readmeName} badge matches package.json version`,
-    badgeVersions.length > 0 && badgeVersions.every((version) => version === pkg.version),
-    `${readmeName} badge says ${[...new Set(badgeVersions)].join(', ') || '(missing)'} instead of ${pkg.version}`);
-}
-
-const landingPage = fs.readFileSync(path.join(repoRoot, 'docs/index.html'), 'utf8');
-const landingVersions = [...landingPage.matchAll(/\bv\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?\b/g)]
-  .map((match) => match[0]);
-check('GitHub Pages version labels match package.json',
-  landingVersions.length > 0 && landingVersions.every((v) => v === `v${pkg.version}`),
-  `landing page says ${[...new Set(landingVersions)].join(', ') || '(no version)'}`);
 
 // ---------------------------------------------------------------------------
 fs.rmSync(tmp, { recursive: true, force: true });

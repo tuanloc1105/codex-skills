@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-presentation-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-presentation-'));
 
 const CASES = {
   architecture: 'web-app.architecture.json',
@@ -36,7 +36,7 @@ test('all typed renderers ship the same presentation stage contract', () => {
   for (const [mode, example] of Object.entries(CASES)) {
     const html = render(mode, example);
     assert.match(html, /id="btn-present"[^>]+aria-label="Enter presentation stage"[^>]+aria-pressed="false"/, mode);
-    assert.match(html, /Archify\.presentation = \(function \(\)/, mode);
+    assert.match(html, /Technical Diagrams\.presentation = \(function \(\)/, mode);
     assert.match(html, /enter: function \(\) \{ return setActive\(true\); \}/, mode);
     assert.match(html, /exit: function \(\) \{ return setActive\(false\); \}/, mode);
     assert.match(html, /html\[data-present="true"\]:not\(\[data-embed="true"\]\) \.diagram-container/, mode);
@@ -61,9 +61,9 @@ test('presentation keyboard behavior exits in layers and remains accessible', ()
   const html = render('workflow', CASES.workflow);
   assert.match(html, /e\.defaultPrevented\) return/);
   assert.match(html, /e\.key === 'f' \|\| e\.key === 'F'/);
-  assert.match(html, /Archify\.presentation\.toggle\(\)/);
-  assert.match(html, /e\.key === 'Escape' && Archify\.focus\.active\(\)/);
-  assert.match(html, /e\.key === 'Escape' && Archify\.presentation\.active\(\)/);
+  assert.match(html, /Technical Diagrams\.presentation\.toggle\(\)/);
+  assert.match(html, /e\.key === 'Escape' && Technical Diagrams\.focus\.active\(\)/);
+  assert.match(html, /e\.key === 'Escape' && Technical Diagrams\.presentation\.active\(\)/);
   assert.match(html, /btn\.setAttribute\('aria-pressed', next \? 'true' : 'false'\)/);
   assert.match(html, /Exit presentation stage \(F or Escape\)/);
 });

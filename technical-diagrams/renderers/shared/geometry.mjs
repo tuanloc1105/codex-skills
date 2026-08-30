@@ -946,7 +946,7 @@ export function cleanLabelRouteClearanceProblems({
 function qualityProfileForGate(profile, profileIsAuthoritative) {
   return profileIsAuthoritative
     ? profile
-    : process.env.ARCHIFY_QUALITY_PROFILE || profile;
+    : process.env.TECHNICAL_DIAGRAMS_QUALITY_PROFILE || profile;
 }
 
 function collectEligibleRoutedRelations({ relations, endpointIds, pathFor }) {

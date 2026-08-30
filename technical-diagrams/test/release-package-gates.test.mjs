@@ -58,24 +58,24 @@ test('release prevents manifest preannouncement and smokes the exact archive bef
 
   assert.match(tagFetch, /git fetch --force --no-tags origin/);
   assert.match(tagFetch, /refs\/tags\/\$\{GITHUB_REF_NAME\}:refs\/tags\/\$\{GITHUB_REF_NAME\}/);
-  assert.match(tagGate, /require\('\.\/archify\/package\.json'\)\.version/);
+  assert.match(tagGate, /require\('\.\/technical-diagrams\/package\.json'\)\.version/);
   assert.match(tagGate, /GITHUB_REF_NAME#v/);
   assert.match(annotatedTagGate, /steps\.release-kind\.outputs\.prerelease == 'false'/);
   assert.match(annotatedTagGate, /git cat-file -t "refs\/tags\/\$\{GITHUB_REF_NAME\}"/);
   assert.match(annotatedTagGate, /stable releases require an annotated tag/);
   assert.match(publicationOrder, /compareSemver\(published\.version, releasing\) >= 0/);
   assert.match(publicationOrder, /publish the manifest in a follow-up commit/);
-  assert.match(build, /run: scripts\/build-zip\.sh \/tmp\/archify-built\.zip/);
-  assert.match(smoke, /unzip -q \/tmp\/archify-built\.zip -d "\$package_root"/);
-  assert.match(smoke, /node scripts\/package-smoke\.mjs "\$package_root\/archify"/);
+  assert.match(build, /run: scripts\/build-zip\.sh \/tmp\/technical-diagrams-built\.zip/);
+  assert.match(smoke, /unzip -q \/tmp\/technical-diagrams-built\.zip -d "\$package_root"/);
+  assert.match(smoke, /node scripts\/package-smoke\.mjs "\$package_root\/technical-diagrams"/);
   assert.doesNotMatch(smoke, /\bnpm\s+(?:ci|install)\b/);
-  assert.match(freshness, /cmp -s \/tmp\/archify-built\.zip archify\.zip/);
-  assert.match(upload, /files: archify\.zip/);
-  assert.match(followUp, /docs\/skill-updates\/archify\/stable\.json/);
+  assert.match(freshness, /cmp -s \/tmp\/technical-diagrams-built\.zip technical-diagrams\.zip/);
+  assert.match(upload, /files: technical-diagrams\.zip/);
+  assert.match(followUp, /docs\/skill-updates\/technical-diagrams\/stable\.json/);
 });
 
 test('an exact tag fetch restores an annotated object after a SHA-only checkout', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-tag-fetch-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-tag-fetch-'));
   const source = path.join(fixture, 'source');
   const checkout = path.join(fixture, 'checkout');
   const runGit = (cwd, args) => spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -83,8 +83,8 @@ test('an exact tag fetch restores an annotated object after a SHA-only checkout'
   try {
     fs.mkdirSync(source);
     assert.equal(runGit(source, ['init', '--quiet']).status, 0);
-    assert.equal(runGit(source, ['config', 'user.name', 'Archify Test']).status, 0);
-    assert.equal(runGit(source, ['config', 'user.email', 'archify@example.invalid']).status, 0);
+    assert.equal(runGit(source, ['config', 'user.name', 'Technical Diagrams Test']).status, 0);
+    assert.equal(runGit(source, ['config', 'user.email', 'technical-diagrams@example.invalid']).status, 0);
     fs.writeFileSync(path.join(source, 'release.txt'), 'release\n');
     assert.equal(runGit(source, ['add', 'release.txt']).status, 0);
     assert.equal(runGit(source, ['commit', '--quiet', '-m', 'release fixture']).status, 0);
@@ -119,11 +119,11 @@ test('CI binds a public notifier manifest to the Release asset, tagged archive, 
   assert.match(job, /latest_stable_tag" != "v\$\{manifest_version\}"/);
   assert.match(job, /releases\/tags\/v\$\{manifest_version\}/);
   assert.match(job, /select\(\.draft == false and \.prerelease == false\)/);
-  assert.match(job, /select\(\.name == "archify\.zip"\)/);
+  assert.match(job, /select\(\.name == "technical-diagrams\.zip"\)/);
   assert.match(job, /releases\/assets\/\$\{release_asset_id\}/);
   assert.match(job, /Accept: application\/octet-stream/);
   assert.match(job, /refs\/tags\/v\$\{manifest_version\}:refs\/tags\/v\$\{manifest_version\}/);
-  assert.match(job, /git show "v\$\{manifest_version\}:archify\.zip" > "\$tagged_archive"/);
+  assert.match(job, /git show "v\$\{manifest_version\}:technical-diagrams\.zip" > "\$tagged_archive"/);
   assert.match(job, /cmp -s "\$published_archive" "\$tagged_archive"/);
   assert.match(job, /check-stable-update-manifest\.mjs/);
   assert.match(job, /--archive "\$published_archive"/);
@@ -195,10 +195,10 @@ test('package smoke rejects every dependency or repository-only artifact', () =>
   ];
 
   for (const { relative, kind } of forbidden) {
-    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-package-gate-'));
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-package-gate-'));
     try {
       fs.mkdirSync(path.join(fixture, 'bin'), { recursive: true });
-      fs.writeFileSync(path.join(fixture, 'bin', 'archify.mjs'), '');
+      fs.writeFileSync(path.join(fixture, 'bin', 'technical-diagrams.mjs'), '');
       const target = path.join(fixture, relative);
       if (kind === 'directory') fs.mkdirSync(target, { recursive: true });
       else {
@@ -224,13 +224,13 @@ test('package smoke verifies the embedded notifier identity and local disable sw
   assert.match(source, /scripts', 'check-update\.mjs/);
   assert.match(source, /scripts', 'update-contract\.mjs/);
   assert.match(source, /skill-release\.json/);
-  assert.match(source, /ARCHIFY_UPDATE_CHECK_DISABLED: '1'/);
+  assert.match(source, /TECHNICAL_DIAGRAMS_UPDATE_CHECK_DISABLED: '1'/);
   assert.match(source, /reason !== 'disabled'/);
 });
 
 test('package smoke increments an arbitrary-precision SemVer patch without Number coercion', () => {
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-package-bigint-version-'));
-  const skillRoot = path.join(scratch, 'archify');
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-package-bigint-version-'));
+  const skillRoot = path.join(scratch, 'technical-diagrams');
   try {
     stageCleanSkill({ repoRoot, destination: skillRoot });
     const packagePath = path.join(skillRoot, 'package.json');
@@ -258,17 +258,17 @@ test('archive build refuses to silently omit required notifier files', () => {
   const buildSource = fs.readFileSync(path.join(repoRoot, 'scripts', 'build-zip.sh'), 'utf8');
   const stageSource = fs.readFileSync(path.join(repoRoot, 'scripts', 'stage-clean-skill.mjs'), 'utf8');
   assert.match(buildSource, /stage-clean-skill\.mjs/);
-  assert.match(stageSource, /archify\/skill-release\.json/);
-  assert.match(stageSource, /archify\/scripts\/check-update\.mjs/);
-  assert.match(stageSource, /archify\/scripts\/update-contract\.mjs/);
+  assert.match(stageSource, /technical-diagrams\/skill-release\.json/);
+  assert.match(stageSource, /technical-diagrams\/scripts\/check-update\.mjs/);
+  assert.match(stageSource, /technical-diagrams\/scripts\/update-contract\.mjs/);
   assert.match(stageSource, /git', \['ls-files', '--stage', '-z'/);
   assert.match(stageSource, /required package input is not tracked by Git/);
 });
 
 canonicalZipTest('package smoke rejects every dependency metadata field in a built package', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-built-package-gate-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-built-package-gate-'));
   try {
-    const archive = path.join(fixture, 'archify.zip');
+    const archive = path.join(fixture, 'technical-diagrams.zip');
     const build = spawnSync(path.join(repoRoot, 'scripts', 'build-zip.sh'), [archive], {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -279,7 +279,7 @@ canonicalZipTest('package smoke rejects every dependency metadata field in a bui
     fs.mkdirSync(extracted);
     const unzip = spawnSync('unzip', ['-q', archive, '-d', extracted], { encoding: 'utf8' });
     assert.equal(unzip.status, 0, `${unzip.stdout}\n${unzip.stderr}`);
-    const builtPackage = path.join(extracted, 'archify');
+    const builtPackage = path.join(extracted, 'technical-diagrams');
     const dependencyFields = {
       dependencies: { runtime: '1.0.0' },
       devDependencies: { build: '1.0.0' },
@@ -309,9 +309,9 @@ canonicalZipTest('package smoke rejects every dependency metadata field in a bui
 });
 
 canonicalZipTest('built archives contain the embedded notifier runtime', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-notifier-package-gate-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-notifier-package-gate-'));
   try {
-    const archive = path.join(fixture, 'archify.zip');
+    const archive = path.join(fixture, 'technical-diagrams.zip');
     const build = spawnSync(path.join(repoRoot, 'scripts', 'build-zip.sh'), [archive], {
       cwd: repoRoot,
       encoding: 'utf8',
@@ -321,9 +321,9 @@ canonicalZipTest('built archives contain the embedded notifier runtime', () => {
     const listing = spawnSync('unzip', ['-Z1', archive], { encoding: 'utf8' });
     assert.equal(listing.status, 0, `${listing.stdout}\n${listing.stderr}`);
     const entries = new Set(listing.stdout.trim().split('\n'));
-    assert.ok(entries.has('archify/skill-release.json'));
-    assert.ok(entries.has('archify/scripts/check-update.mjs'));
-    assert.ok(entries.has('archify/scripts/update-contract.mjs'));
+    assert.ok(entries.has('technical-diagrams/skill-release.json'));
+    assert.ok(entries.has('technical-diagrams/scripts/check-update.mjs'));
+    assert.ok(entries.has('technical-diagrams/scripts/update-contract.mjs'));
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
@@ -331,12 +331,12 @@ canonicalZipTest('built archives contain the embedded notifier runtime', () => {
 
 canonicalZipTest('archive build excludes untracked files and external symlinks from the live working tree', () => {
   const marker = `.package-negative-${process.pid}-${Date.now()}`;
-  const untracked = path.join(repoRoot, 'archify', `${marker}.txt`);
-  const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-package-external-'));
+  const untracked = path.join(repoRoot, 'technical-diagrams', `${marker}.txt`);
+  const externalRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-package-external-'));
   const externalTarget = path.join(externalRoot, 'secret.txt');
-  const externalLink = path.join(repoRoot, 'archify', `${marker}.link`);
-  const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-package-negative-'));
-  const archive = path.join(outputRoot, 'archify.zip');
+  const externalLink = path.join(repoRoot, 'technical-diagrams', `${marker}.link`);
+  const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-package-negative-'));
+  const archive = path.join(outputRoot, 'technical-diagrams.zip');
 
   try {
     fs.writeFileSync(untracked, 'must not ship\n');
@@ -361,9 +361,9 @@ canonicalZipTest('archive build excludes untracked files and external symlinks f
 });
 
 canonicalZipTest('archive build rejects an unmerged index and preserves an existing archive', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-package-unmerged-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-package-unmerged-'));
   const scripts = path.join(fixture, 'scripts');
-  const skill = path.join(fixture, 'archify');
+  const skill = path.join(fixture, 'technical-diagrams');
   const license = path.join(skill, 'LICENSE');
   const archive = path.join(fixture, 'trusted.zip');
   const trusted = Buffer.from('trusted archive bytes');
@@ -390,7 +390,7 @@ canonicalZipTest('archive build rejects an unmerged index and preserves an exist
     fs.writeFileSync(path.join(skill, 'scripts', 'check-update.mjs'), 'export {};\n');
     fs.writeFileSync(path.join(skill, 'scripts', 'update-contract.mjs'), 'export {};\n');
     fs.writeFileSync(path.join(skill, 'skill-release.json'), '{}\n');
-    fs.writeFileSync(path.join(skill, 'package.json'), '{"name":"archify"}\n');
+    fs.writeFileSync(path.join(skill, 'package.json'), '{"name":"technical-diagrams"}\n');
     fs.writeFileSync(license, 'base\n');
     assert.equal(git(['init']).status, 0);
     assert.equal(git(['add', '.']).status, 0);
@@ -400,9 +400,9 @@ canonicalZipTest('archive build rejects an unmerged index and preserves an exist
     const theirs = git(['hash-object', '-w', '--stdin'], { input: 'theirs\n' });
     for (const result of [base, ours, theirs]) assert.equal(result.status, 0, result.stderr);
     const indexInfo = [
-      `100644 ${base.stdout.trim()} 1\tarchify/LICENSE`,
-      `100644 ${ours.stdout.trim()} 2\tarchify/LICENSE`,
-      `100644 ${theirs.stdout.trim()} 3\tarchify/LICENSE`,
+      `100644 ${base.stdout.trim()} 1\ttechnical-diagrams/LICENSE`,
+      `100644 ${ours.stdout.trim()} 2\ttechnical-diagrams/LICENSE`,
+      `100644 ${theirs.stdout.trim()} 3\ttechnical-diagrams/LICENSE`,
       '',
     ].join('\n');
     assert.equal(git(['update-index', '--index-info'], { input: indexInfo }).status, 0);
@@ -426,9 +426,9 @@ test('archive build rejects non-canonical Node versions before publishing output
     ? `requires a Node major other than ${canonicalZipNodeMajor}`
     : false,
 }, () => {
-  const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-package-node-version-'));
+  const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-package-node-version-'));
   try {
-    const archive = path.join(outputRoot, 'archify.zip');
+    const archive = path.join(outputRoot, 'technical-diagrams.zip');
     const trusted = Buffer.from('existing canonical archive');
     fs.writeFileSync(archive, trusted);
     const build = spawnSync(path.join(repoRoot, 'scripts', 'build-zip.sh'), [archive], {
@@ -436,7 +436,7 @@ test('archive build rejects non-canonical Node versions before publishing output
       encoding: 'utf8',
     });
     assert.notEqual(build.status, 0, `${build.stdout}\n${build.stderr}`);
-    assert.match(build.stderr, /canonical archify\.zip builds require Node 22/);
+    assert.match(build.stderr, /canonical technical-diagrams\.zip builds require Node 22/);
     assert.ok(fs.readFileSync(archive).equals(trusted), 'version rejection must preserve the canonical archive');
   } finally {
     fs.rmSync(outputRoot, { recursive: true, force: true });
@@ -444,7 +444,7 @@ test('archive build rejects non-canonical Node versions before publishing output
 });
 
 canonicalZipTest('archive build is byte-for-byte reproducible across caller time zones without system zip', () => {
-  const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-package-reproducible-'));
+  const outputRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-package-reproducible-'));
   const utcArchive = path.join(outputRoot, 'utc.zip');
   const honoluluArchive = path.join(outputRoot, 'honolulu.zip');
 
@@ -466,7 +466,7 @@ canonicalZipTest('archive build is byte-for-byte reproducible across caller time
       'identical tracked inputs must produce identical archive bytes',
     );
     assert.ok(
-      fs.readFileSync(utcArchive).equals(fs.readFileSync(path.join(repoRoot, 'archify.zip'))),
+      fs.readFileSync(utcArchive).equals(fs.readFileSync(path.join(repoRoot, 'technical-diagrams.zip'))),
       'the canonical archive toolchain must reproduce the committed archive bytes',
     );
     assert.deepEqual(
@@ -480,7 +480,7 @@ canonicalZipTest('archive build is byte-for-byte reproducible across caller time
 });
 
 test('CI tests the declared Node floor plus every maintained current lane', () => {
-  const packageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, 'archify', 'package.json'), 'utf8'));
+  const packageJson = JSON.parse(fs.readFileSync(path.join(repoRoot, 'technical-diagrams', 'package.json'), 'utf8'));
   assert.equal(packageJson.engines?.node, '>=18');
 
   const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8');

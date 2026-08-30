@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const DIAGNOSTIC_MODE = process.env.ARCHIFY_DIAGNOSTIC_FORMAT === 'json';
+const DIAGNOSTIC_MODE = process.env.TECHNICAL_DIAGRAMS_DIAGNOSTIC_FORMAT === 'json';
 const recorded = [];
 const recordedMessages = new Set();
-const boundaryKey = Symbol.for('archify.renderer-diagnostic-boundary');
+const boundaryKey = Symbol.for('technical-diagrams.renderer-diagnostic-boundary');
 let recordingSuppressionDepth = 0;
 
 function plainObject(value) {
@@ -13,7 +13,7 @@ function plainObject(value) {
 }
 
 function normalizedDiagnostic(diagnostic) {
-  const message = String(diagnostic?.message || 'Archify could not classify this failure.').trim();
+  const message = String(diagnostic?.message || 'Technical Diagrams could not classify this failure.').trim();
   return {
     code: String(diagnostic?.code || 'internal/unclassified'),
     severity: diagnostic?.severity === 'warning' ? 'warning' : 'error',
@@ -49,7 +49,7 @@ export function withDiagnosticRecordingSuppressed(callback) {
 export function throwDiagnosticError(message, diagnostics) {
   for (const diagnostic of diagnostics || []) recordDiagnostic(diagnostic);
   const error = new Error(message);
-  error.archifyDiagnostics = (diagnostics || []).map(normalizedDiagnostic);
+  error.technicalDiagramDiagnostics = (diagnostics || []).map(normalizedDiagnostic);
   throw error;
 }
 
@@ -98,8 +98,8 @@ function fallbackDiagnostic(error) {
   });
 }
 function rendererFailure(error) {
-  const attached = Array.isArray(error?.archifyDiagnostics)
-    ? error.archifyDiagnostics.map(normalizedDiagnostic)
+  const attached = Array.isArray(error?.technicalDiagramDiagnostics)
+    ? error.technicalDiagramDiagnostics.map(normalizedDiagnostic)
     : [];
   const diagnostics = recorded.length ? recorded : (attached.length ? attached : [fallbackDiagnostic(error)]);
   return {

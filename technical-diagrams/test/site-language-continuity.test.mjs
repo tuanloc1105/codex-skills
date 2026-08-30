@@ -14,8 +14,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../..');
 const runtimePath = path.join(repoRoot, 'docs/assets/site-language.js');
 const navigationPath = path.join(repoRoot, 'docs/assets/site-navigation.css');
-const integrationEnabled = process.env.ARCHIFY_SITE_INTEGRATION === '1';
-const chromePath = integrationEnabled && process.env.ARCHIFY_CHROME ? findChrome() : null;
+const integrationEnabled = process.env.TECHNICAL_DIAGRAMS_SITE_INTEGRATION === '1';
+const chromePath = integrationEnabled && process.env.TECHNICAL_DIAGRAMS_CHROME ? findChrome() : null;
 
 function loadRuntime({
   url = 'https://example.test/',
@@ -55,7 +55,7 @@ function loadRuntime({
     localStorage,
   };
   vm.runInNewContext(fs.readFileSync(source, 'utf8'), { window, URL, URLSearchParams });
-  return { language: window.ArchifySiteLanguage, values, url: () => new URL(currentUrl) };
+  return { language: window.Technical DiagramsSiteLanguage, values, url: () => new URL(currentUrl) };
 }
 
 async function evaluate(browser, sessionId, expression) {
@@ -114,62 +114,62 @@ function startStaticServer(root) {
 }
 
 test('site language runtime normalizes one entry parameter into one durable preference', () => {
-  const canonical = loadRuntime({ values: new Map([['archify-lang', 'zh']]) });
+  const canonical = loadRuntime({ values: new Map([['technical-diagrams-lang', 'zh']]) });
   assert.equal(canonical.language.read(), 'zh');
 
-  for (const legacyKey of ['archify-gallery-language', 'archify-guide-language']) {
+  for (const legacyKey of ['technical-diagrams-gallery-language', 'technical-diagrams-guide-language']) {
     const legacy = loadRuntime({ values: new Map([[legacyKey, 'zh']]) });
     assert.equal(legacy.language.read(), 'zh', `${legacyKey} must remain readable during migration`);
-    assert.equal(legacy.values.get('archify-lang'), 'zh', `${legacyKey} must migrate to the canonical key`);
+    assert.equal(legacy.values.get('technical-diagrams-lang'), 'zh', `${legacyKey} must migrate to the canonical key`);
   }
 
   const canonicalWins = loadRuntime({
     values: new Map([
-      ['archify-lang', 'en'],
-      ['archify-gallery-language', 'zh'],
-      ['archify-guide-language', 'zh'],
+      ['technical-diagrams-lang', 'en'],
+      ['technical-diagrams-gallery-language', 'zh'],
+      ['technical-diagrams-guide-language', 'zh'],
     ]),
   });
   assert.equal(canonicalWins.language.read(), 'en');
 
   const secondLegacyFallback = loadRuntime({
     values: new Map([
-      ['archify-gallery-language', 'fr'],
-      ['archify-guide-language', 'zh'],
+      ['technical-diagrams-gallery-language', 'fr'],
+      ['technical-diagrams-guide-language', 'zh'],
     ]),
   });
   assert.equal(secondLegacyFallback.language.read(), 'zh');
-  assert.equal(secondLegacyFallback.values.get('archify-lang'), 'zh');
+  assert.equal(secondLegacyFallback.values.get('technical-diagrams-lang'), 'zh');
 
   const conflictingLegacy = loadRuntime({
     values: new Map([
-      ['archify-gallery-language', 'zh'],
-      ['archify-guide-language', 'en'],
+      ['technical-diagrams-gallery-language', 'zh'],
+      ['technical-diagrams-guide-language', 'en'],
     ]),
   });
   assert.equal(conflictingLegacy.language.read(), 'zh');
-  assert.equal(conflictingLegacy.values.get('archify-lang'), 'zh');
-  conflictingLegacy.values.set('archify-gallery-language', 'en');
+  assert.equal(conflictingLegacy.values.get('technical-diagrams-lang'), 'zh');
+  conflictingLegacy.values.set('technical-diagrams-gallery-language', 'en');
   const migrated = loadRuntime({ values: conflictingLegacy.values });
   assert.equal(migrated.language.read(), 'zh', 'the canonical migration must win on later page loads');
 
   const explicit = loadRuntime({
     url: 'https://example.test/guide.html?lang=en&type=workflow#chooser',
-    values: new Map([['archify-lang', 'zh']]),
+    values: new Map([['technical-diagrams-lang', 'zh']]),
   });
   assert.equal(explicit.language.read(), 'en');
-  assert.equal(explicit.values.get('archify-lang'), 'en');
+  assert.equal(explicit.values.get('technical-diagrams-lang'), 'en');
   assert.equal(explicit.url().searchParams.has('lang'), false);
   assert.equal(explicit.url().searchParams.get('type'), 'workflow');
   assert.equal(explicit.url().hash, '#chooser');
 
   const historyBlocked = loadRuntime({
     url: 'https://example.test/guide.html?lang=zh&type=workflow#chooser',
-    values: new Map([['archify-lang', 'en']]),
+    values: new Map([['technical-diagrams-lang', 'en']]),
     historyError: true,
   });
   assert.equal(historyBlocked.language.read(), 'zh');
-  assert.equal(historyBlocked.values.get('archify-lang'), 'zh');
+  assert.equal(historyBlocked.values.get('technical-diagrams-lang'), 'zh');
   assert.equal(historyBlocked.url().searchParams.get('lang'), 'zh');
 
   assert.equal(explicit.language.write('zh'), 'zh');
@@ -178,7 +178,7 @@ test('site language runtime normalizes one entry parameter into one durable pref
 
   const unsupported = loadRuntime({
     url: 'https://example.test/?lang=fr',
-    values: new Map([['archify-lang', 'zh']]),
+    values: new Map([['technical-diagrams-lang', 'zh']]),
   });
   assert.equal(unsupported.language.read(), 'zh');
   assert.equal(unsupported.url().searchParams.has('lang'), false);
@@ -191,15 +191,15 @@ test('site language runtime normalizes one entry parameter into one durable pref
   assert.equal(blocked.language.write('zh'), 'zh');
 
   const source = fs.readFileSync(runtimePath, 'utf8');
-  assert.match(source, /archify-gallery-language/);
-  assert.match(source, /archify-guide-language/);
+  assert.match(source, /technical-diagrams-gallery-language/);
+  assert.match(source, /technical-diagrams-guide-language/);
   assert.doesNotMatch(source, /navigator\.language|detectBrowserLanguage|select\s*:/);
 });
 
 test('custom site builders emit every shared site asset and preserve entry, navigation, selection, and refresh state', {
   skip: integrationEnabled ? false : 'Run through the serialized site integration gate.',
 }, () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-site-language-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-site-language-'));
   try {
     const builds = [
       { script: 'build-start.mjs', args: [path.join(tmp, 'start-site/start.html')], root: 'start-site' },
@@ -226,7 +226,7 @@ test('custom site builders emit every shared site asset and preserve entry, navi
       source: emittedRuntime,
     });
     assert.equal(landing.language.read(), 'zh');
-    assert.equal(values.get('archify-lang'), 'zh');
+    assert.equal(values.get('technical-diagrams-lang'), 'zh');
     assert.equal(landing.url().searchParams.has('lang'), false);
     assert.equal(landing.url().searchParams.get('utm_source'), 'readme');
     assert.equal(landing.url().hash, '#proof');
@@ -242,7 +242,7 @@ test('custom site builders emit every shared site asset and preserve entry, navi
       source: emittedRuntime,
     });
     assert.equal(explicitEnglish.language.read(), 'en');
-    assert.equal(values.get('archify-lang'), 'en');
+    assert.equal(values.get('technical-diagrams-lang'), 'en');
     assert.equal(explicitEnglish.url().searchParams.has('lang'), false);
 
     explicitEnglish.language.write('zh');
@@ -279,8 +279,8 @@ test('all site pages consume one language runtime and one navigation contract', 
     assert.match(html, /<script src="assets\/site-language\.js"><\/script>/, `${relative}: shared runtime missing`);
     assert.match(html, /<link rel="stylesheet" href="assets\/site-navigation\.css">/, `${relative}: shared navigation missing`);
     assert.match(html, /<nav class="site-nav" aria-label="Primary navigation">/, `${relative}: canonical navigation root missing`);
-    assert.match(html, /ArchifySiteLanguage\.read\(/, `${relative}: shared language read missing`);
-    assert.match(html, /ArchifySiteLanguage\.write\(/, `${relative}: shared language write missing`);
+    assert.match(html, /Technical DiagramsSiteLanguage\.read\(/, `${relative}: shared language read missing`);
+    assert.match(html, /Technical DiagramsSiteLanguage\.write\(/, `${relative}: shared language write missing`);
     assert.match(html, /href="guide\.html"/, `${relative}: Guide navigation missing`);
     assert.match(html, /href="gallery\.html"/, `${relative}: Proof Lab navigation missing`);
     assert.match(html, /href="start\.html"/, `${relative}: Start navigation missing`);
@@ -289,7 +289,7 @@ test('all site pages consume one language runtime and one navigation contract', 
     assert.doesNotMatch(html, /\.nav-right\s*\{/, `${relative}: inline navigation actions bypass the shared contract`);
     assert.doesNotMatch(
       html,
-      /localStorage\.setItem\(['"]archify-(?:lang|gallery-language|guide-language)['"]/,
+      /localStorage\.setItem\(['"]technical-diagrams-(?:lang|gallery-language|guide-language)['"]/,
       `${relative}: page bypasses the shared language writer`,
     );
   }
@@ -301,7 +301,7 @@ test('all site pages consume one language runtime and one navigation contract', 
 });
 
 test('real Chrome preserves language through entry, navigation, selection, refresh, and consistent navigation chrome', {
-  skip: chromePath ? false : 'Set ARCHIFY_CHROME to run the real site regression.',
+  skip: chromePath ? false : 'Set TECHNICAL_DIAGRAMS_CHROME to run the real site regression.',
   timeout: 60000,
 }, async () => {
   const docsRoot = path.join(repoRoot, 'docs');
@@ -323,11 +323,11 @@ test('real Chrome preserves language through entry, navigation, selection, refre
     await navigate(browser, sessionId, `${baseUrl}/index.html`);
     await evaluate(browser, sessionId, 'localStorage.clear()');
 
-    await evaluate(browser, sessionId, "localStorage.setItem('archify-guide-language', 'zh')");
+    await evaluate(browser, sessionId, "localStorage.setItem('technical-diagrams-guide-language', 'zh')");
     await navigate(browser, sessionId, `${baseUrl}/index.html`);
     assert.deepEqual(await evaluate(browser, sessionId, `({
       language: document.documentElement.lang,
-      stored: localStorage.getItem('archify-lang')
+      stored: localStorage.getItem('technical-diagrams-lang')
     })`), { language: 'zh-CN', stored: 'zh' });
 
     await evaluate(browser, sessionId, 'localStorage.clear()');
@@ -335,7 +335,7 @@ test('real Chrome preserves language through entry, navigation, selection, refre
 
     let state = await evaluate(browser, sessionId, `({
       language: document.documentElement.lang,
-      stored: localStorage.getItem('archify-lang'),
+      stored: localStorage.getItem('technical-diagrams-lang'),
       langQuery: new URL(location.href).searchParams.get('lang'),
       campaign: new URL(location.href).searchParams.get('utm_source'),
       hash: location.hash
@@ -359,7 +359,7 @@ test('real Chrome preserves language through entry, navigation, selection, refre
     await navigate(browser, sessionId, `${baseUrl}/guide.html?lang=zh#recipes`);
     state = await evaluate(browser, sessionId, `({
       language: document.documentElement.lang,
-      stored: localStorage.getItem('archify-lang'),
+      stored: localStorage.getItem('technical-diagrams-lang'),
       langQuery: new URL(location.href).searchParams.get('lang'),
       hash: location.hash
     })`);

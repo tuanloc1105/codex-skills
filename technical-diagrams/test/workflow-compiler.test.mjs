@@ -11,8 +11,8 @@ import { compileWorkflow } from '../renderers/workflow/workflow-compiler.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const cli = path.join(skillRoot, 'bin', 'archify.mjs');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-workflow-compiler-'));
+const cli = path.join(skillRoot, 'bin', 'technical-diagrams.mjs');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-workflow-compiler-'));
 
 function readJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));

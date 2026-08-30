@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "skillId": "archify",
-  "channel": "stable",
+  "skillId": "technical-diagrams",
+  "channel": "local",
   "version": "2.16.0",
-  "source": {
-    "repository": "https://github.com/tt-a1i/archify"
-  },
-  "updateManifestUrl": "https://tt-a1i.github.io/archify/skill-updates/archify/stable.json"
+  "updates": {
+    "enabled": false,
+    "reason": "No update source is configured for this pinned adaptation."
+  }
 }

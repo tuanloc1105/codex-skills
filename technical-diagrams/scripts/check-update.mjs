@@ -1280,7 +1280,7 @@ function notification(localRelease, candidate) {
     latestVersion: candidate.version,
     targetDigest: candidate.targetDigest,
     severity: candidate.severity,
-    summary: `Archify ${candidate.version} is available; see the official release notes for details.`,
+    summary: `Technical Diagrams ${candidate.version} is available; see the official release notes for details.`,
     releaseNotes: candidate.releaseNotes,
   };
 }
@@ -1391,11 +1391,11 @@ function defaultCacheDirectory() {
   const homeDirectory = os.homedir();
   if (process.platform === 'win32') {
     const localData = process.env.LOCALAPPDATA;
-    return path.join(localData && path.isAbsolute(localData) ? localData : path.join(homeDirectory, 'AppData', 'Local'), 'archify-skill');
+    return path.join(localData && path.isAbsolute(localData) ? localData : path.join(homeDirectory, 'AppData', 'Local'), 'technical-diagrams-skill');
   }
-  if (process.platform === 'darwin') return path.join(homeDirectory, 'Library', 'Caches', 'archify-skill');
+  if (process.platform === 'darwin') return path.join(homeDirectory, 'Library', 'Caches', 'technical-diagrams-skill');
   const xdgCache = process.env.XDG_CACHE_HOME;
-  return path.join(xdgCache && path.isAbsolute(xdgCache) ? xdgCache : path.join(homeDirectory, '.cache'), 'archify-skill');
+  return path.join(xdgCache && path.isAbsolute(xdgCache) ? xdgCache : path.join(homeDirectory, '.cache'), 'technical-diagrams-skill');
 }
 
 function freshStateResult(localRelease, state, nowMs) {
@@ -1440,6 +1440,7 @@ export async function checkForUpdate({
   random = Math.random,
   timeoutMs = DEFAULT_TIMEOUT_MS,
 } = {}) {
+  if (DEFAULT_MANIFEST_URL === null) return silent('disabled');
   if (typeof fetchImpl !== 'function') return silent('runtime-unavailable');
   let localRelease;
   try {
@@ -1573,6 +1574,7 @@ export async function acknowledgeUpdate({
   eventKey,
   monotonicNow = () => performance.now(),
 } = {}) {
+  if (DEFAULT_MANIFEST_URL === null) return silent('disabled');
   const targetDigest = digestForEventKey(eventKey);
   if (!targetDigest || typeof monotonicNow !== 'function') {
     return silent('invalid-acknowledgement');
@@ -1634,7 +1636,7 @@ export async function acknowledgeUpdate({
 }
 
 async function runCli() {
-  if (process.env.ARCHIFY_UPDATE_CHECK_DISABLED === '1') return silent('disabled');
+  if (process.env.TECHNICAL_DIAGRAMS_UPDATE_CHECK_DISABLED === '1') return silent('disabled');
   const argumentsList = process.argv.slice(2);
   if (argumentsList.length === 0) return checkForUpdate();
   if (argumentsList.length === 2 && argumentsList[0] === '--ack') {

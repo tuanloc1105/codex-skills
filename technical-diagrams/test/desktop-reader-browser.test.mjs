@@ -11,16 +11,16 @@ import { DESKTOP_READABILITY_VIEWPORT, MIN_PROJECTED_NODE_TEXT_PX } from '../ren
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const chromePath = process.env.ARCHIFY_CHROME ? findChrome() : null;
+const chromePath = process.env.TECHNICAL_DIAGRAMS_CHROME ? findChrome() : null;
 
 test('production showcase is readable in the real 1440 by 900 adaptive reader', {
-  skip: chromePath ? false : 'Set ARCHIFY_CHROME to run the real browser regression.',
+  skip: chromePath ? false : 'Set TECHNICAL_DIAGRAMS_CHROME to run the real browser regression.',
 }, async () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-desktop-reader-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-desktop-reader-'));
   const artifact = path.join(tmp, 'production-deployment.html');
   try {
     execFileSync(process.execPath, [
-      path.join(skillRoot, 'bin', 'archify.mjs'),
+      path.join(skillRoot, 'bin', 'technical-diagrams.mjs'),
       'render',
       'architecture',
       path.join(skillRoot, 'examples', 'production-deployment.architecture.json'),

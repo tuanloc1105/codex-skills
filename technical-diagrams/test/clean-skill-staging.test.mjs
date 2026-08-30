@@ -24,18 +24,18 @@ function write(root, relative, content, mode = null) {
 }
 
 function repositoryFixture() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-clean-stage-'));
-  write(root, 'archify/package.json', JSON.stringify({
-    name: 'archify-fixture',
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-clean-stage-'));
+  write(root, 'technical-diagrams/package.json', JSON.stringify({
+    name: 'technical-diagrams-fixture',
     scripts: { test: 'node --test' },
     devDependencies: { ajv: '1.0.0' },
   }));
-  write(root, 'archify/package-lock.json', '{}\n');
-  write(root, 'archify/skill-release.json', '{}\n');
-  write(root, 'archify/scripts/check-update.mjs', 'export {};\n');
-  write(root, 'archify/scripts/update-contract.mjs', 'export {};\n');
-  write(root, 'archify/renderers/shared/generated-validators.mjs', 'export {};\n');
-  write(root, 'archify/test/repository-only.test.mjs', 'throw new Error();\n');
+  write(root, 'technical-diagrams/package-lock.json', '{}\n');
+  write(root, 'technical-diagrams/skill-release.json', '{}\n');
+  write(root, 'technical-diagrams/scripts/check-update.mjs', 'export {};\n');
+  write(root, 'technical-diagrams/scripts/update-contract.mjs', 'export {};\n');
+  write(root, 'technical-diagrams/renderers/shared/generated-validators.mjs', 'export {};\n');
+  write(root, 'technical-diagrams/test/repository-only.test.mjs', 'throw new Error();\n');
   git(root, ['init']);
   return root;
 }
@@ -44,9 +44,9 @@ test('clean staging preserves index modes and strips repository-only package met
   const root = repositoryFixture();
   const destination = path.join(root, 'staged-skill');
   try {
-    write(root, 'archify/bin/executable.mjs', '#!/usr/bin/env node\n', 0o755);
-    write(root, 'archify/runtime/test/required.dat', 'runtime fixture\n');
-    git(root, ['add', 'archify']);
+    write(root, 'technical-diagrams/bin/executable.mjs', '#!/usr/bin/env node\n', 0o755);
+    write(root, 'technical-diagrams/runtime/test/required.dat', 'runtime fixture\n');
+    git(root, ['add', 'technical-diagrams']);
 
     stageCleanSkill({ repoRoot: root, destination });
 
@@ -70,9 +70,9 @@ test('clean staging rejects a symlink in a tracked file ancestor before copying 
   const root = repositoryFixture();
   const destination = path.join(root, 'staged-skill');
   try {
-    const runtime = path.join(root, 'archify', 'runtime');
-    write(root, 'archify/runtime/payload.txt', 'tracked fixture\n');
-    git(root, ['add', 'archify']);
+    const runtime = path.join(root, 'technical-diagrams', 'runtime');
+    write(root, 'technical-diagrams/runtime/payload.txt', 'tracked fixture\n');
+    git(root, ['add', 'technical-diagrams']);
     fs.rmSync(runtime, { recursive: true });
     const external = path.join(root, 'outside-runtime');
     write(root, 'outside-runtime/payload.txt', 'external secret\n');
@@ -88,7 +88,7 @@ test('clean staging rejects a symlink in a tracked file ancestor before copying 
 
     assert.throws(
       () => stageCleanSkill({ repoRoot: root, destination }),
-      /refusing to package path through symlink: archify\/runtime/,
+      /refusing to package path through symlink: technical-diagrams\/runtime/,
     );
     assert.equal(fs.existsSync(destination), false);
   } finally {
@@ -101,7 +101,7 @@ test('clean staging rejects tracked symlinks before reading through them', (t) =
   const destination = path.join(root, 'staged-skill');
   try {
     const external = write(root, 'outside.txt', 'private fixture\n');
-    const linked = path.join(root, 'archify', 'linked.txt');
+    const linked = path.join(root, 'technical-diagrams', 'linked.txt');
     try {
       fs.symlinkSync(external, linked);
     } catch (error) {
@@ -111,11 +111,11 @@ test('clean staging rejects tracked symlinks before reading through them', (t) =
       }
       throw error;
     }
-    git(root, ['add', 'archify']);
+    git(root, ['add', 'technical-diagrams']);
 
     assert.throws(
       () => stageCleanSkill({ repoRoot: root, destination }),
-      /refusing to package tracked symlink: archify\/linked\.txt/,
+      /refusing to package tracked symlink: technical-diagrams\/linked\.txt/,
     );
     assert.equal(fs.existsSync(destination), false);
   } finally {
@@ -126,14 +126,14 @@ test('clean staging rejects tracked symlinks before reading through them', (t) =
 test('clean staging snapshots unstaged tracked bytes before a source ancestor can be swapped', (t) => {
   const root = repositoryFixture();
   const destination = path.join(root, 'staged-skill');
-  const runtime = path.join(root, 'archify', 'runtime');
+  const runtime = path.join(root, 'technical-diagrams', 'runtime');
   const external = path.join(root, 'outside-runtime');
   const originalMkdirSync = fs.mkdirSync;
   let swapped = false;
   try {
-    const payload = write(root, 'archify/runtime/payload.txt', 'indexed fixture\n');
+    const payload = write(root, 'technical-diagrams/runtime/payload.txt', 'indexed fixture\n');
     write(root, 'outside-runtime/payload.txt', 'external secret\n');
-    git(root, ['add', 'archify']);
+    git(root, ['add', 'technical-diagrams']);
     fs.writeFileSync(payload, 'unstaged working-tree fixture\n');
 
     const probe = path.join(root, 'symlink-probe');
@@ -175,15 +175,15 @@ test('clean staging snapshots unstaged tracked bytes before a source ancestor ca
 test('clean staging rejects a source ancestor swapped during preflight traversal', (t) => {
   const root = repositoryFixture();
   const destination = path.join(root, 'staged-skill');
-  const runtime = path.join(root, 'archify', 'runtime');
+  const runtime = path.join(root, 'technical-diagrams', 'runtime');
   const external = path.join(root, 'outside-runtime');
   const originalLstatSync = fs.lstatSync;
   let swapped = false;
   try {
-    write(root, 'archify/runtime/payload.txt', 'tracked fixture\n');
+    write(root, 'technical-diagrams/runtime/payload.txt', 'tracked fixture\n');
     write(root, 'outside-runtime/payload.txt', 'external secret\n');
-    git(root, ['add', 'archify']);
-    const canonicalRuntime = path.join(fs.realpathSync(root), 'archify', 'runtime');
+    git(root, ['add', 'technical-diagrams']);
+    const canonicalRuntime = path.join(fs.realpathSync(root), 'technical-diagrams', 'runtime');
 
     const probe = path.join(root, 'symlink-probe');
     try {
@@ -211,7 +211,7 @@ test('clean staging rejects a source ancestor swapped during preflight traversal
 
     assert.throws(
       () => stageCleanSkill({ repoRoot: root, destination }),
-      /(?:tracked package path changed before it could be read: archify\/|tracked package input is missing or unreadable: archify\/runtime\/payload\.txt)/,
+      /(?:tracked package path changed before it could be read: technical-diagrams\/|tracked package input is missing or unreadable: technical-diagrams\/runtime\/payload\.txt)/,
     );
     assert.equal(swapped, true, 'the deterministic mid-preflight ancestor swap must run');
     assert.equal(fs.existsSync(destination), false);
@@ -225,7 +225,7 @@ test('clean staging reports the Git spawn error when Git cannot start', () => {
   const root = repositoryFixture();
   const destination = path.join(root, 'staged-skill');
   try {
-    git(root, ['add', 'archify']);
+    git(root, ['add', 'technical-diagrams']);
     const result = spawnSync(process.execPath, [
       stagerPath,
       '--root', root,
@@ -235,8 +235,8 @@ test('clean staging reports the Git spawn error when Git cannot start', () => {
       env: { ...process.env, PATH: '' },
     });
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /unable to enumerate tracked Archify files: .*ENOENT/);
-    assert.doesNotMatch(result.stderr, /tracked Archify paths must be valid UTF-8/);
+    assert.match(result.stderr, /unable to enumerate tracked Technical Diagrams files: .*ENOENT/);
+    assert.doesNotMatch(result.stderr, /tracked Technical Diagrams paths must be valid UTF-8/);
     assert.equal(fs.existsSync(destination), false);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });

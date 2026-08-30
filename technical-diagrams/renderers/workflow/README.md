@@ -1,13 +1,13 @@
 # Workflow Renderer
 
-Render `diagram_type: "workflow"` JSON files into the standard Archify HTML
+Render `diagram_type: "workflow"` JSON files into the standard Technical Diagrams HTML
 template.
 
 ```bash
-node archify/renderers/workflow/render-workflow.mjs input.workflow.json output.html
+node technical-diagrams/renderers/workflow/render-workflow.mjs input.workflow.json output.html
 ```
 
-The renderer validates input against `archify/schemas/workflow.schema.json`
+The renderer validates input against `technical-diagrams/schemas/workflow.schema.json`
 with the bundled standalone validator. No dependency installation is required.
 
 If `output.html` is omitted, the renderer uses `meta.output` from the JSON file
@@ -16,7 +16,7 @@ or falls back to `workflow.html` in the current working directory.
 After rendering, run the artifact checker:
 
 ```bash
-node archify/scripts/check-render-output.mjs output.html
+node technical-diagrams/scripts/check-render-output.mjs output.html
 ```
 
 It catches final-SVG issues that are easiest to see in a browser: non-finite
@@ -53,13 +53,13 @@ reinterpreted as v2.
 Omit `meta.viewBox` for the common v2 case so the compiler can use intrinsic
 measured bounds. In v1, the omitted width remains fixed at 720 and height is
 derived from lane count. A complete worked example lives at
-`archify/examples/agent-tool-call.workflow.json`; its `schema_version` selects
+`technical-diagrams/examples/agent-tool-call.workflow.json`; its `schema_version` selects
 the applicable contract.
 
 The schema lives at:
 
 ```text
-archify/schemas/workflow.schema.json
+technical-diagrams/schemas/workflow.schema.json
 ```
 
 ## Migration and layout receipt
@@ -67,7 +67,7 @@ archify/schemas/workflow.schema.json
 Migrate an existing v1 source into a separate v2 file:
 
 ```bash
-node archify/bin/archify.mjs migrate workflow old.json new.json --to-schema 2 --json
+node technical-diagrams/bin/technical-diagrams.mjs migrate workflow old.json new.json --to-schema 2 --json
 ```
 
 Running the command again with its schema-v2 output as the new source is an
@@ -83,7 +83,7 @@ checks pass. Ambiguous explicit pins fail without producing the destination.
 Inspect the stable author-facing v2 plan with:
 
 ```bash
-node archify/bin/archify.mjs validate workflow input.workflow.json --layout-json
+node technical-diagrams/bin/technical-diagrams.mjs validate workflow input.workflow.json --layout-json
 ```
 
 The receipt reports the selected contract, measured `viewBox` and

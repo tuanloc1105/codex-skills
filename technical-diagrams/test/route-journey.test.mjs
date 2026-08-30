@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
 const template = fs.readFileSync(path.join(skillRoot, 'assets', 'template.html'), 'utf8');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-route-journey-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-route-journey-'));
 
 const CASES = {
   architecture: 'web-app.architecture.json',
@@ -90,15 +90,15 @@ test('playback is explicit, finite, resumable, and never leaks position into the
 });
 
 test('motion, camera, layered Escape, mobile, print, and embed boundaries stay explicit', () => {
-  assert.match(template, /Archify\.motionGovernor\.capable === true[\s\S]*?!Archify\.motionGovernor\.isPaused\(\)/);
-  assert.match(template, /Archify\.motionGovernor\.claim\('route'/);
+  assert.match(template, /Technical Diagrams\.motionGovernor\.capable === true[\s\S]*?!Technical Diagrams\.motionGovernor\.isPaused\(\)/);
+  assert.match(template, /Technical Diagrams\.motionGovernor\.claim\('route'/);
   assert.match(template, /reason: 'route-journey',[\s\S]*?maxScale: 1\.65,[\s\S]*?padding: 64,[\s\S]*?duration: 360/);
-  assert.match(template, /Archify\.routeProbe\.pauseJourney\(\{ preserveElapsed: true, reason: reason \|\| 'manual' \}\)/);
+  assert.match(template, /Technical Diagrams\.routeProbe\.pauseJourney\(\{ preserveElapsed: true, reason: reason \|\| 'manual' \}\)/);
   assert.match(template, /event\.target\.closest\('\.diagram-nav, \.focus-chip, \.node-finder, \.diagram-guide, \.overview-map, \.route-probe, \.semantic-lens'\)/);
   assert.match(template, /reason: 'guide'/);
   assert.match(template, /window\.addEventListener\('beforeprint'[\s\S]*?pauseJourney/);
   assert.match(template, /function escapeRoute\(options\)[\s\S]*?return 'paused'[\s\S]*?return 'overview'[\s\S]*?return 'cleared'/);
-  assert.match(template, /Archify\.routeProbe\.escape\(\{ restoreFocus: true \}\)/);
+  assert.match(template, /Technical Diagrams\.routeProbe\.escape\(\{ restoreFocus: true \}\)/);
   assert.match(template, /\.route-probe\[data-route-dock="top"\] \{\s*top: 1rem;\s*bottom: auto;/);
   assert.match(template, /function updateDocking\(\) \{\s*if \(panel\.hidden\)/);
   assert.doesNotMatch(template, /if \(panel\.hidden \|\| window\.innerWidth > 720\)/);

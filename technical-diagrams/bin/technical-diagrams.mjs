@@ -14,21 +14,21 @@ const TYPES = new Set(['architecture', 'workflow', 'sequence', 'dataflow', 'life
 
 function usage() {
   return `Usage:
-  archify render <type> <input.json> [output.html] [--quality standard|showcase] [--repo-root path (architecture only)]
-  archify compare architecture <base.json> <head.json> [output.html] [--receipt path] [--json] [--quality standard|showcase] [--repo-root path]
-  archify deliver <type> <input.json> [output.html] [--json] [--open] [--quality standard|showcase] [--repo-root path (architecture only)]
-  archify preview <type> <input.json> [output.html] [--no-open] [--quality standard|showcase] [--repo-root path (architecture only)]
-  archify validate <type> <input.json> [--json] [--layout-json] [--quality standard|showcase] [--repo-root path (architecture only)]
-  archify migrate workflow <old.json> <new.json> --to-schema 2 [--json]
-  archify inspect <type> <input.json>
-  archify check <output.html>
-  archify visual-check <output.html> [--json]
-  archify guide [scenario or question] [--json] [--lang en|zh]
-  archify brands [name, alias, domain, or category] [--json]
-  archify brands capture <url> [--json]
-  archify examples
-  archify doctor
-  archify demo [output-directory]
+  technical-diagrams render <type> <input.json> [output.html] [--quality standard|showcase] [--repo-root path (architecture only)]
+  technical-diagrams compare architecture <base.json> <head.json> [output.html] [--receipt path] [--json] [--quality standard|showcase] [--repo-root path]
+  technical-diagrams deliver <type> <input.json> [output.html] [--json] [--open] [--quality standard|showcase] [--repo-root path (architecture only)]
+  technical-diagrams preview <type> <input.json> [output.html] [--no-open] [--quality standard|showcase] [--repo-root path (architecture only)]
+  technical-diagrams validate <type> <input.json> [--json] [--layout-json] [--quality standard|showcase] [--repo-root path (architecture only)]
+  technical-diagrams migrate workflow <old.json> <new.json> --to-schema 2 [--json]
+  technical-diagrams inspect <type> <input.json>
+  technical-diagrams check <output.html>
+  technical-diagrams visual-check <output.html> [--json]
+  technical-diagrams guide [scenario or question] [--json] [--lang en|zh]
+  technical-diagrams brands [name, alias, domain, or category] [--json]
+  technical-diagrams brands capture <url> [--json]
+  technical-diagrams examples
+  technical-diagrams doctor
+  technical-diagrams demo [output-directory]
 
 Types:
   architecture, workflow, sequence, dataflow, lifecycle
@@ -103,9 +103,9 @@ function extractRepoRootArgs(args) {
 
 function rendererEnv(quality, repoRoot, diagnosticJson = false) {
   return {
-    ...(quality ? { ARCHIFY_QUALITY_PROFILE: quality } : {}),
-    ...(repoRoot ? { ARCHIFY_REPO_ROOT: repoRoot } : {}),
-    ...(diagnosticJson ? { ARCHIFY_DIAGNOSTIC_FORMAT: 'json' } : {}),
+    ...(quality ? { TECHNICAL_DIAGRAMS_QUALITY_PROFILE: quality } : {}),
+    ...(repoRoot ? { TECHNICAL_DIAGRAMS_REPO_ROOT: repoRoot } : {}),
+    ...(diagnosticJson ? { TECHNICAL_DIAGRAMS_DIAGNOSTIC_FORMAT: 'json' } : {}),
   };
 }
 
@@ -426,7 +426,7 @@ async function commandCompare(args) {
   try {
     deltaRuntime = await import(pathToFileURL(path.join(skillRoot, 'delta/architecture-delta.mjs')).href);
   } catch (error) {
-    reportCompareFailure({ json: options.json, stage: 'prepare', error: 'Architecture compare runtime is unavailable.', code: 'delta/runtime-missing', details: { reason: error.message, supportedFixes: ['install the complete Archify skill package'] } });
+    reportCompareFailure({ json: options.json, stage: 'prepare', error: 'Architecture compare runtime is unavailable.', code: 'delta/runtime-missing', details: { reason: error.message, supportedFixes: ['install the complete Technical Diagrams skill package'] } });
     return;
   }
   const {
@@ -452,7 +452,7 @@ async function commandCompare(args) {
       inputPaths: [basePath, headPath],
     }));
   } catch (error) {
-    const outputDiagnostic = error.archifyDiagnostics?.[0];
+    const outputDiagnostic = error.technicalDiagramDiagnostics?.[0];
     reportCompareFailure({
       json: options.json,
       stage: 'prepare',
@@ -475,7 +475,7 @@ async function commandCompare(args) {
       otherOutputPaths: [outputPath],
     }));
   } catch (error) {
-    const outputDiagnostic = error.archifyDiagnostics?.[0];
+    const outputDiagnostic = error.technicalDiagramDiagnostics?.[0];
     reportCompareFailure({
       json: options.json,
       stage: 'prepare',
@@ -522,7 +522,7 @@ async function commandCompare(args) {
 
   let stagingDirectory;
   try {
-    stagingDirectory = fs.mkdtempSync(path.join(outputDirectory, '.archify-compare-'));
+    stagingDirectory = fs.mkdtempSync(path.join(outputDirectory, '.technical-diagrams-compare-'));
   } catch (error) {
     reportCompareFailure({ json: options.json, stage: 'prepare', error: `Could not create compare candidate: ${error.message}`, code: 'delta/candidate-directory', details: { reason: error.message } });
     return;
@@ -648,7 +648,7 @@ async function commandCompare(args) {
         otherOutputPaths: [currentOutput],
       });
     } catch (error) {
-      const outputDiagnostic = error.archifyDiagnostics?.[0];
+      const outputDiagnostic = error.technicalDiagramDiagnostics?.[0];
       reportCompareFailure({
         json: options.json,
         stage: 'commit',
@@ -733,7 +733,7 @@ function reportValidateFailure(options) {
 
 function sourceEvidenceFromArtifact(artifact) {
   const html = artifact.toString('utf8');
-  const match = html.match(/<script id="archify-source-evidence-data" type="application\/json">([\s\S]*?)<\/script>/);
+  const match = html.match(/<script id="technical-diagrams-source-evidence-data" type="application\/json">([\s\S]*?)<\/script>/);
   if (!match) return null;
   const evidence = JSON.parse(match[1]);
   if (evidence?.verified !== true || !evidence.repository?.url || !evidence.repository?.revision || !Number.isInteger(evidence.referenceCount)) {
@@ -802,7 +802,7 @@ async function commandDeliver(args) {
       input: inputPath,
       output: attemptedOutput,
       error: error.message,
-      diagnostics: error.archifyDiagnostics || [diagnostic({
+      diagnostics: error.technicalDiagramDiagnostics || [diagnostic({
         code: 'output/path-resolution',
         message: error.message,
         subject: { output: attemptedOutput },
@@ -840,7 +840,7 @@ async function commandDeliver(args) {
   // an existing trusted output.
   let stagingDirectory;
   try {
-    stagingDirectory = fs.mkdtempSync(path.join(outputDirectory, '.archify-delivery-'));
+    stagingDirectory = fs.mkdtempSync(path.join(outputDirectory, '.technical-diagrams-delivery-'));
   } catch (error) {
     const message = `Could not create a delivery candidate beside "${outputPath}": ${error.message}`;
     reportDeliveryFailure({
@@ -1044,7 +1044,7 @@ async function commandDeliver(args) {
         input: inputPath,
         output: outputPath,
         error: error.message,
-        diagnostics: error.archifyDiagnostics || [diagnostic({
+        diagnostics: error.technicalDiagramDiagnostics || [diagnostic({
           code: 'output/path-resolution',
           message: error.message,
           subject: { output: outputPath },
@@ -1325,7 +1325,7 @@ async function commandDoctor() {
     });
   }
 
-  console.log('Archify doctor\n');
+  console.log('Technical Diagrams doctor\n');
   for (const check of checks) {
     console.log(`[${check.ok ? 'ok' : (check.failureLabel || 'missing')}] ${check.label}`);
   }
@@ -1334,7 +1334,7 @@ async function commandDoctor() {
   const missingFiles = checks.reduce((count, check) => count + check.missing, 0);
   const invalidRuntime = checks.reduce((count, check) => count + (check.invalid || 0), 0);
   if (nodeFailed === 0 && missingFiles === 0 && invalidRuntime === 0) {
-    console.log('\nArchify is ready.');
+    console.log('\nTechnical Diagrams is ready.');
     return;
   }
 
@@ -1342,7 +1342,7 @@ async function commandDoctor() {
   if (nodeFailed) problems.push('Node.js 18 or newer is required');
   if (missingFiles) problems.push(`${missingFiles} required file${missingFiles === 1 ? '' : 's'} missing`);
   if (invalidRuntime) problems.push(`${invalidRuntime} runtime check${invalidRuntime === 1 ? '' : 's'} failed`);
-  console.error(`\nArchify is not ready: ${problems.join('; ')}.`);
+  console.error(`\nTechnical Diagrams is not ready: ${problems.join('; ')}.`);
   process.exitCode = 1;
 }
 
@@ -1405,7 +1405,7 @@ async function commandBrands(args) {
   if (unknown.length) fail(`Unknown brands option "${unknown[0]}".`);
   const positional = args.filter((arg) => arg !== '--json');
   if (positional[0] === 'capture') {
-    if (positional.length !== 2) fail('Usage: archify brands capture <url> [--json]');
+    if (positional.length !== 2) fail('Usage: technical-diagrams brands capture <url> [--json]');
     const { captureBrandReference } = await import('../renderers/shared/brand-marks.mjs');
     let capture;
     try {
@@ -1439,12 +1439,12 @@ async function commandBrands(args) {
       query,
       count: marks.length,
       marks,
-      fallback: 'Run "archify brands capture <url> --json", then use the returned digest-pinned brand value.',
+      fallback: 'Run "technical-diagrams brands capture <url> --json", then use the returned digest-pinned brand value.',
     }, null, 2));
     return;
   }
   if (!marks.length) {
-    console.log(`No built-in brand matched "${query}". Run "archify brands capture <url> --json", then use the returned digest-pinned brand value.`);
+    console.log(`No built-in brand matched "${query}". Run "technical-diagrams brands capture <url> --json", then use the returned digest-pinned brand value.`);
     return;
   }
   const grouped = Map.groupBy
@@ -1459,7 +1459,7 @@ function commandDemo(args) {
   if (args.length > 1) fail(usage());
 
   const outputDirectory = path.resolve(args[0] || process.cwd());
-  const output = path.join(outputDirectory, 'archify-demo.html');
+  const output = path.join(outputDirectory, 'technical-diagrams-demo.html');
   const input = path.join(skillRoot, 'examples/web-app.architecture.json');
 
   try {
@@ -1473,12 +1473,12 @@ function commandDemo(args) {
 
   console.log(`\nDemo ready: ${output}`);
   console.log('Next: open the HTML in your browser, then render your own diagram:');
-  console.log('  archify render architecture <input.json> <output.html>');
+  console.log('  technical-diagrams render architecture <input.json> <output.html>');
 }
 
 function migrationPathDiagnostics(error, sourcePath, destinationPath) {
-  if (Array.isArray(error?.archifyDiagnostics) && error.archifyDiagnostics.length) {
-    return error.archifyDiagnostics.map((entry) => ({
+  if (Array.isArray(error?.technicalDiagramDiagnostics) && error.technicalDiagramDiagnostics.length) {
+    return error.technicalDiagramDiagnostics.map((entry) => ({
       ...entry,
       subject: { ...(entry.subject || {}) },
       evidence: { ...(entry.evidence || {}) },
@@ -1592,7 +1592,7 @@ async function commandMigrate(args) {
     || options.positional.length !== 3
     || options.toSchema !== '2'
   ) {
-    fail('Usage: archify migrate workflow <old.json> <new.json> --to-schema 2 [--json]');
+    fail('Usage: technical-diagrams migrate workflow <old.json> <new.json> --to-schema 2 [--json]');
   }
 
   const sourcePath = path.resolve(sourceArgument);
@@ -1659,7 +1659,7 @@ async function commandMigrate(args) {
         code: 'migration/internal',
         message: 'Workflow migration failed unexpectedly.',
         evidence: { reason: error.message },
-        supportedFixes: ['report the source workflow and this diagnostic to the Archify maintainers'],
+        supportedFixes: ['report the source workflow and this diagnostic to the Technical Diagrams maintainers'],
       })],
     };
   }
@@ -1686,7 +1686,7 @@ async function commandMigrate(args) {
   let stagingDirectory;
   try {
     fs.mkdirSync(destinationDirectory, { recursive: true });
-    stagingDirectory = fs.mkdtempSync(path.join(destinationDirectory, '.archify-migration-'));
+    stagingDirectory = fs.mkdtempSync(path.join(destinationDirectory, '.technical-diagrams-migration-'));
   } catch (error) {
     reportMigrationFailure({
       ...migration,
@@ -1783,7 +1783,7 @@ async function commandMigrate(args) {
       console.log(`verified workflow schema v2 migration: ${sourcePath} → ${destinationPath}`);
     }
   } catch (error) {
-    const migrationDiagnostics = Array.isArray(error?.archifyDiagnostics)
+    const migrationDiagnostics = Array.isArray(error?.technicalDiagramDiagnostics)
       ? migrationPathDiagnostics(error, sourcePath, destinationPath)
       : [diagnostic({
         code: 'migration/commit',
@@ -1858,7 +1858,7 @@ function commandValidate(args) {
     return;
   }
 
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-validate-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-validate-'));
   const out = path.join(tmp, `${type}.html`);
   let exitCode = 0;
 

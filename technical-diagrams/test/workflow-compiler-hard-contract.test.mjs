@@ -1810,10 +1810,10 @@ test('showcase rejects nested authored outside-right corridors while standard pe
 test('an explicit standard profile overrides an ambient showcase profile', () => {
   const document = nestedOutsideRightCorridorWorkflow();
   document.meta.quality_profile = 'showcase';
-  const previousProfile = process.env.ARCHIFY_QUALITY_PROFILE;
+  const previousProfile = process.env.TECHNICAL_DIAGRAMS_QUALITY_PROFILE;
 
   try {
-    process.env.ARCHIFY_QUALITY_PROFILE = 'showcase';
+    process.env.TECHNICAL_DIAGRAMS_QUALITY_PROFILE = 'showcase';
     const result = compileWorkflow({ workflow: document, qualityProfile: 'standard' });
     assert.equal(
       result.ok,
@@ -1821,8 +1821,8 @@ test('an explicit standard profile overrides an ambient showcase profile', () =>
       `the explicit standard profile must win:\n${JSON.stringify(result.diagnostics, null, 2)}`,
     );
   } finally {
-    if (previousProfile === undefined) delete process.env.ARCHIFY_QUALITY_PROFILE;
-    else process.env.ARCHIFY_QUALITY_PROFILE = previousProfile;
+    if (previousProfile === undefined) delete process.env.TECHNICAL_DIAGRAMS_QUALITY_PROFILE;
+    else process.env.TECHNICAL_DIAGRAMS_QUALITY_PROFILE = previousProfile;
   }
 });
 

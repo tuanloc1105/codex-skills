@@ -25,18 +25,18 @@ function runCheck(root) {
 function stableUpdateManifest(version) {
   return JSON.stringify({
     schemaVersion: 1,
-    skillId: 'archify',
+    skillId: 'technical-diagrams',
     channel: 'stable',
     version,
     publishedAt: '2026-07-29T00:00:00Z',
     source: {
-      repository: 'https://github.com/tt-a1i/archify',
+      repository: 'https://github.com/tt-a1i/technical-diagrams',
       ref: `v${version}`,
       treeSha: 'a'.repeat(40),
     },
     artifact: { sha256: 'b'.repeat(64) },
     summary: 'Published stable release.',
-    releaseNotes: `https://github.com/tt-a1i/archify/releases/tag/v${version}`,
+    releaseNotes: `https://github.com/tt-a1i/technical-diagrams/releases/tag/v${version}`,
     severity: 'normal',
   });
 }
@@ -48,29 +48,29 @@ function writeValidDevelopmentFixture(root, overrides = {}) {
     '',
     `Current development version: \`v${version}\``,
     '',
-    'Raven uses manual ZIP installation: extract archify.zip into `~/.raven/workspace/skills`, which yields `~/.raven/workspace/skills/archify`; Raven is not an agent-switcher target.',
+    'Raven uses manual ZIP installation: extract technical-diagrams.zip into `~/.raven/workspace/skills`, which yields `~/.raven/workspace/skills/technical-diagrams`; Raven is not an agent-switcher target.',
   ].join('\n');
   const chinese = [
     '![开发版本](https://img.shields.io/badge/version-2.13.0--dev.0-blue)',
     '',
     `当前开发版本：\`v${version}\``,
     '',
-    'Raven 使用 ZIP 手动安装：将 archify.zip 解压到 `~/.raven/workspace/skills`，解压后会得到 `~/.raven/workspace/skills/archify`；Raven 不属于 Agent 切换器目标。',
+    'Raven 使用 ZIP 手动安装：将 technical-diagrams.zip 解压到 `~/.raven/workspace/skills`，解压后会得到 `~/.raven/workspace/skills/technical-diagrams`；Raven 不属于 Agent 切换器目标。',
   ].join('\n');
   const files = {
-    'archify/package.json': JSON.stringify({ version }),
-    'archify/package-lock.json': JSON.stringify({ version, packages: { '': { version } } }),
-    'archify/skill-release.json': JSON.stringify({
+    'technical-diagrams/package.json': JSON.stringify({ version }),
+    'technical-diagrams/package-lock.json': JSON.stringify({ version, packages: { '': { version } } }),
+    'technical-diagrams/skill-release.json': JSON.stringify({
       schemaVersion: 1,
-      skillId: 'archify',
+      skillId: 'technical-diagrams',
       channel: 'development',
       version,
-      source: { repository: 'https://github.com/tt-a1i/archify' },
-      updateManifestUrl: 'https://tt-a1i.github.io/archify/skill-updates/archify/stable.json',
+      source: { repository: 'https://github.com/tt-a1i/technical-diagrams' },
+      updateManifestUrl: 'https://tt-a1i.github.io/technical-diagrams/skill-updates/technical-diagrams/stable.json',
     }),
-    'docs/skill-updates/archify/stable.json': stableUpdateManifest('2.12.0'),
-    'archify/SKILL.md': '---\nmetadata:\n  version: "2.13"\n---\n',
-    'archify/assets/template.html': '<meta name="generator" content="archify 2.13.0-dev.0">',
+    'docs/skill-updates/technical-diagrams/stable.json': stableUpdateManifest('2.12.0'),
+    'technical-diagrams/SKILL.md': '---\nmetadata:\n  version: "2.13"\n---\n',
+    'technical-diagrams/assets/template.html': '<meta name="generator" content="technical-diagrams 2.13.0-dev.0">',
     'CHANGELOG.md': [
       '# Changelog',
       '',
@@ -87,11 +87,11 @@ function writeValidDevelopmentFixture(root, overrides = {}) {
     'README.md': english,
     'README_EN.md': english,
     'README_ZH.md': chinese,
-    'scripts/start-template.html': 'development · 开发版 · [[ARCHIFY_VERSION]]',
-    'scripts/guide-template.html': 'development · 开发版 · [[ARCHIFY_VERSION]]',
-    'scripts/gallery-template.html': 'development · 开发版 · [[ARCHIFY_VERSION]]',
-    'docs/index.html': `<span>development · v${version} · 开发版 · 9/9 checks</span><p>Raven manual ZIP / ZIP 手动安装: extract archify.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/archify; 将 archify.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/archify; not an agent-switcher target.</p>`,
-    'docs/start.html': `<span>development · v${version} · 开发版</span><p>Raven manual ZIP / ZIP 手动安装: extract archify.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/archify; 将 archify.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/archify; not an agent-switcher target.</p>`,
+    'scripts/start-template.html': 'development · 开发版 · [[TECHNICAL_DIAGRAMS_VERSION]]',
+    'scripts/guide-template.html': 'development · 开发版 · [[TECHNICAL_DIAGRAMS_VERSION]]',
+    'scripts/gallery-template.html': 'development · 开发版 · [[TECHNICAL_DIAGRAMS_VERSION]]',
+    'docs/index.html': `<span>development · v${version} · 开发版 · 9/9 checks</span><p>Raven manual ZIP / ZIP 手动安装: extract technical-diagrams.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/technical-diagrams; 将 technical-diagrams.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/technical-diagrams; not an agent-switcher target.</p>`,
+    'docs/start.html': `<span>development · v${version} · 开发版</span><p>Raven manual ZIP / ZIP 手动安装: extract technical-diagrams.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/technical-diagrams; 将 technical-diagrams.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/technical-diagrams; not an agent-switcher target.</p>`,
     'ROADMAP.md': `The current development line is \`v${version}\`; it contains the work under Changelog Unreleased and is not a stable release.`,
   };
   for (const [relativePath, content] of Object.entries({ ...files, ...overrides })) {
@@ -106,29 +106,29 @@ function writeValidStableFixture(root, overrides = {}) {
     '',
     `Current stable version: \`v${version}\``,
     '',
-    'Raven uses manual ZIP installation: extract archify.zip into `~/.raven/workspace/skills`, which yields `~/.raven/workspace/skills/archify`; Raven is not an agent-switcher target.',
+    'Raven uses manual ZIP installation: extract technical-diagrams.zip into `~/.raven/workspace/skills`, which yields `~/.raven/workspace/skills/technical-diagrams`; Raven is not an agent-switcher target.',
   ].join('\n');
   const chinese = [
     '![稳定版本](https://img.shields.io/badge/version-2.13.0-blue)',
     '',
     `当前稳定版本：\`v${version}\``,
     '',
-    'Raven 使用 ZIP 手动安装：将 archify.zip 解压到 `~/.raven/workspace/skills`，解压后会得到 `~/.raven/workspace/skills/archify`；Raven 不属于 Agent 切换器目标。',
+    'Raven 使用 ZIP 手动安装：将 technical-diagrams.zip 解压到 `~/.raven/workspace/skills`，解压后会得到 `~/.raven/workspace/skills/technical-diagrams`；Raven 不属于 Agent 切换器目标。',
   ].join('\n');
   const files = {
-    'archify/package.json': JSON.stringify({ version }),
-    'archify/package-lock.json': JSON.stringify({ version, packages: { '': { version } } }),
-    'archify/skill-release.json': JSON.stringify({
+    'technical-diagrams/package.json': JSON.stringify({ version }),
+    'technical-diagrams/package-lock.json': JSON.stringify({ version, packages: { '': { version } } }),
+    'technical-diagrams/skill-release.json': JSON.stringify({
       schemaVersion: 1,
-      skillId: 'archify',
+      skillId: 'technical-diagrams',
       channel: 'stable',
       version,
-      source: { repository: 'https://github.com/tt-a1i/archify' },
-      updateManifestUrl: 'https://tt-a1i.github.io/archify/skill-updates/archify/stable.json',
+      source: { repository: 'https://github.com/tt-a1i/technical-diagrams' },
+      updateManifestUrl: 'https://tt-a1i.github.io/technical-diagrams/skill-updates/technical-diagrams/stable.json',
     }),
-    'docs/skill-updates/archify/stable.json': stableUpdateManifest(version),
-    'archify/SKILL.md': '---\nmetadata:\n  version: "2.13"\n---\n',
-    'archify/assets/template.html': '<meta name="generator" content="archify 2.13.0">',
+    'docs/skill-updates/technical-diagrams/stable.json': stableUpdateManifest(version),
+    'technical-diagrams/SKILL.md': '---\nmetadata:\n  version: "2.13"\n---\n',
+    'technical-diagrams/assets/template.html': '<meta name="generator" content="technical-diagrams 2.13.0">',
     'CHANGELOG.md': [
       '# Changelog',
       '',
@@ -141,11 +141,11 @@ function writeValidStableFixture(root, overrides = {}) {
     'README.md': english,
     'README_EN.md': english,
     'README_ZH.md': chinese,
-    'scripts/start-template.html': 'stable · 稳定版 · [[ARCHIFY_VERSION]]',
-    'scripts/guide-template.html': 'stable · 稳定版 · [[ARCHIFY_VERSION]]',
-    'scripts/gallery-template.html': 'stable · 稳定版 · [[ARCHIFY_VERSION]]',
-    'docs/index.html': `<span>stable · v${version} · 稳定版 · 9/9 checks</span><p>Raven manual ZIP / ZIP 手动安装: extract archify.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/archify; 将 archify.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/archify; not an agent-switcher target.</p>`,
-    'docs/start.html': `<span>stable · v${version} · 稳定版</span><p>Raven manual ZIP / ZIP 手动安装: extract archify.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/archify; 将 archify.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/archify; not an agent-switcher target.</p>`,
+    'scripts/start-template.html': 'stable · 稳定版 · [[TECHNICAL_DIAGRAMS_VERSION]]',
+    'scripts/guide-template.html': 'stable · 稳定版 · [[TECHNICAL_DIAGRAMS_VERSION]]',
+    'scripts/gallery-template.html': 'stable · 稳定版 · [[TECHNICAL_DIAGRAMS_VERSION]]',
+    'docs/index.html': `<span>stable · v${version} · 稳定版 · 9/9 checks</span><p>Raven manual ZIP / ZIP 手动安装: extract technical-diagrams.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/technical-diagrams; 将 technical-diagrams.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/technical-diagrams; not an agent-switcher target.</p>`,
+    'docs/start.html': `<span>stable · v${version} · 稳定版</span><p>Raven manual ZIP / ZIP 手动安装: extract technical-diagrams.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/technical-diagrams; 将 technical-diagrams.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/technical-diagrams; not an agent-switcher target.</p>`,
     'ROADMAP.md': `The current stable version is \`v${version}\`.`,
   };
   for (const [relativePath, content] of Object.entries({ ...files, ...overrides })) {
@@ -154,7 +154,7 @@ function writeValidStableFixture(root, overrides = {}) {
 }
 
 test('an empty Unreleased section accepts a coherent stable release identity', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidStableFixture(fixture);
 
@@ -167,7 +167,7 @@ test('an empty Unreleased section accepts a coherent stable release identity', (
 });
 
 test('stable release preparation allows only the immediate prior public manifest', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     const changelog = [
       '# Changelog',
@@ -183,13 +183,13 @@ test('stable release preparation allows only the immediate prior public manifest
     ].join('\n');
     writeValidStableFixture(fixture, {
       'CHANGELOG.md': changelog,
-      'docs/skill-updates/archify/stable.json': stableUpdateManifest('2.12.0'),
+      'docs/skill-updates/technical-diagrams/stable.json': stableUpdateManifest('2.12.0'),
     });
 
     const prior = runCheck(fixture);
     assert.equal(prior.status, 0, prior.stderr);
 
-    writeFile(fixture, 'docs/skill-updates/archify/stable.json', stableUpdateManifest('2.11.0'));
+    writeFile(fixture, 'docs/skill-updates/technical-diagrams/stable.json', stableUpdateManifest('2.11.0'));
     const stale = runCheck(fixture);
     assert.notEqual(stale.status, 0);
     assert.match(stale.stderr, /immediate prior v2\.12\.0/);
@@ -199,32 +199,32 @@ test('stable release preparation allows only the immediate prior public manifest
 });
 
 test('the embedded update identity must match the package release exactly', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
-      'archify/skill-release.json': JSON.stringify({
+      'technical-diagrams/skill-release.json': JSON.stringify({
         schemaVersion: 1,
-        skillId: 'archify',
+        skillId: 'technical-diagrams',
         channel: 'stable',
         version: '2.12.0',
-        source: { repository: 'https://example.com/untrusted/archify' },
+        source: { repository: 'https://example.com/untrusted/technical-diagrams' },
         updateManifestUrl: 'https://example.com/latest.json',
       }),
     });
 
     const result = runCheck(fixture);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /archify\/skill-release\.json must identify archify 2\.13\.0-dev\.0 as development/);
+    assert.match(result.stderr, /technical-diagrams\/skill-release\.json must identify technical-diagrams 2\.13\.0-dev\.0 as development/);
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
 });
 
 test('the published update manifest must track the newest stable changelog release', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
-      'docs/skill-updates/archify/stable.json': stableUpdateManifest('2.11.0'),
+      'docs/skill-updates/technical-diagrams/stable.json': stableUpdateManifest('2.11.0'),
     });
 
     const result = runCheck(fixture);
@@ -236,12 +236,12 @@ test('the published update manifest must track the newest stable changelog relea
 });
 
 test('the published update manifest must use a canonical UTC timestamp', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     const manifest = JSON.parse(stableUpdateManifest('2.12.0'));
     manifest.publishedAt = '2026-07-29T08:00:00+08:00';
     writeValidDevelopmentFixture(fixture, {
-      'docs/skill-updates/archify/stable.json': JSON.stringify(manifest),
+      'docs/skill-updates/technical-diagrams/stable.json': JSON.stringify(manifest),
     });
 
     const result = runCheck(fixture);
@@ -254,10 +254,10 @@ test('the published update manifest must use a canonical UTC timestamp', () => {
 
 test('package identities reject leading-zero core and prerelease identifiers', () => {
   for (const version of ['02.13.0', '2.13.0-dev.01']) {
-    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
     try {
       writeValidDevelopmentFixture(fixture, {
-        'archify/package.json': JSON.stringify({ version }),
+        'technical-diagrams/package.json': JSON.stringify({ version }),
       });
       const result = runCheck(fixture);
       assert.notEqual(result.status, 0);
@@ -269,7 +269,7 @@ test('package identities reject leading-zero core and prerelease identifiers', (
 });
 
 test('the newest stable release is selected by SemVer rather than changelog order', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
       'CHANGELOG.md': [
@@ -297,9 +297,9 @@ test('the newest stable release is selected by SemVer rather than changelog orde
 });
 
 test('real Unreleased changes cannot reuse a stable published package identity', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
-    writeFile(fixture, 'archify/package.json', JSON.stringify({ version: '2.12.0' }));
+    writeFile(fixture, 'technical-diagrams/package.json', JSON.stringify({ version: '2.12.0' }));
     writeFile(fixture, 'CHANGELOG.md', [
       '# Changelog',
       '',
@@ -321,14 +321,14 @@ test('real Unreleased changes cannot reuse a stable published package identity',
 });
 
 test('package, lockfile, Skill metadata, escaped Shields badge, and public docs share one development identity', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
-    writeFile(fixture, 'archify/package.json', JSON.stringify({ version: '2.13.0-dev.0' }));
-    writeFile(fixture, 'archify/package-lock.json', JSON.stringify({
+    writeFile(fixture, 'technical-diagrams/package.json', JSON.stringify({ version: '2.13.0-dev.0' }));
+    writeFile(fixture, 'technical-diagrams/package-lock.json', JSON.stringify({
       version: '2.12.0',
       packages: { '': { version: '2.12.0' } },
     }));
-    writeFile(fixture, 'archify/SKILL.md', '---\nmetadata:\n  version: "2.12"\n---\n');
+    writeFile(fixture, 'technical-diagrams/SKILL.md', '---\nmetadata:\n  version: "2.12"\n---\n');
     writeFile(fixture, 'CHANGELOG.md', [
       '# Changelog',
       '',
@@ -343,13 +343,13 @@ test('package, lockfile, Skill metadata, escaped Shields badge, and public docs 
     const staleEnglish = [
       '![Version](https://img.shields.io/badge/version-2.13.0-blue)',
       '',
-      'Archify 2.12 includes unreleased capabilities.',
+      'Technical Diagrams 2.12 includes unreleased capabilities.',
     ].join('\n');
     writeFile(fixture, 'README.md', staleEnglish);
     writeFile(fixture, 'README_EN.md', staleEnglish);
-    writeFile(fixture, 'README_ZH.md', '![Version](https://img.shields.io/badge/version-2.13.0-blue)\n\nArchify 2.12 包含未发布能力。\n');
+    writeFile(fixture, 'README_ZH.md', '![Version](https://img.shields.io/badge/version-2.13.0-blue)\n\nTechnical Diagrams 2.12 包含未发布能力。\n');
     writeFile(fixture, 'docs/index.html', '<span>Agent Skill · v2.12.0</span>');
-    writeFile(fixture, 'docs/start.html', '<span>Archify v2.12.0</span>');
+    writeFile(fixture, 'docs/start.html', '<span>Technical Diagrams v2.12.0</span>');
 
     const result = runCheck(fixture);
     assert.notEqual(result.status, 0);
@@ -364,10 +364,10 @@ test('package, lockfile, Skill metadata, escaped Shields badge, and public docs 
 });
 
 test('landing proof receipt matches the current nine-check artifact contract', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
-      'docs/index.html': '<span>development · v2.13.0-dev.0 · 开发版 · 8/8 checks</span><p>Raven manual ZIP / ZIP 手动安装: extract archify.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/archify; 将 archify.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/archify; not an agent-switcher target.</p>',
+      'docs/index.html': '<span>development · v2.13.0-dev.0 · 开发版 · 8/8 checks</span><p>Raven manual ZIP / ZIP 手动安装: extract technical-diagrams.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/technical-diagrams; 将 technical-diagrams.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/technical-diagrams; not an agent-switcher target.</p>',
     });
 
     const result = runCheck(fixture);
@@ -379,13 +379,13 @@ test('landing proof receipt matches the current nine-check artifact contract', (
 });
 
 test('landing rejects every stale N/N contract count even when 9/9 is also present', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
       'docs/index.html': [
         '<span>development · v2.13.0-dev.0 · 开发版 · 9/9 checks</span>',
         '<span>legacy receipt · 7/7 checks</span>',
-        '<p>Raven manual ZIP / ZIP 手动安装: extract archify.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/archify; 将 archify.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/archify; not an agent-switcher target.</p>',
+        '<p>Raven manual ZIP / ZIP 手动安装: extract technical-diagrams.zip into ~/.raven/workspace/skills, which yields ~/.raven/workspace/skills/technical-diagrams; 将 technical-diagrams.zip 解压到 ~/.raven/workspace/skills，解压后会得到 ~/.raven/workspace/skills/technical-diagrams; not an agent-switcher target.</p>',
       ].join('\n'),
     });
 
@@ -398,13 +398,13 @@ test('landing rejects every stale N/N contract count even when 9/9 is also prese
 });
 
 test('Raven stays a truthful manual ZIP install and never becomes a generated agent-switcher command', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
       'docs/start.html': [
         '<span>development · v2.13.0-dev.0 · 开发版</span>',
         '<button data-agent="raven">Raven</button>',
-        '<pre>npx skills add tt-a1i/archify --agent raven</pre>',
+        '<pre>npx skills add tt-a1i/technical-diagrams --agent raven</pre>',
       ].join('\n'),
     });
 
@@ -417,14 +417,14 @@ test('Raven stays a truthful manual ZIP install and never becomes a generated ag
 });
 
 test('Raven instructions reject extracting the archive into the final Skill directory', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     const nestedEnglish = [
       '![Development Version](https://img.shields.io/badge/version-2.13.0--dev.0-blue)',
       '',
       'Current development version: `v2.13.0-dev.0`',
       '',
-      'Raven is manual ZIP only: extract archify.zip into `~/.raven/workspace/skills/archify`; Raven is not an agent-switcher target.',
+      'Raven is manual ZIP only: extract technical-diagrams.zip into `~/.raven/workspace/skills/technical-diagrams`; Raven is not an agent-switcher target.',
     ].join('\n');
     writeValidDevelopmentFixture(fixture, {
       'README.md': nestedEnglish,
@@ -433,29 +433,29 @@ test('Raven instructions reject extracting the archive into the final Skill dire
 
     const result = runCheck(fixture);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /extract archify\.zip into ~\/\.raven\/workspace\/skills, yielding ~\/\.raven\/workspace\/skills\/archify/);
+    assert.match(result.stderr, /extract technical-diagrams\.zip into ~\/\.raven\/workspace\/skills, yielding ~\/\.raven\/workspace\/skills\/technical-diagrams/);
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
 });
 
 test('renderer template generator carries the complete package prerelease identity', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
-      'archify/assets/template.html': '<meta name="generator" content="archify 2.12.0">',
+      'technical-diagrams/assets/template.html': '<meta name="generator" content="technical-diagrams 2.12.0">',
     });
 
     const result = runCheck(fixture);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /archify\/assets\/template\.html generator must be archify 2\.13\.0-dev\.0/);
+    assert.match(result.stderr, /technical-diagrams\/assets\/template\.html generator must be technical-diagrams 2\.13\.0-dev\.0/);
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
 });
 
 test('roadmap current identity follows the package release state', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
       'ROADMAP.md': 'The current development line is `v2.12.0`; it is not a stable release.',
@@ -470,7 +470,7 @@ test('roadmap current identity follows the package release state', () => {
 });
 
 test('generated public-page templates keep a development marker and version placeholder', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidDevelopmentFixture(fixture, {
       'scripts/gallery-template.html': 'Proof Lab / 2.12.0',
@@ -478,26 +478,26 @@ test('generated public-page templates keep a development marker and version plac
 
     const result = runCheck(fixture);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /scripts\/gallery-template\.html must use \[\[ARCHIFY_VERSION\]\] with development and 开发版 labels/);
+    assert.match(result.stderr, /scripts\/gallery-template\.html must use \[\[TECHNICAL_DIAGRAMS_VERSION\]\] with development and 开发版 labels/);
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
 });
 
 test('stable public-page templates reject development labels on version-bearing fallbacks', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-release-identity-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-release-identity-'));
   try {
     writeValidStableFixture(fixture, {
       'scripts/guide-template.html': [
-        '<span data-i18n="versionLabel">Scenario guide / development / v[[ARCHIFY_VERSION]]</span>',
-        "versionLabel:'Scenario guide / stable / v[[ARCHIFY_VERSION]]'",
-        "versionLabel:'场景指南 / 稳定版 / v[[ARCHIFY_VERSION]]'",
+        '<span data-i18n="versionLabel">Scenario guide / development / v[[TECHNICAL_DIAGRAMS_VERSION]]</span>',
+        "versionLabel:'Scenario guide / stable / v[[TECHNICAL_DIAGRAMS_VERSION]]'",
+        "versionLabel:'场景指南 / 稳定版 / v[[TECHNICAL_DIAGRAMS_VERSION]]'",
       ].join('\n'),
     });
 
     const result = runCheck(fixture);
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /scripts\/guide-template\.html must not label \[\[ARCHIFY_VERSION\]\] as development or 开发版/);
+    assert.match(result.stderr, /scripts\/guide-template\.html must not label \[\[TECHNICAL_DIAGRAMS_VERSION\]\] as development or 开发版/);
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }

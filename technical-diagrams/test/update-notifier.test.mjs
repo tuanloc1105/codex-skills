@@ -18,8 +18,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(here, '..');
 const checkerPath = path.join(skillRoot, 'scripts', 'check-update.mjs');
 const contractPath = path.join(skillRoot, 'scripts', 'update-contract.mjs');
-const expectedRepository = 'https://github.com/tt-a1i/archify';
-const expectedManifestUrl = 'https://tt-a1i.github.io/archify/skill-updates/archify/stable.json';
+const expectedRepository = 'https://github.com/tt-a1i/technical-diagrams';
+const expectedManifestUrl = 'https://tt-a1i.github.io/technical-diagrams/skill-updates/technical-diagrams/stable.json';
 const baseTime = Date.parse('2026-08-28T08:00:00Z');
 const childCheckTimeoutMs = 2_000;
 const parentCheckTimeoutMs = 5_000;
@@ -51,7 +51,7 @@ function historyDigest(index) {
 function cachedStateWithHistory({ offeredDigests = [], acknowledgedDigests = [] } = {}) {
   return {
     schemaVersion: 1,
-    skillId: 'archify',
+    skillId: 'technical-diagrams',
     installedVersion: '2.15.0',
     check: {
       nextCheckAt: '2020-01-01T00:00:00.000Z',
@@ -79,7 +79,7 @@ function candidateStateForDigest(state, digest) {
       version: '2.16.0',
       targetDigest: digest,
       severity: 'normal',
-      releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0',
+      releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
     },
   };
 }
@@ -100,7 +100,7 @@ function committedStateFiles(testFixture) {
 function localRelease(version = '2.15.0') {
   return {
     schemaVersion: 1,
-    skillId: 'archify',
+    skillId: 'technical-diagrams',
     channel: version.includes('-') ? 'development' : 'stable',
     version,
     source: { repository: expectedRepository },
@@ -111,7 +111,7 @@ function localRelease(version = '2.15.0') {
 function remoteRelease(overrides = {}) {
   return {
     schemaVersion: 1,
-    skillId: 'archify',
+    skillId: 'technical-diagrams',
     channel: 'stable',
     version: '2.16.0',
     publishedAt: '2026-08-28T07:00:00Z',
@@ -124,7 +124,7 @@ function remoteRelease(overrides = {}) {
       sha256: 'b'.repeat(64),
     },
     summary: 'Improve large-repository scanning and diagram layout.',
-    releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0',
+    releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
     severity: 'normal',
     ...overrides,
   };
@@ -137,11 +137,11 @@ function remoteReleaseForVersion(version, digest = 'b'.repeat(64)) {
     version,
     source: { ...release.source, ref: `v${version}` },
     artifact: { sha256: digest },
-    releaseNotes: `https://github.com/tt-a1i/archify/releases/tag/v${version}`,
+    releaseNotes: `https://github.com/tt-a1i/technical-diagrams/releases/tag/v${version}`,
   };
 }
 
-function response(body, { status = 200, etag = '"archify-2.16.0"' } = {}) {
+function response(body, { status = 200, etag = '"technical-diagrams-2.16.0"' } = {}) {
   return new Response(typeof body === 'string' ? body : JSON.stringify(body), {
     status,
     headers: {
@@ -153,7 +153,7 @@ function response(body, { status = 200, etag = '"archify-2.16.0"' } = {}) {
 
 function fixture(version = '2.15.0') {
   const root = fs.realpathSync(fs.mkdtempSync(
-    path.join(os.tmpdir(), 'archify-update-notifier-'),
+    path.join(os.tmpdir(), 'technical-diagrams-update-notifier-'),
   ));
   const releasePath = path.join(root, 'skill-release.json');
   const cacheDirectory = path.join(root, 'cache');
@@ -359,7 +359,7 @@ function options(testFixture, fetchImpl, overrides = {}) {
 function cachedUpdateState() {
   return {
     schemaVersion: 1,
-    skillId: 'archify',
+    skillId: 'technical-diagrams',
     installedVersion: '2.15.0',
     check: {
       nextCheckAt: new Date(baseTime + (24 * 60 * 60 * 1_000)).toISOString(),
@@ -373,7 +373,7 @@ function cachedUpdateState() {
       version: '2.16.0',
       targetDigest: `sha256:${'b'.repeat(64)}`,
       severity: 'normal',
-      releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0',
+      releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
     },
   };
 }
@@ -465,7 +465,7 @@ test('development installs never treat the older stable release as an update', a
         treeSha: 'c'.repeat(40),
       },
       artifact: { sha256: 'd'.repeat(64) },
-      releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.15.0',
+      releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.15.0',
     })),
   ));
 
@@ -526,10 +526,10 @@ test('a newer immutable candidate is re-offered until the visible notice is ackn
   assert.equal(first.status, 'update_available');
   assert.equal(first.installedVersion, '2.15.0');
   assert.equal(first.latestVersion, '2.16.0');
-  assert.equal(first.eventKey, `archify@sha256:${'b'.repeat(64)}`);
+  assert.equal(first.eventKey, `technical-diagrams@sha256:${'b'.repeat(64)}`);
   assert.equal(first.targetDigest, `sha256:${'b'.repeat(64)}`);
   assert.equal(Object.hasOwn(first, 'updateCommand'), false);
-  assert.equal(first.summary, 'Archify 2.16.0 is available; see the official release notes for details.');
+  assert.equal(first.summary, 'Technical Diagrams 2.16.0 is available; see the official release notes for details.');
   const persisted = JSON.parse(fs.readFileSync(statePath(testFixture), 'utf8'));
   assert.deepEqual(Object.keys(persisted.check).sort(), [
     'consecutiveFailures', 'nextCheckAt',
@@ -618,7 +618,7 @@ test('a 64 KiB multi-offer cache only returns an event whose acknowledgement clo
     version: cachedVersion,
     targetDigest: currentDigest,
     severity: 'normal',
-    releaseNotes: `https://github.com/tt-a1i/archify/releases/tag/v${cachedVersion}`,
+    releaseNotes: `https://github.com/tt-a1i/technical-diagrams/releases/tag/v${cachedVersion}`,
   };
   assert.equal(Buffer.byteLength(compactStateSource(state)), maxCacheStateBytes);
   writeCompactCommittedState(testFixture, state);
@@ -659,7 +659,7 @@ test('a recoverable multi-offer boundary acknowledges every event without prunin
     version: cachedVersion,
     targetDigest: currentDigest,
     severity: 'normal',
-    releaseNotes: `https://github.com/tt-a1i/archify/releases/tag/v${cachedVersion}`,
+    releaseNotes: `https://github.com/tt-a1i/technical-diagrams/releases/tag/v${cachedVersion}`,
   };
   assert.equal(Buffer.byteLength(compactStateSource(state)), maxCacheStateBytes - 1);
   writeCompactCommittedState(testFixture, state);
@@ -673,7 +673,7 @@ test('a recoverable multi-offer boundary acknowledges every event without prunin
     cacheDirectory: testFixture.cacheDirectory,
     eventKey: current.eventKey,
   }), { status: 'acknowledged', eventKey: current.eventKey });
-  const earlierEventKey = `archify@${earlierDigest}`;
+  const earlierEventKey = `technical-diagrams@${earlierDigest}`;
   assert.deepEqual(await acknowledgeUpdate({
     releasePath: testFixture.releasePath,
     cacheDirectory: testFixture.cacheDirectory,
@@ -771,7 +771,7 @@ test('capacity backoff withdraws a stale candidate while preserving its late ack
     version: '2.16.0',
     targetDigest: staleDigest,
     severity: 'normal',
-    releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0',
+    releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
   };
   let replacement = candidateStateForDigest(state, replacementDigest);
   let index = 0;
@@ -792,7 +792,7 @@ test('capacity backoff withdraws a stale candidate while preserving its late ack
 
   const refresh = await checkForUpdate(options(testFixture, fetchImpl));
   const cached = await checkForUpdate(options(testFixture, fetchImpl));
-  const staleEventKey = `archify@${staleDigest}`;
+  const staleEventKey = `technical-diagrams@${staleDigest}`;
   const lateAcknowledgement = await acknowledgeUpdate({
     releasePath: testFixture.releasePath,
     cacheDirectory: testFixture.cacheDirectory,
@@ -823,7 +823,7 @@ test('a 64 KiB state can be acknowledged but a 64 KiB plus one state is ignored'
     version: '2.16.0',
     targetDigest,
     severity: 'normal',
-    releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0',
+    releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
   };
   const initialBytes = Buffer.byteLength(compactStateSource(exactState));
   exactState.check.nextCheckAt += 'x'.repeat(maxCacheStateBytes - initialBytes);
@@ -832,7 +832,7 @@ test('a 64 KiB state can be acknowledged but a 64 KiB plus one state is ignored'
   const exactFixture = fixture();
   try {
     writeCompactCommittedState(exactFixture, exactState);
-    const eventKey = `archify@${targetDigest}`;
+    const eventKey = `technical-diagrams@${targetDigest}`;
     assert.deepEqual(await acknowledgeUpdate({
       releasePath: exactFixture.releasePath,
       cacheDirectory: exactFixture.cacheDirectory,
@@ -855,7 +855,7 @@ test('a 64 KiB state can be acknowledged but a 64 KiB plus one state is ignored'
     assert.deepEqual(await acknowledgeUpdate({
       releasePath: oversizedFixture.releasePath,
       cacheDirectory: oversizedFixture.cacheDirectory,
-      eventKey: `archify@${targetDigest}`,
+      eventKey: `technical-diagrams@${targetDigest}`,
     }), { status: 'silent', reason: 'invalid-acknowledgement' });
   } finally {
     fs.rmSync(oversizedFixture.root, { recursive: true, force: true });
@@ -990,7 +990,7 @@ test('failure backoff saturates safely instead of overflowing the cache counter'
   t.after(() => fs.rmSync(testFixture.root, { recursive: true, force: true }));
   writeJson(statePath(testFixture), {
     schemaVersion: 1,
-    skillId: 'archify',
+    skillId: 'technical-diagrams',
     installedVersion: '2.15.0',
     check: {
       nextCheckAt: new Date(baseTime - 1_000).toISOString(),
@@ -2927,14 +2927,14 @@ test('an identity mismatch is rejected silently and never cached as a candidate'
 });
 
 test('release notes must byte-match the exact trusted GitHub URL', async () => {
-  const base = 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0';
+  const base = 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0';
   for (const releaseNotes of [
-    'https://github.com:443/tt-a1i/archify/releases/tag/v2.16.0',
-    'https://github.com:444/tt-a1i/archify/releases/tag/v2.16.0',
+    'https://github.com:443/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
+    'https://github.com:444/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
     `${base}?`,
     `${base}#`,
     `${base}?source=manifest`,
-    'https://GITHUB.COM/tt-a1i/archify/releases/tag/v2.16.0',
+    'https://GITHUB.COM/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
   ]) {
     const testFixture = fixture();
     try {
@@ -3000,7 +3000,7 @@ test('an invalid local identity fails before any network disclosure', async (t) 
   t.after(() => fs.rmSync(testFixture.root, { recursive: true, force: true }));
   writeJson(testFixture.releasePath, {
     ...localRelease(),
-    source: { repository: 'https://example.com/untrusted/archify' },
+    source: { repository: 'https://example.com/untrusted/technical-diagrams' },
   });
   let requests = 0;
 
@@ -3172,7 +3172,7 @@ test('a newer cached candidate without offered or acknowledged provenance is reb
   t.after(() => fs.rmSync(testFixture.root, { recursive: true, force: true }));
   writeJson(statePath(testFixture), {
     schemaVersion: 1,
-    skillId: 'archify',
+    skillId: 'technical-diagrams',
     installedVersion: '2.15.0',
     check: {
       nextCheckAt: new Date(baseTime + (24 * 60 * 60 * 1_000)).toISOString(),
@@ -3186,7 +3186,7 @@ test('a newer cached candidate without offered or acknowledged provenance is reb
       version: '2.16.0',
       targetDigest: `sha256:${'b'.repeat(64)}`,
       severity: 'normal',
-      releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0',
+      releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
     },
   });
   let requests = 0;
@@ -3222,7 +3222,7 @@ test('disabled CLI returns one silent JSON line and never needs the network', ()
   const result = spawnSync(process.execPath, [checkerPath], {
     cwd: skillRoot,
     encoding: 'utf8',
-    env: { ...process.env, ARCHIFY_UPDATE_CHECK_DISABLED: '1' },
+    env: { ...process.env, TECHNICAL_DIAGRAMS_UPDATE_CHECK_DISABLED: '1' },
   });
 
   assert.equal(result.status, 0, result.stderr);
@@ -3231,17 +3231,17 @@ test('disabled CLI returns one silent JSON line and never needs the network', ()
 });
 
 test('CLI acknowledgement emits the documented one-line success schema', async (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-update-cli-ack-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-update-cli-ack-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const home = path.join(root, 'home');
   const xdg = path.join(root, 'xdg-cache');
   const localData = path.join(root, 'local-data');
   for (const directory of [home, xdg, localData]) fs.mkdirSync(directory, { recursive: true });
   const cacheDirectory = process.platform === 'win32'
-    ? path.join(localData, 'archify-skill')
+    ? path.join(localData, 'technical-diagrams-skill')
     : process.platform === 'darwin'
-      ? path.join(home, 'Library', 'Caches', 'archify-skill')
-      : path.join(xdg, 'archify-skill');
+      ? path.join(home, 'Library', 'Caches', 'technical-diagrams-skill')
+      : path.join(xdg, 'technical-diagrams-skill');
   const releasePath = path.join(skillRoot, 'skill-release.json');
   const installedRelease = JSON.parse(fs.readFileSync(releasePath, 'utf8'));
   const [major, minor, patch] = parseSemver(installedRelease.version).core;
@@ -3276,7 +3276,7 @@ test('CLI acknowledgement emits the documented one-line success schema', async (
 });
 
 test('CLI entry detection survives a realpath or symlink alias', (t) => {
-  const aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-update-cli-alias-'));
+  const aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-update-cli-alias-'));
   t.after(() => fs.rmSync(aliasRoot, { recursive: true, force: true }));
   const aliasPath = path.join(aliasRoot, 'check-update-alias.mjs');
   try {
@@ -3292,7 +3292,7 @@ test('CLI entry detection survives a realpath or symlink alias', (t) => {
   const result = spawnSync(process.execPath, [aliasPath], {
     cwd: aliasRoot,
     encoding: 'utf8',
-    env: { ...process.env, ARCHIFY_UPDATE_CHECK_DISABLED: '1' },
+    env: { ...process.env, TECHNICAL_DIAGRAMS_UPDATE_CHECK_DISABLED: '1' },
   });
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(JSON.parse(result.stdout), { status: 'silent', reason: 'disabled' });
@@ -3309,7 +3309,7 @@ test('notifier source has no process execution or remote-origin override surface
     .map((match) => match[1])
     .sort();
   assert.deepEqual(environmentReads, [
-    'ARCHIFY_UPDATE_CHECK_DISABLED',
+    'TECHNICAL_DIAGRAMS_UPDATE_CHECK_DISABLED',
     'LOCALAPPDATA',
     'XDG_CACHE_HOME',
   ]);

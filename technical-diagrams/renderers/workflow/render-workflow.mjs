@@ -13,7 +13,7 @@ const { diagram: workflow, template, outPath } = await loadDiagramWithBrandMarks
 
 const compiled = compileWorkflow({
   workflow,
-  qualityProfile: process.env.ARCHIFY_QUALITY_PROFILE || workflow.meta?.quality_profile,
+  qualityProfile: process.env.TECHNICAL_DIAGRAMS_QUALITY_PROFILE || workflow.meta?.quality_profile,
 });
 
 const layoutJson = process.argv.includes('--layout-json');

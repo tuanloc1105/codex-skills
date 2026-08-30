@@ -40,18 +40,18 @@ function stableManifest(overrides = {}) {
     },
     artifact: { sha256: 'b'.repeat(64) },
     summary: 'Contract fixture.',
-    releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0',
+    releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0',
     severity: 'normal',
     ...overrides,
   };
 }
 
 test('shared release constants identify the only trusted updater source', () => {
-  assert.equal(SKILL_ID, 'archify');
-  assert.equal(EXPECTED_REPOSITORY, 'https://github.com/tt-a1i/archify');
+  assert.equal(SKILL_ID, 'technical-diagrams');
+  assert.equal(EXPECTED_REPOSITORY, 'https://github.com/tt-a1i/technical-diagrams');
   assert.equal(
     DEFAULT_MANIFEST_URL,
-    'https://tt-a1i.github.io/archify/skill-updates/archify/stable.json',
+    'https://tt-a1i.github.io/technical-diagrams/skill-updates/technical-diagrams/stable.json',
   );
 });
 
@@ -123,9 +123,9 @@ test('stable manifests enforce one exact schema and canonical release identity',
     stableManifest({ artifact: { sha256: 'b'.repeat(64), extra: true } }),
     stableManifest({ summary: '\u202eunsafe' }),
     stableManifest({ severity: 'urgent' }),
-    stableManifest({ releaseNotes: 'https://github.com:443/tt-a1i/archify/releases/tag/v2.16.0' }),
-    stableManifest({ releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v2.16.0?' }),
-    stableManifest({ releaseNotes: 'https://GITHUB.COM/tt-a1i/archify/releases/tag/v2.16.0' }),
+    stableManifest({ releaseNotes: 'https://github.com:443/tt-a1i/technical-diagrams/releases/tag/v2.16.0' }),
+    stableManifest({ releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v2.16.0?' }),
+    stableManifest({ releaseNotes: 'https://GITHUB.COM/tt-a1i/technical-diagrams/releases/tag/v2.16.0' }),
   ];
   for (const value of invalid) {
     assert.throws(() => validateStableUpdateManifest(value), UpdateContractError);

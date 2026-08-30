@@ -5,7 +5,7 @@ const originalRmSync = fs.rmSync.bind(fs);
 let injectedFailure = false;
 
 fs.rmSync = function failMigrationCleanupOnce(target, options) {
-  const isMigrationStagingDirectory = path.basename(String(target)).startsWith('.archify-migration-');
+  const isMigrationStagingDirectory = path.basename(String(target)).startsWith('.technical-diagrams-migration-');
   if (!injectedFailure && isMigrationStagingDirectory) {
     injectedFailure = true;
     originalRmSync(target, options);

@@ -44,45 +44,45 @@ function runCheck(root, archive, extraArguments = []) {
 }
 
 test('stable release gate binds manifest tag, tree, and final archive digest', () => {
-  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-stable-manifest-'));
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-stable-manifest-'));
   try {
-    writeJson(path.join(fixture, 'archify', 'package.json'), { version: '3.0.0' });
-    fs.writeFileSync(path.join(fixture, 'archify', 'SKILL.md'), 'stable fixture\n');
+    writeJson(path.join(fixture, 'technical-diagrams', 'package.json'), { version: '3.0.0' });
+    fs.writeFileSync(path.join(fixture, 'technical-diagrams', 'SKILL.md'), 'stable fixture\n');
     assert.equal(git(fixture, ['init']).status, 0);
-    assert.equal(git(fixture, ['add', 'archify']).status, 0);
+    assert.equal(git(fixture, ['add', 'technical-diagrams']).status, 0);
     assert.equal(git(fixture, [
-      '-c', 'user.name=Archify Test',
-      '-c', 'user.email=archify@example.invalid',
+      '-c', 'user.name=Technical Diagrams Test',
+      '-c', 'user.email=technical-diagrams@example.invalid',
       'commit', '-m', 'stable fixture',
     ]).status, 0);
     assert.equal(git(fixture, [
-      '-c', 'user.name=Archify Test',
-      '-c', 'user.email=archify@example.invalid',
+      '-c', 'user.name=Technical Diagrams Test',
+      '-c', 'user.email=technical-diagrams@example.invalid',
       'tag', '-a', 'v3.0.0', '-m', 'stable v3.0.0',
     ]).status, 0);
     const publishedAt = annotatedTaggerTime(fixture, 'v3.0.0');
-    const tree = git(fixture, ['rev-parse', 'HEAD:archify']);
+    const tree = git(fixture, ['rev-parse', 'HEAD:technical-diagrams']);
     assert.equal(tree.status, 0, tree.stderr);
     const treeSha = tree.stdout.trim();
-    const archive = path.join(fixture, 'archify.zip');
+    const archive = path.join(fixture, 'technical-diagrams.zip');
     const archiveBytes = Buffer.from('deterministic stable archive fixture');
     fs.writeFileSync(archive, archiveBytes);
     const artifactSha = crypto.createHash('sha256').update(archiveBytes).digest('hex');
-    const manifestPath = path.join(fixture, 'docs', 'skill-updates', 'archify', 'stable.json');
+    const manifestPath = path.join(fixture, 'docs', 'skill-updates', 'technical-diagrams', 'stable.json');
     const manifest = {
       schemaVersion: 1,
-      skillId: 'archify',
+      skillId: 'technical-diagrams',
       channel: 'stable',
       version: '3.0.0',
       publishedAt,
       source: {
-        repository: 'https://github.com/tt-a1i/archify',
+        repository: 'https://github.com/tt-a1i/technical-diagrams',
         ref: 'v3.0.0',
         treeSha,
       },
       artifact: { sha256: artifactSha },
       summary: 'Stable release fixture.',
-      releaseNotes: 'https://github.com/tt-a1i/archify/releases/tag/v3.0.0',
+      releaseNotes: 'https://github.com/tt-a1i/technical-diagrams/releases/tag/v3.0.0',
       severity: 'normal',
     };
     writeJson(manifestPath, manifest);
@@ -91,13 +91,13 @@ test('stable release gate binds manifest tag, tree, and final archive digest', (
     assert.equal(passing.status, 0, passing.stderr);
     assert.match(passing.stdout, /stable update manifest ok: v3\.0\.0/);
 
-    writeJson(path.join(fixture, 'archify', 'package.json'), { version: '4.0.0-dev.0' });
+    writeJson(path.join(fixture, 'technical-diagrams', 'package.json'), { version: '4.0.0-dev.0' });
     const historicalRelease = runCheck(fixture, archive, ['--source-ref', 'v3.0.0']);
     assert.equal(historicalRelease.status, 0, historicalRelease.stderr);
     const wrongHistoricalRef = runCheck(fixture, archive, ['--source-ref', 'v2.9.0']);
     assert.notEqual(wrongHistoricalRef.status, 0);
     assert.match(wrongHistoricalRef.stderr, /--source-ref must be HEAD or the exact release tag/);
-    writeJson(path.join(fixture, 'archify', 'package.json'), { version: '3.0.0' });
+    writeJson(path.join(fixture, 'technical-diagrams', 'package.json'), { version: '3.0.0' });
 
     writeJson(manifestPath, {
       ...manifest,
@@ -153,7 +153,7 @@ test('stable release gate binds manifest tag, tree, and final archive digest', (
     });
     const treeMismatch = runCheck(fixture, archive);
     assert.notEqual(treeMismatch.status, 0);
-    assert.match(treeMismatch.stderr, /treeSha .* does not match HEAD:archify/);
+    assert.match(treeMismatch.stderr, /treeSha .* does not match HEAD:technical-diagrams/);
 
     writeJson(manifestPath, manifest);
     assert.equal(git(fixture, ['tag', '-d', 'v3.0.0']).status, 0);

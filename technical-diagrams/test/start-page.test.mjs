@@ -82,14 +82,14 @@ function executeStartPage(html) {
     location: { href: 'https://example.test/start.html', search: '', pathname: '/start.html' },
     isSecureContext: true,
     dispatchEvent() {},
-    ArchifySiteLanguage: {
+    Technical DiagramsSiteLanguage: {
       read() { return 'en'; },
       write(value) { return value; },
     },
   };
   const context = {
     window,
-    ArchifySiteLanguage: window.ArchifySiteLanguage,
+    Technical DiagramsSiteLanguage: window.Technical DiagramsSiteLanguage,
     document,
     navigator: { languages: ['en'], language: 'en', clipboard: { async writeText(value) { copied.push(value); } } },
     history: { replaceState(_state, _title, url) { replacedUrl = url; } },
@@ -111,7 +111,7 @@ function executeStartPage(html) {
 }
 
 test('start page: checked-in HTML is reproducible from canonical scenario recipes', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-start-page-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-start-page-'));
   const generated = path.join(tmp, 'start.html');
   try {
     execFileSync(process.execPath, [path.join(repoRoot, 'scripts/build-start.mjs'), generated]);
@@ -127,15 +127,15 @@ test('start page: checked-in HTML is reproducible from canonical scenario recipe
 test('start page: offers five bounded bilingual starts without ingesting source content', () => {
   const html = fs.readFileSync(path.join(repoRoot, 'docs/start.html'), 'utf8');
   assert.doesNotMatch(html, /\[\[[A-Z0-9_]+\]\]/);
-  assert.match(html, /npx -y skills add tt-a1i\/archify --skill archify --agent codex --global --copy --yes/);
-  assert.match(html, /npx -y skills add tt-a1i\/archify --skill archify --agent codex --copy --yes/);
+  assert.match(html, /npx -y skills add tt-a1i\/technical-diagrams --skill technical-diagrams --agent codex --global --copy --yes/);
+  assert.match(html, /npx -y skills add tt-a1i\/technical-diagrams --skill technical-diagrams --agent codex --copy --yes/);
   for (const agent of ['cursor', 'codex', 'claude-code', 'opencode']) {
     assert.match(html, new RegExp(`role="tab" data-agent="${agent}"`));
   }
   assert.match(html, /data-en="Describe it\."/);
-  assert.match(html, /data-en="Archify maps it\."/);
+  assert.match(html, /data-en="Technical Diagrams maps it\."/);
   assert.match(html, /data-zh="直接说，"/);
-  assert.match(html, /data-zh="Archify 就能画。"/);
+  assert.match(html, /data-zh="Technical Diagrams 就能画。"/);
   assert.match(html, /id="copy-starter"/);
   assert.match(html, /data-en="Copy install \+ prompt"/);
   assert.match(html, /data-zh="复制安装命令 \+ 提示词"/);
@@ -164,8 +164,8 @@ test('start page: offers five bounded bilingual starts without ingesting source 
   assert.match(scriptMatch[1], /--agent ' \+ agent \+ ' --global --copy --yes/);
   assert.match(scriptMatch[1], /--agent ' \+ agent \+ ' --copy --yes/);
   assert.match(scriptMatch[1], /function starterText\(\)/);
-  assert.match(scriptMatch[1], /archify:start-funnel/);
-  assert.match(scriptMatch[1], /archify\.start\.events\.v1/);
+  assert.match(scriptMatch[1], /technical-diagrams:start-funnel/);
+  assert.match(scriptMatch[1], /technical-diagrams\.start\.events\.v1/);
   assert.doesNotMatch(scriptMatch[1], /fetch\(|sendBeacon\(|XMLHttpRequest/);
   assert.match(scriptMatch[1], /textContent/);
   assert.match(scriptMatch[1], /replaceChildren/);
@@ -221,7 +221,7 @@ test('start page: input mode drives rendered prompt, copy, keyboard, and URL wit
   assert.match(page.copied.at(-1), /Then start any new chat and tell Codex:/);
   assert.ok(page.copied.at(-1).endsWith(descriptionPrompt));
 
-  const [viewEvent, promptEvent, starterEvent] = page.window.ArchifyStartMetrics.snapshot();
+  const [viewEvent, promptEvent, starterEvent] = page.window.Technical DiagramsStartMetrics.snapshot();
   for (const event of [viewEvent, promptEvent, starterEvent]) {
     assert.deepEqual(Object.keys(event), ['schemaVersion', 'step', 'source', 'type', 'agent', 'language']);
     assert.equal('input' in event, false);
@@ -237,7 +237,7 @@ test('generated artifacts omit the promotional footer and shortcut manual', () =
     dataflow: 'product-analytics.dataflow.json',
     lifecycle: 'agent-run.lifecycle.json',
   };
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-start-artifacts-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-start-artifacts-'));
   try {
     for (const [type, input] of Object.entries(examples)) {
       const out = path.join(tmp, `${type}.html`);
@@ -248,7 +248,7 @@ test('generated artifacts omit the promotional footer and shortcut manual', () =
       ]);
       const html = fs.readFileSync(out, 'utf8');
       assert.doesNotMatch(html, /<p class="footer">/, `${type}: footer element`);
-      assert.doesNotMatch(html, /Built with Archify/, `${type}: product signature`);
+      assert.doesNotMatch(html, /Built with Technical Diagrams/, `${type}: product signature`);
       assert.doesNotMatch(html, /Create yours/, `${type}: promotional CTA`);
       assert.doesNotMatch(html, /Hover to trace/, `${type}: shortcut manual`);
       assert.doesNotMatch(html, /source=artifact/, `${type}: removed artifact CTA URL`);
@@ -264,10 +264,10 @@ test('generated artifacts omit the promotional footer and shortcut manual', () =
 
 test('viewer gives wide screens a larger canvas without forcing a subtitle row', () => {
   const template = fs.readFileSync(path.join(skillRoot, 'assets', 'template.html'), 'utf8');
-  assert.match(template, /max-width: var\(--archify-reader-width, 1440px\)/);
-  assert.match(template, /Archify\.readerLayout = \(function \(\)/);
+  assert.match(template, /max-width: var\(--technical-diagrams-reader-width, 1440px\)/);
+  assert.match(template, /Technical Diagrams\.readerLayout = \(function \(\)/);
 
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-title-hierarchy-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-title-hierarchy-'));
   try {
     const input = JSON.parse(fs.readFileSync(
       path.join(skillRoot, 'examples', 'web-app.architecture.json'),

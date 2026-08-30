@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const bin = path.join(skillRoot, 'bin', 'archify.mjs');
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-vertical-edge-'));
+const bin = path.join(skillRoot, 'bin', 'technical-diagrams.mjs');
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-vertical-edge-'));
 
 const REPRO = {
   schema_version: 1,

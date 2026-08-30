@@ -1,4 +1,4 @@
-# Archify JSON IR Schemas
+# Technical Diagrams JSON IR Schemas
 
 Each typed renderer consumes a JSON intermediate representation (IR) validated
 against one of the schemas in this folder before any layout work happens.
@@ -63,7 +63,7 @@ Architecture documents that omit an explicit `viewBox` size that automatic
 viewBox from the same measured resolved legend footprint used for final SVG
 layout. Across all renderers, legacy documents that omit `meta.legend` use a
 compatibility-safe implicit `auto`: if the resolved legend cannot fit an
-explicit authored viewBox without overlap, Archify omits the complete legend
+explicit authored viewBox without overlap, Technical Diagrams omits the complete legend
 instead of turning a previously valid schema-v1 document into a hard failure.
 Once an author adds `meta.legend` (including explicit `mode: "auto"`), the
 layout is intentional and unfit labels or bands fail with a path-prefixed
@@ -99,8 +99,8 @@ local to the current page.
 
 Every semantic node collection (`components`, `nodes`, `participants`, and
 `states`) also accepts one optional `brand`: either a canonical string returned
-by `archify brands --json`, or a digest-pinned `{ "url", "sha256" }` object
-returned by `archify brands capture <url> --json`. Known IDs and known-brand
+by `technical-diagrams brands --json`, or a digest-pinned `{ "url", "sha256" }` object
+returned by `technical-diagrams brands capture <url> --json`. Known IDs and known-brand
 domains use the bundled vector catalogue. Unknown URLs must be captured in that
 explicit command before authoring; render and validate never perform an
 unpinned network capture. Unsafe, unavailable, changed, or unsupported content
@@ -111,7 +111,7 @@ output.
 
 Workflow supports schema versions 1 and 2. Version 1 remains the fixed-layout
 compatibility contract; version 2 opts into the readable workflow compiler and
-can be produced explicitly with `archify migrate workflow ... --to-schema 2`.
+can be produced explicitly with `technical-diagrams migrate workflow ... --to-schema 2`.
 The other four diagram schemas keep `schema_version` pinned to `1`.
 
 Workflow also accepts optional `semanticChecks`. `allowedRoots` and
@@ -176,7 +176,7 @@ exports carry no repository evidence.
 
 `meta.quality_profile` and `meta.engineering_profile` answer different
 questions. `quality_profile` is available in all five modes and controls how
-strictly Archify judges composition. `engineering_profile` is an optional
+strictly Technical Diagrams judges composition. `engineering_profile` is an optional
 Architecture-only semantic contract; omitting it preserves the ordinary v1
 behavior.
 

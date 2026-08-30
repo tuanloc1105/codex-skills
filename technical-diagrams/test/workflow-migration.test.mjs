@@ -19,13 +19,13 @@ import { compileWorkflow } from '../renderers/workflow/workflow-compiler.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
-const cli = path.join(skillRoot, 'bin', 'archify.mjs');
+const cli = path.join(skillRoot, 'bin', 'technical-diagrams.mjs');
 const fixture = path.join(
   __dirname,
   'fixtures',
   'v1-workflow-explicit-coordinates.workflow.json',
 );
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-workflow-migration-'));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-workflow-migration-'));
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -300,7 +300,7 @@ test('CLI migration ignores ambient standard for an authored showcase workflow',
   fs.writeFileSync(source, sourceBytes);
 
   const migration = runMigration(source, destination, {
-    env: { ARCHIFY_QUALITY_PROFILE: 'standard' },
+    env: { TECHNICAL_DIAGRAMS_QUALITY_PROFILE: 'standard' },
   });
 
   assert.notEqual(migration.status, 0);
@@ -323,7 +323,7 @@ test('CLI migration ignores ambient showcase for an authored standard workflow',
   fs.writeFileSync(source, sourceBytes);
 
   const migration = runMigration(source, destination, {
-    env: { ARCHIFY_QUALITY_PROFILE: 'showcase' },
+    env: { TECHNICAL_DIAGRAMS_QUALITY_PROFILE: 'showcase' },
   });
 
   assert.equal(migration.status, 0, migration.stderr || migration.stdout);
@@ -342,7 +342,7 @@ test('CLI migration makes the blocking new-schema diagnostic primary over pre-ex
   fs.writeFileSync(source, `${JSON.stringify(profileDivergenceWorkflow(), null, 2)}\n`);
 
   const migration = runMigration(source, destination, {
-    env: { ARCHIFY_QUALITY_PROFILE: 'showcase' },
+    env: { TECHNICAL_DIAGRAMS_QUALITY_PROFILE: 'showcase' },
   });
 
   assert.notEqual(migration.status, 0);
