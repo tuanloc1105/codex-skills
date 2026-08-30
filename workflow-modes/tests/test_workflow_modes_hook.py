@@ -340,10 +340,84 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.control("write-close", "--record", str(self.record))
         transitioned = self.control("transition", "plan", "--record", str(self.record))
         self.assertIn("WORKFLOW_MODE_ACTIVE", json.dumps(transitioned))
-        self.record = self.cwd / "plans" / "test-plan"; self.index = self.record / "index.md"
+        target = self.cwd / "plans" / "test-plan"
+        denied = self.patch(str(target / "index.md"))
+        self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(denied))
+        initialized = self.control(
+            "plan-init", "--record", str(self.record), "--target", str(target),
+        )
+        self.assertIn("WORKFLOW_PLAN_INIT_OPEN", json.dumps(initialized))
+        self.assertIsNone(self.patch(str(target / "index.md"), str(target / "context.md")))
+        self.assertIn(
+            "WORKFLOW_PLAN_BOOTSTRAP_SCOPE_DENIED",
+            json.dumps(self.patch(str(self.cwd / "outside.md"))),
+        )
+        self.assertIn(
+            "WORKFLOW_PLAN_BOOTSTRAP_SCOPE_DENIED",
+            json.dumps(self.patch(str(target / "assets" / "config.json"))),
+        )
+        self.assertIn(
+            "WORKFLOW_PLAN_ACTIVATION_REQUIRED",
+            json.dumps(self.run_hook("Stop")),
+        )
+        self.assertIn(
+            "WORKFLOW_RECORD_UNREADABLE",
+            json.dumps(self.control("activate", "plan", "--record", str(target))),
+        )
+        self.record = target; self.index = self.record / "index.md"
         self.create_bundle("plan")
         rebound = self.control("activate", "plan", "--record", str(self.record))
         self.assertIn(str(self.record), json.dumps(rebound))
+
+    def test_plan_init_rejects_existing_or_nested_target(self) -> None:
+        self.activate("discuss"); self.write_open()
+        self.index.write_text(
+            self.index.read_text(encoding="utf-8").replace("Mode status: Active", "Mode status: Exited"),
+            encoding="utf-8",
+        )
+        self.control("write-close", "--record", str(self.record))
+        self.control("transition", "plan", "--record", str(self.record))
+        existing = self.cwd / "plans" / "existing"
+        existing.mkdir(parents=True)
+        denied = self.control(
+            "plan-init", "--record", str(self.record), "--target", str(existing),
+        )
+        self.assertIn("WORKFLOW_PLAN_TARGET_INVALID", json.dumps(denied))
+        nested = self.record / "nested-plan"
+        denied = self.control(
+            "plan-init", "--record", str(self.record), "--target", str(nested),
+        )
+        self.assertIn("WORKFLOW_PLAN_TARGET_INVALID", json.dumps(denied))
+
+    def test_action_path_named_control_script_is_not_ambiguous(self) -> None:
+        self.activate("execute")
+        evidence = self.record / "evidence.md"
+        self.write_open(); self.assertIsNone(self.patch(str(evidence)))
+        evidence.write_text("# Evidence\nA003\n<!-- workflow-action:A003 status:open -->\n", encoding="utf-8")
+        self.index.write_text(
+            self.index.read_text(encoding="utf-8").replace("Active action: None", "Active action: A003"),
+            encoding="utf-8",
+        )
+        self.control("write-close", "--record", str(self.record))
+        target = self.cwd / "scripts" / "workflow_modes_control.py"
+        opened = self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A003",
+            "--impact", "source-confirmed", "--path", str(target),
+        )
+        self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(opened))
+
+    def test_approved_plan_transition_to_execute_keeps_plan_bundle(self) -> None:
+        self.activate("plan"); self.write_open()
+        self.index.write_text(
+            self.index.read_text(encoding="utf-8")
+            .replace("Status: Draft", "Status: Approved plan, not yet implemented")
+            .replace("Execute mode: Inactive", "Execute mode: Ready"),
+            encoding="utf-8",
+        )
+        self.control("write-close", "--record", str(self.record))
+        transitioned = self.control("transition", "execute", "--record", str(self.record))
+        self.assertIn("mode=execute", json.dumps(transitioned))
+        self.assertIn(str(self.record), json.dumps(transitioned))
 
     def test_direct_execute_transition_keeps_discussion_bundle(self) -> None:
         self.activate("discuss")
@@ -369,6 +443,12 @@ class WorkflowModesHookTests(unittest.TestCase):
         result = subprocess.run(
             [sys.executable, str(CONTROL), "write-open", "--record", str(self.record),
              "--previous-revision", "sha256:test", "--path", str(self.index), "--marker", MARKER],
+            text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        result = subprocess.run(
+            [sys.executable, str(CONTROL), "plan-init", "--record", str(self.record),
+             "--target", str(self.cwd / "plans" / "target"), "--marker", MARKER],
             text=True, capture_output=True, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)

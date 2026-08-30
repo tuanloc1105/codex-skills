@@ -510,10 +510,14 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
 
     candidates: list[tuple[list[str], int, int]] = []
     for segment in segments:
-        script_indexes = [
-            index for index, token in enumerate(segment)
-            if Path(token).name == "workflow_modes_control.py"
-        ]
+        first_script_index = next(
+            (
+                index for index, token in enumerate(segment)
+                if Path(token).name == "workflow_modes_control.py"
+            ),
+            None,
+        )
+        script_indexes = [] if first_script_index is None else [first_script_index]
         for script_index in script_indexes:
             try:
                 marker_index = segment.index("--marker", script_index + 1)
@@ -539,6 +543,7 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
         if token in {
             "--record", "--path", "--result", "--impact", "--evidence-id",
             "--unscoped", "--reason", "--scope", "--previous-revision", "--reference",
+            "--target",
         } and index + 1 < len(args):
             key = token[2:].replace("-", "_")
             if key == "path":
@@ -627,6 +632,23 @@ def handle_control(
                 f"transition instead of activating {mode}."
             )
         absolute_record = canonical_record(record, cwd) if isinstance(record, str) else None
+        if (
+            action == "activate"
+            and mode == "plan"
+            and current
+            and current.get("mode") == "plan"
+            and current.get("plan_handoff_source")
+        ):
+            target = current.get("plan_bootstrap")
+            if not isinstance(target, str):
+                return deny_tool(
+                    "WORKFLOW_PLAN_INIT_REQUIRED: declare the separate plan target with "
+                    "plan-init before creating or activating it."
+                )
+            if absolute_record != target:
+                return deny_tool(
+                    "WORKFLOW_PLAN_TARGET_MISMATCH: activate the exact target declared by plan-init."
+                )
         record_text = read_index(absolute_record) if absolute_record else None
         if record_text is not None and not re.search(
             r"workflow-record[^\n>]*version:4[^\n>]*tracker-id:[^\s>]+", record_text
@@ -711,6 +733,13 @@ def handle_control(
             "rules_sync_required": True,
             "updated_at": utc_now(),
         }
+        if (
+            action == "transition"
+            and current
+            and current.get("mode") == "discuss"
+            and mode == "plan"
+        ):
+            state["plan_handoff_source"] = absolute_record
         store.mutate(key, lambda _old: state)
         return context_output(
             "PreToolUse",
@@ -733,6 +762,62 @@ def handle_control(
         return context_output("PreToolUse", "WORKFLOW_MODE_INACTIVE: execute explicitly exited.")
     if not current:
         return deny_tool("WORKFLOW_MODE_INACTIVE: activate a tracker-backed mode first.")
+    if action == "plan-init":
+        if current.get("mode") != "plan" or not current.get("plan_handoff_source"):
+            return deny_tool(
+                "WORKFLOW_PLAN_INIT_DENIED: plan-init is only valid immediately after a "
+                "discuss-to-plan transition."
+            )
+        if current.get("write_transaction") or current.get("action"):
+            return deny_tool(
+                "WORKFLOW_PLAN_INIT_DENIED: close the active transaction or action first."
+            )
+        if current.get("plan_bootstrap"):
+            return deny_tool(
+                "WORKFLOW_PLAN_INIT_ALREADY_OPEN: activate the declared target before "
+                "starting another plan bundle."
+            )
+        record = control.get("record")
+        if not record_matches(record, current.get("record"), cwd):
+            return deny_tool(
+                "WORKFLOW_RECORD_MISMATCH: plan-init source differs from the transitioned tracker."
+            )
+        target_value = control.get("target")
+        if not isinstance(target_value, str):
+            return deny_tool("WORKFLOW_PLAN_TARGET_INVALID: plan-init requires --target.")
+        target = canonical_record(target_value, cwd)
+        target_path = Path(target)
+        source_path = Path(str(current.get("record")))
+        try:
+            resolved_target = target_path.resolve(strict=False)
+            resolved_source = source_path.resolve(strict=True)
+        except OSError:
+            return deny_tool("WORKFLOW_PLAN_TARGET_INVALID: plan target could not be resolved safely.")
+        if (
+            target_path.exists()
+            or ".git" in target_path.parts
+            or resolved_target == resolved_source
+            or resolved_source in resolved_target.parents
+        ):
+            return deny_tool(
+                "WORKFLOW_PLAN_TARGET_INVALID: target must be a new directory outside the "
+                "source bundle and Git metadata."
+            )
+        existing = target_path.parent
+        while not existing.exists() and existing != existing.parent:
+            existing = existing.parent
+        if existing.is_symlink():
+            return deny_tool(
+                "WORKFLOW_PLAN_TARGET_INVALID: target ancestry must not traverse a symlink."
+            )
+        current["plan_bootstrap"] = target
+        current["updated_at"] = utc_now()
+        store.mutate(key, lambda _old: current)
+        return context_output(
+            "PreToolUse",
+            f"WORKFLOW_PLAN_INIT_OPEN: target={target}; only files beneath this new plan "
+            "bundle may be created until activate plan validates and binds it.",
+        )
     if action == "rules-sync":
         record = control.get("record")
         if not record_matches(record, current.get("record"), cwd):
@@ -1094,6 +1179,20 @@ def handle_pre_tool(
             "WORKFLOW_WRITE_SCOPE_DENIED: while a record write is open, only manifest-owned "
             "Markdown files may be mutated."
         )
+    bootstrap = state.get("plan_bootstrap")
+    if isinstance(bootstrap, str):
+        requested = {normalized(path, cwd) for path in paths}
+        inside_target = bool(requested) and all(
+            (Path(path) == Path(bootstrap) or Path(bootstrap) in Path(path).parents)
+            and Path(path).suffix.lower() == ".md"
+            for path in requested
+        )
+        if str(payload.get("tool_name", "")).lower().endswith("apply_patch") and inside_target:
+            return None
+        return deny_tool(
+            "WORKFLOW_PLAN_BOOTSTRAP_SCOPE_DENIED: while plan initialization is open, "
+            "only apply_patch writes beneath the declared target are allowed."
+        )
     if paths and all(record_or_housekeeping_path(path, state, cwd) for path in paths):
         requested = {normalized(path, cwd) for path in paths}
         record = str(state.get("record"))
@@ -1209,6 +1308,12 @@ def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[st
             "decision": "block",
             "reason": "WORKFLOW_WRITE_CLOSE_REQUIRED: repair and close the active record "
             "write transaction before stopping.",
+        }
+    if state.get("plan_bootstrap"):
+        return {
+            "decision": "block",
+            "reason": "WORKFLOW_PLAN_ACTIVATION_REQUIRED: finish the declared plan bundle "
+            "and activate that exact target before stopping.",
         }
     if state.get("rules_sync_required"):
         return {

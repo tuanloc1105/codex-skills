@@ -1,4 +1,5 @@
 /discussion/
 /plans/
+/.worktrees/
 node_modules/
 __pycache__/

@@ -23,6 +23,11 @@ def parse_args() -> argparse.Namespace:
     transition.add_argument("--record", required=True)
     transition.add_argument("--marker", required=True)
 
+    plan_init = subparsers.add_parser("plan-init")
+    plan_init.add_argument("--record", required=True)
+    plan_init.add_argument("--target", required=True)
+    plan_init.add_argument("--marker", required=True)
+
     action_open = subparsers.add_parser("action-open")
     action_open.add_argument("--record", required=True)
     action_open.add_argument("--evidence-id")
