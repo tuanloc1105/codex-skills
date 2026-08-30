@@ -1,7 +1,7 @@
 interface:
   display_name: "Discuss"
   short_description: "Discuss, track, then choose plan or execute"
-  default_prompt: "Use $discuss to keep one self-contained tracker with source provenance and an exact resume checkpoint. Read and synchronize that exact file at each context boundary, checkpoint every turn, pause at the first material user-owned decision, and persist it before every substantive response. If I request and confirm a bounded source-code action, perform and verify only that action, record its result, then return to discuss. Keep discuss active until I transition with $plan or $execute."
+  default_prompt: "Use $discuss to keep one version 4 Markdown record bundle with index.md as its control plane. Synchronize the manifest at context boundaries, update bundle files through write transactions, checkpoint every turn, and pause at the first material user-owned decision. Keep discuss active until I transition with $plan or $execute."
 
 policy:
   allow_implicit_invocation: false

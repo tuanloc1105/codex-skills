@@ -2,7 +2,7 @@
 
 Read this reference completely after implementation is integrated and before claiming completion, simplifying, updating agent docs, offering security review, or sending the final implementation response.
 
-First ensure the Active Snapshot also lists `references/completion.md`; acknowledge that write, read this file completely, and complete `rules-sync`.
+First add `references/completion.md` through a record write transaction, read this file completely, and complete `rules-sync`.
 
 ## Required Simplify Pass
 
@@ -52,18 +52,18 @@ If the user says yes, use `$security-review` with this scope constraint:
 
 Before sending a response that claims implementation completion, a genuine blocker, or an explicit-exit pause:
 
-- Confirm git implementation was performed in the dedicated worktree recorded in `## Handoff Notes`, not in the user's existing checkout.
-- Re-read the plan checklist and confirm no in-scope `[ ]` or `[~]` item remains.
+- Confirm git implementation was performed in the dedicated worktree recorded in `evidence.md`, not in the user's existing checkout.
+- Re-read every phase file and confirm no in-scope `[ ]`, `[~]`, `Pending`, or `In progress` state remains.
 - Confirm every `[!]` item satisfies the Genuine Blocker Definition.
 - Confirm unrelated ready phases were not skipped because another phase failed.
 - Confirm final verification was run or its unavailability and residual risk were documented.
 - Confirm the required simplify review was completed through the skill or locally.
 - Confirm optional agent-doc limitations did not prevent plan completion.
-- Confirm every material user correction, follow-up deliverable, decision, evidence item, and out-of-scope handoff received while execute mode was active was recorded under `## Amendments and Evidence`.
+- Confirm every material correction, follow-up, decision, evidence item, and out-of-scope handoff was recorded in `evidence.md`.
 - Confirm every executable amendment was reflected in the checklist and completed, paused by explicit exit, or genuinely blocked.
-- If commits were created, confirm their SHA, subject, and branch were recorded in `## Handoff Notes`, and disclose any post-commit plan-only working-tree change.
+- If commits were created, confirm their SHA, subject, and branch were recorded in `evidence.md`, and disclose any post-commit bundle-only working-tree change.
 - Confirm `Execute mode: Active` remains set unless the user explicitly exited; implementation completion alone must not change it.
-- Persist the final checklist, status, amendments and evidence, verification results, execution decisions, `Last updated`, and residual risks to the execution record.
+- Persist final phase checklists, index status, evidence, `verification.md` results, execution decisions, and residual risks through one valid record write transaction.
 
 If any requirement above is false, continue working instead of responding finally.
 

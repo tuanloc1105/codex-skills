@@ -53,10 +53,15 @@ def parse_args() -> argparse.Namespace:
     rules_sync.add_argument("--reference", action="append", default=[])
     rules_sync.add_argument("--marker", required=True)
 
-    ack_write = subparsers.add_parser("ack-write")
-    ack_write.add_argument("--record", required=True)
-    ack_write.add_argument("--previous-revision", required=True)
-    ack_write.add_argument("--marker", required=True)
+    write_open = subparsers.add_parser("write-open")
+    write_open.add_argument("--record", required=True)
+    write_open.add_argument("--previous-revision", required=True)
+    write_open.add_argument("--path", action="append", default=[])
+    write_open.add_argument("--marker", required=True)
+
+    write_close = subparsers.add_parser("write-close")
+    write_close.add_argument("--record", required=True)
+    write_close.add_argument("--marker", required=True)
 
     checkpoint = subparsers.add_parser("checkpoint")
     checkpoint.add_argument("--record", required=True)

@@ -1,4 +1,4 @@
 interface:
   display_name: "Execute"
   short_description: "Execute plans with smallest verified commits"
-  default_prompt: "Use $execute to read, synchronize, and adopt the execution record at /path/to/record.md, whether it is a $plan handoff or an execution-ready $discuss tracker. Checkpoint that exact file every turn, commit each smallest complete and independently verified work unit, simplify the full session commit range, and remain active until I explicitly exit execute."
+  default_prompt: "Use $execute to adopt the version 4 execution bundle at /path/to/record/, read index.md and its manifest, execute dependency-ready phase files, update evidence and verification through record write transactions, and remain active until I explicitly exit execute."

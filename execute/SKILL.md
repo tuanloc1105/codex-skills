@@ -1,6 +1,6 @@
 ---
 name: execute
-description: Persistent execution and evidence-tracking mode for an approved Markdown execution record produced by $plan or by an execution-ready $discuss tracker. Use whenever the user supplies or references such a file and asks Codex to read, adopt, resume, continue, execute, amend, or record follow-up work against it, including in a fresh session and when its implementation is already complete. Keep the exact file active as the source of execution truth across later turns, record material corrections, added work, out-of-scope handoffs, evidence, and commit records in place, and remain in execute mode until the user explicitly exits it. During implementation, commit each verified unit of work, schedule dependency-ready phases, run integration and final verification, use $simplify across the session commit range, update agent docs when required, and optionally offer a current-change $security-review.
+description: Persistent execution and evidence-tracking mode for an approved version 4 Markdown record bundle produced by $plan or execution-ready $discuss. Keep the exact bundle active, execute dependency-ready phase files, update evidence and verification transactionally, and remain active until explicit exit.
 ---
 
 # Execute
@@ -13,28 +13,28 @@ When the `workflow-modes` plugin is installed and its hooks are trusted, resolve
 - After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <execution-record> --reference <path>...` before substantive work or a final response.
 - On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then run `activate execute --record <execution-record>` to confirm or rebind the same active record.
 - When the user explicitly exits execute and the exit metadata is durable, run `deactivate`. Implementation completion alone must never call `deactivate`.
-- At activation and after every `PostCompact` reminder, read the exact execution record completely and run `sync --record <execution-record> --scope record` before substantive work.
+- At activation and after every `PostCompact` reminder, read `index.md` and every manifest file completely and run record-scope sync before substantive work.
 - After `UserPromptSubmit`, follow `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running snapshot-scope sync; `record` requires a complete read and record-scope sync. Never open an action or mutate outside the record while the required scope is unacknowledged.
-- After writing an execution record from an acknowledged revision, run `ack-write --record <execution-record> --previous-revision <last acknowledged record revision>`. If denied, completely reread and reconcile the record, then use record-scope sync.
+- Before record edits, run `write-open` with the acknowledged bundle revision; update only allowed manifest paths and run `write-close` after all cross-file state is consistent.
 - Before every user-facing response, run `checkpoint --record <execution-record>` after all material amendments, evidence, progress, verification, and action results are durable. Use `--no-change` only for a genuinely evidence-free turn after confirming the record remains accurate.
 
 Before each bounded work unit of source, Git, external-system, or other mutating actions in execute mode, open one action that covers the complete unit's declared paths and mutation classes. Do not open a separate action per file or tool call, and do not carry an action into an unrelated goal or materially different scope:
 
-1. Persist a stable amendment/evidence ID, the intended action, and the exact marker `<!-- workflow-action:<ID> status:open -->` in the active execution record.
-2. Acknowledge the tracker write with `ack-write`, then run `action-open --record <execution-record> --evidence-id <ID> --impact <non-source|source-confirmed>` and add every inspectable target with `--path <path>`. For inherently unscoped mutations, add only the minimum required `--unscoped <git|external|shell>` classification; `git` also requires `source-confirmed`. Read-only tools and writes limited to the active execution record do not require an open action.
+1. Persist a stable evidence ID and `<!-- workflow-action:<ID> status:open -->` in `evidence.md`, plus the matching active-action summary in `index.md`, through one write transaction.
+2. Close the record write, then run `action-open --record <bundle-root> --evidence-id <ID> --impact <non-source|source-confirmed>` with the exact paths and minimum unscoped classes.
 3. Perform only the mutations covered by that checkpoint. Do not carry an action across an unrelated user request or materially different mutation group.
-4. Persist the terminal result, checks, identifiers, and residual state under the same evidence ID. Replace the open marker with exactly one matching terminal marker: `status:completed`, `status:failed`, or `status:blocked`.
-5. Acknowledge the terminal tracker write with `ack-write`, then run `action-close --result <completed|failed|blocked>` before a final response, mode deactivation, or unrelated mutation group. Never treat a denied acknowledgement, close, or Stop hook as optional; reconcile the record and retry.
+4. Through one write transaction, persist terminal evidence, update the affected phase and verification files, clear the active-action summary, and replace the open marker with the matching terminal marker.
+5. Close the record write, then run `action-close --result <completed|failed|blocked>` before a final response, deactivation, or unrelated mutation group.
 
 The execute hook must deny non-record mutations without an open action, deny opening when the evidence ID/open marker is absent from the tracker, deny paths or unscoped mutation classes outside the action, deny closing until the matching terminal marker is persisted, and block Stop while an execute action remains open. If the active record becomes genuinely unreadable while an action is open, use `action-abort --reason record-unreadable`, repair or restore the tracker, and do not mutate other state until execute is rebound. These controls enforce bookkeeping and scope; they do not grant mutation authority that the user, plan, or a higher-priority policy withheld.
 
-The hook also treats record and Active Snapshot revisions as workflow boundaries. `PostCompact`, audited prompts, and external drift require the scope reported by the hook; an unchanged durable record remains acknowledged across ordinary prompts. Stop still requires a completed turn checkpoint. `ack-write` acknowledges a tracker update only when its previous revision matches the acknowledged revision.
+The hook treats bundle and Active Snapshot revisions as workflow boundaries. A write transaction blocks non-record mutation, transition, checkpoint, and Stop until a valid bundle revision is closed.
 
 Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin or control script is unavailable, read-only adoption and evidence updates may continue, but do not begin or resume implementation; report that lifecycle enforcement must be installed and trusted. Never bypass a denied hook decision.
 
-Use this skill to adopt either an approved `$plan` handoff or an execution-ready `$discuss` tracker as a persistent execution and evidence record. In the rules below, “plan” means the exact adopted execution record regardless of which skill produced it.
+Use this skill to adopt either an approved plan bundle or an execution-ready discussion bundle as the persistent execution record.
 
-Execute defaults to `Durable`. On adoption or handoff, set a `Lightweight` Active Snapshot to `Durable`; preserve `Audited` without downgrading it. Profiles change reread and evidence cadence, never mutation authorization: `Durable` groups evidence by complete work unit, while `Audited` retains full-record sync on each user prompt. A version 2 record without a snapshot remains `Audited` until its first valid record update migrates it to version 3.
+Execute accepts only workflow-record version 4 bundles and defaults to `Durable`. Upgrade `Lightweight` to `Durable` on adoption and preserve `Audited`.
 
 ## Reference Routing
 
@@ -49,23 +49,23 @@ Load only the reference needed for the current stage, and read it completely bef
 
 Enter execute mode immediately when the user explicitly invokes `$execute` or asks to read, adopt, resume, continue, execute, or amend an accepted execution record. Accepted records are `$plan` handoffs and `$discuss` trackers that passed `Direct Execute Handoff`. Activate the mode in a fresh session and regardless of whether the implementation status is approved, in progress, blocked, paused, implemented, or previously exited. Supplying the record again or asking to read it is an explicit re-entry.
 
-- Bind the mode to the exact adopted execution-record path. Keep that file as the sole execution source of truth unless the user explicitly switches to another record.
+- Bind the mode to the canonical bundle root. Keep that bundle as the sole execution source of truth unless the user explicitly switches records.
 - Keep execute mode active across later turns, completion reports, and `Status: Implemented`. Completing the baseline plan does not end the mode.
 - Exit only when the user clearly says to exit or turn off execute, such as `exit execute`, `turn off execute`, `thoat execute`, or equivalent explicit wording.
 - Treat requests to handle work separately, keep it outside the approved scope, or avoid changing the baseline as scope instructions, not as a mode exit. Record the boundary and material handoff or evidence in the adopted plan while the mode remains active.
 - Do not treat reading or adopting a plan as authorization to implement code, mutate external systems, commit, push, or deploy. Wait for a clear current-session request authorizing the relevant action. In a git repository, a clear request to implement the adopted record authorizes local incremental commits for that implementation unless the user or plan explicitly forbids commits; it does not authorize pushing or deploying.
 
-On every adoption or re-entry, read the complete plan before substantive work and ensure it contains or backfill these metadata lines near the top:
+On every adoption or re-entry, read the complete manifest before substantive work and transactionally ensure `index.md` contains:
 
 ```markdown
 Execute mode: Active
 Last updated: <timestamp and timezone>
-Resume instruction: Invoke $execute, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute.
+Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
 ```
 
 Preserve the implementation `Status` independently from the execute mode. An implemented plan may remain `Status: Implemented` while `Execute mode: Active`; reopen the implementation status only when new executable work starts.
 
-Also ensure an Active Snapshot version 2 exists near the top and contains the current goal, execution state, accepted decisions, open items, next safe action, and stage-appropriate Required references. Keep the workflow-record header at version 3. This migration is tracker housekeeping; retain existing history and evidence.
+Ensure Active Snapshot version 2 is current and keep the workflow-record header at version 4. Do not accept or migrate older single-file records.
 
 ## Completion Contract
 
@@ -92,7 +92,7 @@ When the user explicitly exits execute:
 1. Stop accepting new amendments under this mode after the exit instruction.
 2. Persist all material current-turn deltas, evidence, checklist state, and verification results first.
 3. Set `Execute mode: Exited` and update `Last updated`.
-4. Add an `Exit` entry under `## Amendments and Evidence` with the instruction and timestamp.
+4. Add an `Exit` entry to `evidence.md` with the instruction and timestamp.
 5. Keep `Status: Implemented` or `Status: Blocked` when accurate; use `Status: Paused` when executable items remain unfinished without a genuine blocker.
 6. Report the exact execution-record path and remaining work. Do not treat exit as authorization to discard or complete pending work.
 
@@ -119,7 +119,7 @@ The following are not blockers by themselves:
 
 ## Required Input
 
-Require a path to the Markdown execution record unless an exact adopted plan or discussion-tracker path is already active in the current task. A successful direct handoff from `$discuss` supplies its active tracker path automatically.
+Require a path to the execution bundle directory or its `index.md` unless an exact bundle is already active. A direct `$discuss` handoff supplies its root automatically.
 
 - If the user supplied a plan or tracker path, resolve it before doing implementation work.
 - If the current task already has one adopted execution-record path, reuse it for later turns without asking again.
@@ -128,13 +128,13 @@ Require a path to the Markdown execution record unless an exact adopted plan or 
 
 ## Plan and Tracker Intake
 
-Read the full execution record before any substantive response or implementation work, adopt the exact path, and apply the `Persistent Mode Contract` metadata update. Never copy a direct discussion handoff into a separate plan file; preserve the tracker history and keep updating that same path.
+Read `index.md` and every manifest file before substantive work, adopt the canonical root, and apply the metadata update transactionally. Never copy a direct discussion handoff into another bundle.
 
 Verify these basics:
 
-- The file is either a Markdown plan, ideally with `# How to do it: ...`, or a `# Discussion Tracker` with `Execution readiness: Ready` and `Mode status: Exited`.
-- The record has a concrete `## Goal`, `## Step-by-Step Plan`, and `## Verification`.
-- No unresolved entry under `## Open Questions` is marked as blocking execution.
+- The bundle is version 4 with a valid manifest and is either an approved plan or exited, execution-ready discussion record.
+- `context.md`, `plan.md`, `verification.md`, and `evidence.md` exist, and every declared phase has one valid phase file.
+- No unresolved item in `decisions.md` blocks execution.
 - The record status is approved or the user explicitly asked to execute it.
 - For a phased plan, read `## Execution Structure` and capture each phase's ID, dependencies, wave, subagent eligibility, owned scope, produced output, and verification or integration requirements.
 
@@ -148,6 +148,6 @@ Ask for confirmation only when the record explicitly says not to implement, an u
 
 Treat `Depends on` as authoritative and any declared wave as a scheduling hint that must agree with it. Revalidate phase independence against the current repository and runtime before dispatch. An eligibility note never overrides overlapping files, shared mutable state, unstable contracts, or newly discovered dependencies.
 
-For backward compatibility, execute plans without dependency, wave, ownership, or subagent metadata sequentially. Missing scheduling metadata is not a blocker. Do not infer parallel permission from numbered steps alone.
+Reject phased plans with missing dependency, wave, ownership, output, phase-file, or acceptance metadata. Simple plans without phases execute sequentially; do not infer parallel permission from numbered steps.
 
 When working in a git repository, capture the initial status and current diff boundaries before parallel dispatch so pre-existing user changes can be distinguished and preserved.

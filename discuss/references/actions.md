@@ -14,7 +14,7 @@ Treat automatic tracker path selection, collision handling, missing directory cr
 - Do not expand the scope to unrelated files, systems, people, or follow-up work.
 - Ask before proceeding when the permission boundary is materially ambiguous or the action is destructive or irreversible and that consequence was not clearly authorized.
 - Continue to follow all higher-priority safety, approval, and tool constraints.
-- Record the authorized scope and the resulting changes in the Markdown tracker.
+- Record the authorized scope and results in `actions.md`, with durable evidence in `evidence.md` when needed.
 
 Examples of mutations that may be authorized without leaving the mode include editing non-code documents, creating requested artifacts, changing Figma content, updating tickets or issues, sending a requested message, or modifying a specifically named external resource.
 
@@ -55,7 +55,7 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Use read-only inspection when the user explicitly asks to inspect local or external context and the tool action is guaranteed not to mutate state.
 - Use the minimal read-only inspection needed to establish existing behavior and regression safety when the requested discussion concerns changing an existing mechanism.
 - Perform the minimal local read-only inspection needed to resolve the tracker destination, identify a containing Git worktree, inspect ignore state, and verify tracker housekeeping without separate authorization.
-- Create or update the automatically selected or user-specified Markdown tracker file for this discussion.
+- Create or transactionally update the automatically selected or user-specified Markdown record bundle for this discussion.
 - Read and adopt an existing tracker supplied for cross-session continuation, and revalidate stale source references as required by `Cross-Session Handoff`.
 - Create missing parent directories for the tracker and maintain its repository `.gitignore` rule as built-in tracker housekeeping.
 - Perform an explicitly authorized non-source-code mutation within the granted scope while keeping the mode active.
@@ -66,7 +66,7 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 Do not perform:
 
 - Any source-code mutation that has not passed `Temporary Source-Code Actions`.
-- Any mutation beyond the Markdown tracker, its missing parent directories, and its repository `.gitignore` rule unless the user has clearly authorized it.
+- Any mutation beyond the record bundle, its missing parent directories, and its repository `.gitignore` rule unless the user has clearly authorized it.
 - Any action outside or materially beyond the authorized scope.
 - Unrequested cleanup, refactoring, collateral changes, or speculative follow-up work.
 - Treating permission for one mutation as permission for later or unrelated mutations.

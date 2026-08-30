@@ -1,13 +1,13 @@
 ---
 name: discuss
-description: Use when the user invokes $discuss or requests discussion work with a persistent Markdown tracker. Keep discuss active across scoped actions, including source-code changes the user requested and confirmed after disclosure of their source impact; return to discussion automatically when each action finishes. Only a $plan or $execute transition durably exits discuss. Without a destination, save under ./discussion/ with a dated topic filename, create missing tracker directories, and maintain the repository .gitignore entry automatically.
+description: Use when the user invokes $discuss or requests discussion work with a persistent version 4 Markdown record bundle. Keep discuss active across scoped actions and exit only through $plan or $execute. Without a destination, create a dated topic directory under ./discussion/, maintain its manifest and repository ignore rule, and persist discussion state across focused Markdown files.
 ---
 
 # Discuss
 
 ## Core Contract
 
-Operate as a discussion partner and keep a Markdown tracker for the conversation. By default, the only allowed mutations are creating or updating the automatically selected or user-specified Markdown tracker, creating any missing parent directories, and maintaining the repository `.gitignore` entry required by the tracker.
+Operate as a discussion partner and keep one Markdown record bundle for the conversation. By default, the only allowed mutations are creating or transactionally updating that bundle, creating missing parent directories, and maintaining its repository `.gitignore` entry.
 
 Keep the mode active across analysis and every scoped action. Completing an action, including an authorized source-code change, automatically returns control to `discuss`; it never exits the mode. Only an explicit transition to `$plan` or `$execute` may durably set the tracker to `Mode status: Exited`, and only after the applicable handoff state is persisted. If the user asks to "exit discuss", "turn off discuss", "start coding", or uses similar wording without choosing `$plan` or `$execute`, keep discuss active and apply `Settled Discussion Transition Gate` so the user chooses one of those workflows.
 
@@ -15,11 +15,11 @@ Keep the mode active across analysis and every scoped action. Completing an acti
 
 When the `workflow-modes` plugin is installed and its hooks are trusted, use its control script as a lifecycle guard. Resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run it with the exact absolute path. Every call must end with `--marker workflow-modes-v1`; confirm the hook returns model-visible `WORKFLOW_*` context.
 
-- After the tracker is established and its active discuss metadata is persisted, run `activate discuss --record <tracker>`.
-- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <tracker> --reference <path>...` before substantive work or a final response.
-- At activation and after every `PostCompact` reminder, read the exact tracker completely and run `sync --record <tracker> --scope record` before substantive work.
+- After the bundle is established and its active metadata is persisted, run `activate discuss --record <bundle-root>`.
+- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required bundle scope, then run `rules-sync --record <bundle-root> --reference <path>...`.
+- At activation and after `PostCompact`, read `index.md` and every manifest file completely, then run record-scope sync.
 - After `UserPromptSubmit`, follow the hook's `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running `sync --record <tracker> --scope snapshot`; `record` requires a complete read and record-scope sync. A changed or unacknowledged required scope remains a hard boundary for non-record mutation.
-- After writing a tracker that was synced before the write, run `ack-write --record <tracker> --previous-revision <last acknowledged record revision>`. If acknowledgement is denied, read the exact tracker completely, reconcile it, and run record-scope sync; never bypass the denial.
+- Before bundle edits, run `write-open --record <bundle-root> --previous-revision <acknowledged revision>` and declare new Markdown paths with `--path`. After all cross-file state is consistent, run `write-close --record <bundle-root>`. Repair a denied close; never bypass it.
 - Before any authorized non-source-code mutation, persist the action and run `action-open --record <tracker> --impact non-source`, adding one `--path <absolute-path>` for each known local target. When the required mutation tool has no inspectable file target, also add the narrow matching `--unscoped <shell|external>` classification.
 - Before an authorized source-code mutation, persist its confirmation and scope, then run `action-open --record <tracker> --impact source-confirmed --path <absolute-path>...`. File-targeted mutation outside those paths must remain blocked. For a repository-scoped Git mutation such as merge or rebase, include the repository root as `--path` and add `--unscoped git`; this authorizes only that tool class for the current bounded action.
 - After persisting an action's terminal result, run `action-close --result <completed|failed|blocked>` before the user-facing response. A failed action still requires closure and returns to discuss.
@@ -29,7 +29,7 @@ When the `workflow-modes` plugin is installed and its hooks are trusted, use its
 
 If the plugin or control script is unavailable, continue read-only discussion and tracker maintenance, state that lifecycle enforcement is unavailable, and do not perform an otherwise authorized mutation until the user installs and trusts the hook or explicitly chooses `$plan` or `$execute`. Never bypass a denied hook decision.
 
-New discuss trackers use the `Lightweight` profile. Profiles change persistence and reread cadence, never authorization or mutation enforcement: `Lightweight` records material state changes and uses no-change checkpoints otherwise; `Durable` retains work-unit evidence; `Audited` requires a full record sync on every user prompt. Respect an existing stronger profile. A version 2 tracker without an Active Snapshot remains `Audited` until the next valid tracker update migrates it to version 3; do not weaken it silently.
+New discussion bundles use the `Lightweight` profile. Profiles change persistence and reread cadence, never authorization or mutation enforcement. Only workflow-record version 4 bundles are accepted.
 
 ## Reference Routing
 
@@ -85,16 +85,16 @@ When a user asks for something actionable while this mode is active:
 
 Apply `Immediate Decision Gate` throughout every step below. When it triggers, stop at the current step and do not advance until the user answers.
 
-1. Resolve the Markdown tracker destination automatically. If an existing tracker is supplied as a handoff, adopt and freeze that exact path. Otherwise default to `./discussion/YYYY-MM-DD-<discussion-name>.md` and select a numbered variant on collision without asking.
-2. For a new tracker only, create missing parent directories and exclusively reserve the final collision-free path. For an existing handoff, validate the path without reserving, truncating, or replacing it.
+1. Resolve the Markdown bundle destination automatically. If an existing bundle or its `index.md` is supplied, adopt and freeze its canonical root. Otherwise default to `./discussion/YYYY-MM-DD-<discussion-name>/` and select a numbered variant on collision.
+2. For a new bundle, create missing parents, reserve the collision-free directory, and initialize its required Markdown files and manifest. For a handoff, validate it without replacing content.
 3. Identify any containing Git worktree from the selected path's nearest existing ancestor and create or update the root `.gitignore` idempotently according to `Repository Ignore Rule`.
-4. If the tracker is a handoff, read it completely, adopt the exact file, and restore its checkpoint under `Cross-Session Handoff` before changing its content.
-5. Initialize or update the selected tracker with the current discussion state and tracker housekeeping performed.
+4. If the bundle is a handoff, read `index.md` and every manifest file, adopt the exact root, and restore its checkpoint before changing content.
+5. Initialize or transactionally update the selected bundle with current discussion state and housekeeping.
 6. For a handoff, revalidate material drift before relying on recorded external facts.
 7. If the discussion concerns changing an existing mechanism, establish and record the behavioral baseline, preservation requirements, regression risks, and evidence gaps before recommending the change.
 8. Determine whether the user already chose a `$plan` or `$execute` transition for the active tracker.
 9. If `$plan` was chosen, durably exit discuss under `Settled Discussion Transition Gate` and hand the complete tracker to `$plan` as context.
-10. If `$execute` was chosen, apply `Direct Execute Handoff`; remain in discuss when its gate cannot pass, otherwise persist the exit and hand the exact path to `$execute` without creating a separate plan file.
+10. If `$execute` was chosen, apply `Direct Execute Handoff`; remain in discuss when its gate cannot pass, otherwise persist the exit and hand the exact bundle to `$execute` without creating a separate plan bundle.
 11. Otherwise, when the discussion is settled and no blocking question remains, apply `Settled Discussion Transition Gate`, ask whether the user wants `$plan` or `$execute`, and wait.
 12. Otherwise determine whether the requested action would mutate source code.
 13. If it would mutate source code, apply `Temporary Source-Code Actions`: disclose the impact, obtain confirmation when the request is not already unambiguous, persist authorization, perform and verify only the bounded action, persist its result, and automatically resume discuss.

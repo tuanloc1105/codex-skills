@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Plan-first collaboration workflow for Codex. Use when the user explicitly invokes $plan, says "len plan", "lap ke hoach", "thao luan truoc", "how to do it", wants to discuss and approve an implementation plan before code changes, or wants a detailed handoff plan saved to a file for a future Codex session. This skill creates one draft Markdown record at entry, keeps it active throughout planning, requires explicit user approval before implementation, and finalizes that same file with context, dependency-aware phases, execution waves, subagent eligibility notes, touchpoints, intended logic, verification steps, and a persistent $execute resume marker. Without an explicit destination, automatically save the draft under ./plans/ in the current working directory without asking about the path, filename, or collisions.
+description: Plan-first collaboration workflow for Codex. Creates one version 4 Markdown plan bundle under ./plans/, keeps it active through approval and execute handoff, and stores every declared phase in its own self-contained, stable-ID Markdown file under phases/. Use for reviewed implementation planning and durable cross-session handoff.
 ---
 
 # Plan
@@ -9,22 +9,22 @@ description: Plan-first collaboration workflow for Codex. Use when the user expl
 
 When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`. Invoke it with the configured Python interpreter because the installed script may not have executable permissions, and pass `--marker workflow-modes-v1` after the lifecycle action's other required arguments, as advertised by that action's local `--help` output.
 
-- On fresh `$plan` entry, resolve and exclusively reserve the draft plan path before substantive inspection, initialize its draft metadata, and run `activate plan --record <plan-path>`. Keep this exact file from planning discussion through approval and execute handoff.
+- On fresh `$plan` entry, reserve and initialize the draft bundle before substantive inspection, then run `activate plan --record <bundle-root>`. Keep this exact bundle through approval and execute handoff.
 - After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <plan-path> --reference <path>...` before substantive work or a final response.
 - On entry from `$discuss`, require its persisted `transition plan --record <discussion-tracker>` result instead of reactivating a different mode.
-- On entry from `$discuss`, resolve and initialize the separate draft plan immediately, then run `activate plan --record <plan-path>` to rebind plan mode from the discussion context to its exact record.
-- At activation and after every `PostCompact` reminder, read the exact draft plan completely and run `sync --record <plan-path> --scope record` before substantive work.
+- On entry from `$discuss`, resolve and initialize a separate plan bundle immediately, link its source discussion bundle, then activate the new root.
+- At activation and after every `PostCompact` reminder, read `index.md` and every manifest file completely and run record-scope sync.
 - After `UserPromptSubmit`, follow `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running snapshot-scope sync; `record` requires a complete read and record-scope sync.
-- After writing the plan from an acknowledged revision, run `ack-write --record <plan-path> --previous-revision <last acknowledged record revision>`. On denial, read and reconcile the complete plan and use record-scope sync.
+- Before bundle edits, run `write-open` with the acknowledged revision and declare new phase paths with `--path`; run `write-close` only after manifest, phase links, dependencies, and lifecycle state agree.
 - Persist material planning deltas throughout the conversation. Before every user-facing response, run `checkpoint --record <plan-path>`; use `--no-change` only after confirming that the turn produced no material record change.
 - After approval and after the plan's execute-ready metadata is durable, run `transition execute --record <plan-path>` before handing control to `$execute`.
 - During that approval handoff, set the Active Snapshot profile to `Durable` unless it is already `Audited`; never downgrade `Audited`.
 
 Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin is unavailable, planning may continue because it is read-only apart from plan housekeeping, but state that lifecycle enforcement is unavailable. Never mutate source in plan or bypass a denied hook decision.
 
-New plans use the `Lightweight` profile. Profiles affect reread and persistence cadence only, not the plan boundary or transition gates. Respect `Durable` or `Audited` when already required. Treat a version 2 plan without an Active Snapshot as `Audited` until its next valid update adds the workflow-record version 3 header and Active Snapshot version 2.
+New plans use a version 4 bundle and the `Lightweight` profile. Profiles affect reread and persistence cadence only. Single-file and pre-v4 records are unsupported.
 
-Use this skill to turn an ambiguous or important request into an approved execution plan while keeping one durable Markdown record from the beginning of planning.
+Use this skill to turn an ambiguous or important request into an approved execution plan while keeping one durable Markdown bundle from the beginning of planning.
 
 ## Reference Routing
 
@@ -44,7 +44,7 @@ Follow the `$plan` workflow directly without attempting to switch or discuss the
 
 ## Relationship to Direct Discuss Handoffs
 
-`$plan` remains the full plan-first workflow when the user invokes it or wants a separate reviewed handoff. It is not a mandatory formatting hop between `$discuss` and `$execute`: a `$discuss` tracker that passes that skill's `Direct Execute Handoff` may be adopted directly by `$execute` as the single execution record. Do not create a duplicate plan file when the user explicitly chose the direct tracker route; return to `$discuss` only when its execution-readiness gate still has blocking decisions or missing accepted state.
+`$plan` remains the full plan-first workflow when the user wants a separate reviewed handoff. It is not mandatory between `$discuss` and `$execute`: an execution-ready discussion bundle may be adopted directly. Do not create a duplicate plan bundle for that route.
 
 ## Discuss Fallback
 
@@ -89,11 +89,11 @@ While in this fallback, keep using the already established draft plan as the pla
    - Preservation acceptance criteria, regression checks, and verification strategy
    - Rollback or recovery for material behavior changes
 7. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Approval is required before changing the existing draft record to its final execute-ready status.
-8. After approval, finalize the same exact Markdown file as the approved "How to do it" handoff. Do not create a replacement plan or implement it in the same `$plan` flow unless the user explicitly requests execution after saving.
+8. After approval, finalize the same exact bundle as the approved handoff. Do not create a replacement bundle or implement it in the same `$plan` flow unless the user explicitly requests execution after saving.
 
 ## Question and Open-Issue Contract
 
-Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan file.
+Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan bundle.
 
 - Present each distinct issue as a separate question block. Do not combine unrelated decisions under one option list.
 - Provide 2-4 practical, mutually distinguishable options that answer that question.

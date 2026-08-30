@@ -1,155 +1,157 @@
-# Plan Record Reference
+# Plan Record Bundle Reference
 
-Read this reference completely before creating, updating, approving, or handing off a Markdown plan.
+Read this reference completely before creating, updating, approving, or handing off a plan bundle.
 
 ## Saving Rules
 
-Resolve, create, and freeze the draft plan file automatically at the start of `$plan`. Never ask the user about its save location, directory, filename, overwrite behavior, or collisions.
+Use a version 4 Markdown bundle. Never create a single plan file and never ask about storage.
 
-- Capture the current working directory when the skill starts and resolve every relative destination against it.
-- Classify a user-provided destination without asking: an existing directory, a path ending in a separator, or explicit directory wording is a directory; otherwise treat it as a file path.
-- If the user gives a directory, generate the plan filename inside it.
-- If the user gives any explicit file path, including a bare filename, preserve that path exactly after resolving it against the captured current working directory.
-- If the user gives no destination, use `./plans/` relative to the current working directory at the time the skill starts.
-- For an agent-generated filename, derive `<plan-name>` from the current title or goal. Use `plan` only when no meaningful slug can be derived.
-- Resolve the final candidate path before writing. If it or a symlink at that path already exists and the user did not explicitly request overwrite, preserve it and automatically choose the lowest available numbered sibling for that basename, such as `YYYY-MM-DD-<plan-name>-2.md`; do not ask. Overwrite only when the user explicitly instructed it and the resolved target passes the same path-safety checks.
-- Resolve the directory that will contain the plan. If that directory or any parent directory does not exist, create the missing directories automatically before saving; do not ask for separate confirmation.
-- For a new plan, reserve the selected file with exclusive creation and retry with the next numbered sibling if another writer wins the same path. Freeze the successfully reserved or explicitly overwritten path for the remainder of the `$plan` flow.
-- After the destination directory exists, determine whether it is inside a Git worktree. If it is, ensure the worktree root's `.gitignore` ignores the directory containing the plans:
-  - Create the root `.gitignore` if it does not exist, preserve its existing contents, and add a root-relative anchored directory rule with a trailing slash.
-  - Do not add a duplicate rule or modify `.gitignore` when the destination directory is already ignored.
-  - If the destination directory is the worktree root, ignore the plan file itself with a root-relative anchored file rule instead; never add a rule that ignores the entire worktree.
-  - If the selected directory already contains non-plan files, warn that its folder-level rule also ignores untracked files there, but do not change the destination or ask for permission.
-- For an agent-generated filename, use the format `YYYY-MM-DD-<plan-name>.md`.
-- For an agent-generated filename, use the current local date unless the user requests another date.
-- Slugify an agent-generated `<plan-name>` with lowercase ASCII words joined by hyphens.
-- Initialize the reserved file with `Status: Draft planning discussion`, `Plan mode: Active`, `Execution readiness: Not ready`, a stable non-secret tracker ID, the machine-readable workflow-record header from the template, and an exact resume checkpoint. Update it after every material planning turn.
-- Initialize the version 2 Active Snapshot with `Profile: Lightweight` and `Required references: references/plan-record.md`; add `references/phase-planning.md` only while phase structure is in use.
-- Keep the saved file self-contained. A future session should not need the original chat to understand the work.
-- Include the mode markers, last-updated timestamp, and status-appropriate resume instruction from the handoff template. A draft resumes with `$plan`; after approval the same line changes to the persistent `$execute` instruction, which remains authoritative even when implementation status later becomes `Implemented`.
-- Tell the user the exact path when the draft is established and again when it is finalized.
-- For a draft, tell the user: `Use $plan and continue the draft at <final-path>.` After approval, tell the user: `Use $execute and read the plan at <final-path>.`
-- If the resolved plan directory or file cannot be created, report the exact blocker and stop without asking a storage-choice question or silently relocating an explicit destination. If only `.gitignore` maintenance fails, keep the resolved destination, save the plan there, and report that it could not be ignored; never relocate the plan solely because of an ignore failure.
+- With no destination, create `./plans/YYYY-MM-DD-<slug>/` relative to the working directory captured at entry.
+- Treat an explicit directory or its `index.md` as a bundle destination. Reject other file destinations.
+- Use lowercase ASCII slugs and reserve the lowest collision-free sibling (`-2`, `-3`, and so on).
+- Create missing ancestors automatically, reject Git metadata locations and escaping symlinks, then freeze the canonical bundle root.
+- When entered from `$discuss`, create a separate plan bundle and record the source discussion bundle in `context.md` and `evidence.md`.
+- Tell the user `Use $plan and continue the draft bundle at <root>`; after approval use `Use $execute and read the plan bundle at <root>`.
 
-## Handoff Plan Template
+Create this base layout:
 
-Write the plan in Markdown with these sections. Include only truthful, task-relevant details, but be specific enough that a new agent does not need to guess.
+```text
+<bundle>/
+├── index.md
+├── context.md
+├── decisions.md
+├── plan.md
+├── verification.md
+├── evidence.md
+└── phases/
+    └── P<NN>-<slug>.md
+```
+
+`phases/` may be empty only for a genuinely small linear plan. Every phase declared in `plan.md` must have exactly one self-contained phase file, and every phase file must be declared in both the plan table and manifest.
+
+## Index Template
 
 ```markdown
-# How to do it: <Plan Name>
+# Plan Record: <name>
 
-<!-- workflow-record version:3 kind:plan tracker-id:<stable tracker ID> -->
+<!-- workflow-record version:4 kind:plan tracker-id:<stable ID> -->
 
-Date: <YYYY-MM-DD>
+Tracker ID: <stable non-secret ID>
+Created: <timestamp and timezone>
 Last updated: <timestamp and timezone>
-Timezone: <local timezone if known>
-Status: <Draft planning discussion | Approved plan, not yet implemented>
+Status: <Draft planning discussion | Approved plan, not yet implemented | In progress | Implemented | Blocked | Paused>
 Plan mode: <Active | Exited>
 Execution readiness: <Not ready | Ready>
-Execute mode: <Inactive | Ready>
-Resume instruction: <While draft: Invoke $plan, read this file completely, and continue this exact draft before substantive work. | After approval: Invoke $execute, read this file completely, keep this exact file as the execution source of truth, and continue updating it until the user explicitly exits execute.>
+Execute mode: <Inactive | Ready | Active | Exited>
+Resume instruction: <mode-appropriate bundle instruction>
+Workspace: <working directory>
+Repository: <root, branch, commit>
+Active action: <ID and status, or None>
 
 <!-- workflow-active-snapshot:start version:2 -->
 ## Active Snapshot
 
 Profile: <Lightweight | Durable | Audited>
 Required references: <references/plan-record.md[, references/phase-planning.md]>
-Goal: <current concrete goal>
-Current state: <draft, awaiting decision, approved, or executing state>
-Accepted decisions: <active decision IDs or concise values, or None>
-Open items: <blocking or next open items, or None>
-Next safe action: <one exact next action>
+Goal: <current goal>
+Current state: <current state>
+Accepted decisions: <IDs or None>
+Open items: <IDs or None>
+Next safe action: <one exact action>
 <!-- workflow-active-snapshot:end -->
 
-## Goal
-<Concrete outcome the user wants.>
+## Resume Checkpoint
 
-## Background
-<Why this work is needed, important user preferences, and relevant conversation context.>
+- Last completed:
+- Current work:
+- Blocking decision or dependency:
+- Next safe action:
+- Deferred work:
+- Revalidation required:
 
-## Current State
-<What was inspected and what is true now: repo layout, files, behavior, configs, constraints, or missing pieces.>
-
-## Existing Behavior Baseline
-<Current working behavior and supporting evidence. Distinguish verified facts, user-reported behavior, inferences, unknowns, and checks that could not be run safely.>
-
-## Preservation Requirements
-<Behaviors, invariants, interfaces, contracts, compatibility guarantees, error handling, and UX expectations that must remain unchanged unless explicitly approved otherwise.>
-
-## Scope
-<In scope.>
-
-## Out of Scope
-<What the next session should not do unless separately requested.>
-
-## Rules and Constraints
-<User rules, AGENTS.md instructions, plan-first boundaries, tooling constraints, style conventions, safety constraints.>
-
-## Touchpoints
-<Files, modules, components, commands, data stores, APIs, screens, routes, tests, docs, or external systems likely involved.>
-
-## Desired Logic and Behavior
-<The intended behavior, state transitions, data flow, edge cases, error handling, UX expectations, or acceptance criteria.>
-
-## Regression Risks and Safety Checks
-<Affected callers and consumers, likely regressions, intentional behavior changes, baseline checks, preservation acceptance criteria, and targeted tests or manual checks that will detect breakage.>
-
-## Execution Structure
-<For small linear work, write "Sequential; no subagent candidates." For phased work, use the table below. `Depends on` is authoritative; `Wave` must agree with it.>
-
-| Phase | Depends on | Wave | Subagent | Owned scope | Produces |
-|---|---|---:|---|---|---|
-| P1 | None | 1 | Eligible | <paths or mutable resources> | <handoff result> |
-| P2 | None | 1 | Eligible | <disjoint paths or resources> | <handoff result> |
-| P3 | P1, P2 | 2 | Not eligible — integration phase | <integration scope> | <integrated result> |
-
-## Step-by-Step Plan
-### Phase P1: <Name>
-
-Phase verification: <narrow checks and expected result.>
-
-1. [ ] <Specific action.>
-2. [ ] <Specific action.>
-
-### Phase P2: <Name>
-
-Phase verification: <narrow checks and expected result.>
-
-1. [ ] <Specific action.>
-
-<Repeat for remaining phases. For small linear work, use one ordinary checklist instead.>
-
-## Verification
-<Compare post-change behavior with the recorded baseline and preservation requirements. Separate phase-local checks, integration checks after each parallel wave, targeted regression checks, and final end-to-end checks. Include expected results, screenshots/manual QA if relevant, and residual risk when checks cannot run.>
-
-## Rollback or Recovery
-<How to undo or safely recover if implementation fails.>
-
-## Open Questions
-<For each unresolved issue, include 2-4 options, a recommendation/default when applicable, and whether it blocks execution; otherwise write "None".>
-
-## Amendments and Evidence
-<Keep this section for `$execute`. Initially record "None at approval". While execute mode is active, append stable-ID entries for material corrections, added work, decisions, evidence, out-of-scope handoffs, re-entry, and exit without rewriting the approved baseline.>
-
-| ID | Recorded at | Kind | Source | Change or evidence | Affected scope | Status |
-|---|---|---|---|---|---|---|
-| — | — | — | — | None at approval | — | — |
-
-## Handoff Notes
-<Anything the next session should know before starting, including assumptions and warnings.>
+<!-- workflow-manifest:start -->
+index.md
+context.md
+decisions.md
+plan.md
+verification.md
+evidence.md
+<one phases/P<NN>-<slug>.md entry per phase>
+<!-- workflow-manifest:end -->
 ```
+
+The manifest begins with `index.md`; every entry is a unique relative `.md` path inside the bundle. `index.md` is the sole location for identity, lifecycle markers, Active Snapshot, manifest, and resume checkpoint.
+
+## Content Ownership
+
+- `context.md`: goal, background, current-state inspection, behavioral baseline, preservation requirements, scope, constraints, touchpoints, desired behavior, risks, and rollback.
+- `decisions.md`: accepted/rejected decisions, assumptions, unknowns, and option-bearing open questions.
+- `plan.md`: overall strategy, authoritative phase dependency table, derived waves, integration gates, and links to phase files. For a simple non-phased plan, it may also contain the one linear checklist.
+- `phases/P<NN>-<slug>.md`: one self-contained phase each.
+- `verification.md`: phase-local, wave integration, regression, final end-to-end checks, expected results, skipped checks, and residual risks.
+- `evidence.md`: discussion source link, planning evidence, approval, amendments, action markers, commit records, execution decisions, handoff notes, re-entry, and exit.
+
+## Phase File Contract
+
+Use stable IDs and filenames such as `phases/P01-add-bundle-model.md`. A phase file contains:
+
+```markdown
+# P01: <name>
+
+Status: <Pending | In progress | Completed | Blocked | Superseded>
+Depends on: <IDs or None>
+Wave: <positive integer>
+Subagent: <Eligible | Not eligible — reason>
+Owned scope: <exclusive paths/resources>
+Produces: <downstream contract>
+
+## Goal
+## Context
+## Tasks
+- [ ] <specific action>
+## Intended Logic
+## Touchpoints
+## Verification
+## Acceptance Gate
+## Rollback or Recovery
+## Execution Notes
+```
+
+`Depends on` is authoritative; wave is derived. Links and metadata in `plan.md` and the phase file must agree before `write-close`.
+
+## Persistence Contract
+
+- Snapshot sync reads only the Active Snapshot in `index.md`; record sync reads the complete manifest.
+- Before post-activation edits, run `write-open --record <root> --previous-revision <revision>`, declaring each new phase or optional file with `--path`.
+- Update all affected files and cross-links, then run `write-close --record <root>`. A failed close leaves the transaction open for repair.
+- Do not transition, checkpoint, stop, or mutate outside the bundle while the transaction is open.
+- After close, checkpoint the turn. A no-change checkpoint is valid only when the bundle remains accurate.
+
+## Approval and Execute Handoff
+
+Approval requires a decision-complete bundle: concrete goal and scope, verified baseline, preservation criteria, accepted decisions, no blocking questions, complete phase dependencies and ownership, implementation logic, verification, integration gates, and rollback.
+
+After explicit approval, update the same bundle:
+
+```markdown
+Status: Approved plan, not yet implemented
+Plan mode: Exited
+Execution readiness: Ready
+Execute mode: Ready
+Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
+```
+
+Set the profile to `Durable` unless already `Audited`, change Required references to the execute minimum, record approval in `evidence.md`, update the checkpoint, close the transaction, checkpoint, then run `transition execute --record <root>`.
 
 ## Quality Bar
 
-- Make the plan operational, not aspirational.
-- Prefer concrete file paths, commands, function names, UI labels, schemas, routes, and test names when known.
-- Do not plan a change to an existing mechanism without recording the behavioral baseline, preservation requirements, supporting evidence, affected consumers, and material unknowns.
-- Treat preserved behavior as explicit acceptance criteria. Distinguish every approved behavior change from an accidental regression and pair material risks with targeted checks.
-- Include enough context for a fresh session to proceed accurately without rereading the whole chat.
-- Include the persistent execute marker and exact resume instruction. Reading or adopting the saved plan in any future session must activate `$execute` even when the plan is already implemented.
-- Capture user-approved decisions, rejected alternatives, and tradeoffs that affect implementation.
-- Keep the document organized for execution: clear steps, clear verification, clear boundaries.
-- Use stable phase IDs for every dependency; never imply that phase number alone creates an ordering requirement.
-- Give each subagent-eligible phase a non-overlapping ownership boundary, a concrete output contract, and an independent verification path.
-- Keep dependency, wave, and eligibility metadata internally consistent; otherwise mark the phase sequential until the uncertainty is resolved.
-- If information is unknown, label it as unknown and say how the next session should discover it.
+- Make the plan operational and decision-complete without preserving a raw transcript.
+- Record current behavior and evidence before changing an existing mechanism.
+- Give each material risk a targeted check and each intentional behavior change explicit acceptance criteria.
+- Keep phase IDs, filenames, dependencies, waves, ownership, outputs, verification, and manifest internally consistent.
+- Mark subagent eligibility only for bounded, independently verifiable, non-overlapping ownership.
+- Label unknowns and state how execution will resolve them; unresolved outcome-changing choices block approval.
+
+## Repository Ignore Rule
+
+When inside a Git worktree, idempotently ignore the containing plans directory with one root-anchored trailing-slash rule, normally `/plans/`. Preserve existing `.gitignore` content and index state. If ignore maintenance fails, retain the bundle and report the limitation.
