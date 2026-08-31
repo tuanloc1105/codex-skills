@@ -34,14 +34,12 @@ class KiroWorkflowModesHookTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_dir.cleanup)
         self.root = Path(self.temp_dir.name)
-        self.state = self.root / "state"
         self.cwd = self.root / "workspace"
         self.cwd.mkdir()
         self.record = self.cwd / "discussion" / "record"
         self.index = self.record / "index.md"
         self.session_id = "kiro-test-session"
         self.environment = {
-            "KIRO_WORKFLOW_STATE": str(self.state),
             "KIRO_HOME": str(self.root / "kiro-home"),
         }
 

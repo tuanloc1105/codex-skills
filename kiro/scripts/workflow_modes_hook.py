@@ -81,10 +81,7 @@ def session_key(session_id: str) -> str:
 class StateStore:
     def __init__(self) -> None:
         kiro_home = Path(os.environ.get("KIRO_HOME", Path.home() / ".kiro"))
-        root = Path(
-            os.environ.get("KIRO_WORKFLOW_STATE")
-            or kiro_home / "workflow-modes" / "state"
-        )
+        root = kiro_home / "workflow-modes" / "state"
         root.mkdir(parents=True, exist_ok=True)
         self.connection = sqlite3.connect(root / "workflow-modes.sqlite3", timeout=2)
         self.connection.execute("PRAGMA busy_timeout = 2000")
@@ -234,6 +231,10 @@ def manifest_paths(path: str | None, text: str | None = None) -> tuple[str, ...]
     if not entries or entries[0] != "index.md" or len(entries) != len(set(entries)):
         return None
     root = Path(path)
+    try:
+        resolved_root = root.resolve()
+    except OSError:
+        return None
     validated: list[str] = []
     total = 0
     for entry in entries:
@@ -244,7 +245,7 @@ def manifest_paths(path: str | None, text: str | None = None) -> tuple[str, ...]
         try:
             if not candidate.is_file() or candidate.is_symlink():
                 return None
-            candidate.resolve().relative_to(root.resolve())
+            candidate.resolve().relative_to(resolved_root)
             total += candidate.stat().st_size
         except (OSError, ValueError):
             return None
@@ -1157,26 +1158,12 @@ def handle_control(
     return deny_tool("WORKFLOW_CONTROL_INVALID: unsupported lifecycle action.")
 
 
-def record_or_housekeeping_path(path: str, state: dict[str, Any], cwd: str) -> bool:
-    absolute = normalized(path, cwd)
-    record = state.get("record")
-    if isinstance(record, str):
-        entries = manifest_paths(record) or ()
-        owned = {normalized(str(Path(record) / entry), cwd) for entry in entries}
-        if absolute in owned:
-            return True
-    if state.get("mode") != "execute" and Path(absolute).name == ".gitignore":
-        return True
-    return False
-
-
 def handle_pre_tool(
-    store: StateStore, key: str, payload: dict[str, Any]
+    store: StateStore,
+    key: str,
+    payload: dict[str, Any],
+    state: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    control = parse_control(payload)
-    if control:
-        return handle_control(store, key, payload, control)
-    state = store.get(key)
     if not state or not is_mutating_tool(payload):
         return None
     mode = state.get("mode")
@@ -1206,19 +1193,25 @@ def handle_pre_tool(
             "WORKFLOW_PLAN_BOOTSTRAP_SCOPE_DENIED: while plan initialization is open, "
             "only apply_patch writes beneath the declared target are allowed."
         )
-    if paths and all(record_or_housekeeping_path(path, state, cwd) for path in paths):
+    if paths:
         requested = {normalized(path, cwd) for path in paths}
         record = str(state.get("record"))
         owned = {
             normalized(str(Path(record) / entry), cwd)
             for entry in (manifest_paths(record) or ())
         }
-        if requested & owned:
-            return deny_tool(
-                "WORKFLOW_WRITE_OPEN_REQUIRED: open a record write transaction before changing "
-                "manifest-owned Markdown files."
-            )
-        return None
+        record_or_housekeeping = all(
+            path in owned
+            or (mode != "execute" and Path(path).name == ".gitignore")
+            for path in requested
+        )
+        if record_or_housekeeping:
+            if requested & owned:
+                return deny_tool(
+                    "WORKFLOW_WRITE_OPEN_REQUIRED: open a record write transaction before "
+                    "changing manifest-owned Markdown files."
+                )
+            return None
     if state.get("rules_sync_required"):
         return deny_tool(
             "WORKFLOW_RULES_SYNC_REQUIRED: activate the current skill, reread its complete "
@@ -1396,10 +1389,13 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
     key = session_key(session_id)
     store = StateStore()
     if event == "PreToolUse":
-        result = handle_pre_tool(store, key, payload)
+        control = parse_control(payload)
+        if control:
+            return handle_control(store, key, payload, control)
+        state = store.get(key)
+        result = handle_pre_tool(store, key, payload, state)
         if result is not None:
             return result
-        state = store.get(key)
         return context_output(event, mode_message(state)) if state else None
     if event == "UserPromptSubmit":
         state = store.get(key)

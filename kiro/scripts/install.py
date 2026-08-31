@@ -94,12 +94,13 @@ def validate_source(root: Path) -> dict[str, object]:
             raise InstallError(f"missing runtime file: {relative}")
     hook_path = root / str(manifest["hookTemplate"])
     try:
-        hook = json.loads(hook_path.read_text(encoding="utf-8"))
+        hook_text = hook_path.read_text(encoding="utf-8")
+        hook = json.loads(hook_text)
     except (OSError, json.JSONDecodeError) as error:
         raise InstallError(f"invalid hook template: {error}") from error
     if hook.get("version") != "v1" or not isinstance(hook.get("hooks"), list):
         raise InstallError("hook template must use standalone v1 schema")
-    if "{{WORKFLOW_MODES_COMMAND}}" not in hook_path.read_text(encoding="utf-8"):
+    if "{{WORKFLOW_MODES_COMMAND}}" not in hook_text:
         raise InstallError("hook template is missing the command placeholder")
     return manifest
 
@@ -122,8 +123,13 @@ def render_command(scope: str, config_root: Path, platform: str) -> str:
     return f'KIRO_WORKFLOW_SCOPE={scope} python3 "{script}"'
 
 
-def render_hook(root: Path, scope: str, config_root: Path, platform: str) -> bytes:
-    manifest = load_manifest(root)
+def render_hook(
+    root: Path,
+    manifest: dict[str, object],
+    scope: str,
+    config_root: Path,
+    platform: str,
+) -> bytes:
     template_path = root / str(manifest["hookTemplate"])
     template = json.loads(template_path.read_text(encoding="utf-8"))
     command = render_command(scope, config_root, platform)
@@ -138,15 +144,22 @@ def render_hook(root: Path, scope: str, config_root: Path, platform: str) -> byt
     return (json.dumps(template, indent=2) + "\n").encode("utf-8")
 
 
-def payload(root: Path, scope: str, config_root: Path, platform: str) -> dict[str, bytes]:
-    manifest = validate_source(root)
+def payload(
+    root: Path,
+    manifest: dict[str, object],
+    scope: str,
+    config_root: Path,
+    platform: str,
+) -> dict[str, bytes]:
     result: dict[str, bytes] = {}
     for name in manifest["skills"]:
         skill_root = root / "skills" / str(name)
         for path in distributable_files(skill_root):
             relative = path.relative_to(skill_root).as_posix()
             result[f"skills/{name}/{relative}"] = path.read_bytes()
-    result["hooks/workflow-modes.json"] = render_hook(root, scope, config_root, platform)
+    result["hooks/workflow-modes.json"] = render_hook(
+        root, manifest, scope, config_root, platform
+    )
     for relative in manifest["runtime"]:
         path = root / str(relative)
         result[f"workflow-modes/scripts/{path.name}"] = path.read_bytes()
@@ -222,7 +235,7 @@ def install_distribution(
     root = root.resolve()
     config_root = config_root.resolve()
     source_manifest = validate_source(root)
-    core = payload(root, scope, config_root, platform)
+    core = payload(root, source_manifest, scope, config_root, platform)
     fingerprint = content_fingerprint(core)
     manifest_relative = "workflow-modes/manifest.json"
     files = tuple(sorted(core))

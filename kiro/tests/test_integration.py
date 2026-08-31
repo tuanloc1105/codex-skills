@@ -36,7 +36,6 @@ class InstalledWorkflowHarness:
         INSTALL.install_distribution(KIRO_ROOT, self.config_root, scope=scope)
         self.hook = self.config_root / "workflow-modes/scripts/workflow_modes_hook.py"
         self.control_script = self.config_root / "workflow-modes/scripts/workflow_modes_control.py"
-        self.state = root / f"{scope}-state"
         self.session_id = f"installed-{scope}-session"
         self.scope = scope
 
@@ -45,7 +44,6 @@ class InstalledWorkflowHarness:
         return {
             **os.environ,
             "KIRO_HOME": str(self.config_root),
-            "KIRO_WORKFLOW_STATE": str(self.state),
             "KIRO_WORKFLOW_SCOPE": self.scope,
         }
 
