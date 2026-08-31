@@ -13,8 +13,8 @@ import {
   resolveLegend,
   renderLegend as renderResolvedLegend,
 } from '../shared/legend.mjs';
-import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
-import { brandLabelFitWidth, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
+import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth, primaryNodeLabelProblem, primaryNodeLabelWidth } from '../shared/text-fit.mjs';
+import { brandMarkFor, brandMetadataFor, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
 import {
   createMappedWorkflowCandidate,
@@ -2260,8 +2260,8 @@ function validateWorkflow() {
     if (estLabelW > node.width + 6) {
       problems.push(`Label "${node.label}" (~${Math.round(estLabelW)}px) is wider than node "${node.id}" (${node.width}px) — shorten the label or increase node.width.`);
     }
-    const brandRailProblem = brandTopRailProblem(node, node.width, nodeTextFit.labelMinimum);
-    if (brandRailProblem) problems.push(brandRailProblem);
+    const labelRailProblem = primaryNodeLabelProblem(node, node.width, nodeTextFit.labelMinimum, { brand: Boolean(brandMarkFor(node)) });
+    if (labelRailProblem) problems.push(labelRailProblem);
     const availableTextW = availableNodeTextWidth(node.width);
     for (const [field, value, minimum] of [
       ['Sublabel', node.sublabel, nodeTextFit.sublabelMinimum],
@@ -4191,7 +4191,7 @@ function renderNode(node) {
   const fill = componentFill[node.type] || 'c-external';
   const accent = componentText[node.type] || 't-muted';
   const hasSub = node.sublabel != null && node.sublabel !== '';
-  const labelFontSize = fittedNodeFontSize(node.label, brandLabelFitWidth(node, node.width), nodeTextFit.labelPreferred, nodeTextFit.labelMinimum);
+  const labelFontSize = fittedNodeFontSize(node.label, primaryNodeLabelWidth(node.width, { brand: Boolean(brandMarkFor(node)) }), nodeTextFit.labelPreferred, nodeTextFit.labelMinimum);
   const sublabelFontSize = hasSub
     ? fittedNodeFontSize(node.sublabel, node.width, nodeTextFit.sublabelPreferred, nodeTextFit.sublabelMinimum)
     : nodeTextFit.sublabelPreferred;

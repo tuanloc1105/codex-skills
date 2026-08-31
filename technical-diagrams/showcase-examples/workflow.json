@@ -1,0 +1,33 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {"title": "Quy trình xử lý đơn hàng", "quality_profile": "showcase", "viewBox": [1120, 680]},
+  "lanes": [
+    {"id":"customer_lane","label":"Khách hàng"},
+    {"id":"platform_lane","label":"Nền tảng"},
+    {"id":"restaurant_lane","label":"Nhà hàng"},
+    {"id":"exception_lane","label":"Ngoại lệ","variant":"exception"}
+  ],
+  "mainPath":["submit_order","validate_order","authorize_payment","accept_order","prepare_order","complete_order"],
+  "nodes":[
+    {"id":"submit_order","lane":"customer_lane","col":0,"type":"external","label":"Gửi đơn"},
+    {"id":"validate_order","lane":"platform_lane","col":1,"type":"backend","label":"Kiểm tra đơn","width":104},
+    {"id":"authorize_payment","lane":"platform_lane","col":2,"type":"security","label":"Thanh toán hợp lệ?","width":160},
+    {"id":"accept_order","lane":"restaurant_lane","col":3,"type":"backend","label":"Nhận đơn"},
+    {"id":"prepare_order","lane":"restaurant_lane","col":4,"type":"backend","label":"Chuẩn bị món","width":104},
+    {"id":"complete_order","lane":"customer_lane","col":5,"type":"external","label":"Nhận món"},
+    {"id":"request_retry","lane":"exception_lane","col":2,"type":"security","label":"Yêu cầu thanh toán lại","width":180}
+  ],
+  "edges":[
+    {"id":"submit_validate","from":"submit_order","to":"validate_order"},
+    {"id":"validate_payment","from":"validate_order","to":"authorize_payment"},
+    {"id":"payment_accept","from":"authorize_payment","to":"accept_order","label":"Có","variant":"emphasis"},
+    {"id":"accept_prepare","from":"accept_order","to":"prepare_order"},
+    {"id":"prepare_complete","from":"prepare_order","to":"complete_order","label":"sẵn sàng giao"},
+    {"id":"payment_retry","from":"authorize_payment","to":"request_retry","label":"Không","variant":"security"}
+  ],
+  "cards":[
+    {"dot":"emerald","title":"Luồng thành công","items":["Sáu bước chính đi từ gửi đơn đến nhận món","Nhà hàng chỉ nhận đơn sau khi thanh toán hợp lệ"]},
+    {"dot":"rose","title":"Nhánh ngoại lệ","items":["Thanh toán lỗi chuyển sang lane ngoại lệ","Khách có thể thử lại mà không tạo đơn mới"]}
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {"title": "Chuỗi gọi API khi tạo đơn", "quality_profile": "showcase", "viewBox": [1120, 700], "column_fit":"spread"},
+  "participants":[
+    {"id":"app","label":"Ứng dụng khách","type":"frontend"},
+    {"id":"api","label":"API đơn hàng","type":"backend"},
+    {"id":"payment","label":"Cổng thanh toán","type":"external"},
+    {"id":"database","label":"Cơ sở dữ liệu","type":"database"},
+    {"id":"queue","label":"Hàng đợi sự kiện","type":"messagebus"}
+  ],
+  "messages":[
+    {"id":"create_request","from":"app","to":"api","y":185,"label":"POST /orders","variant":"emphasis"},
+    {"id":"authorize_request","from":"api","to":"payment","y":245,"label":"ủy quyền thanh toán","variant":"security"},
+    {"id":"authorize_return","from":"payment","to":"api","y":305,"label":"payment_id","variant":"return"},
+    {"id":"insert_order","from":"api","to":"database","y":365,"label":"INSERT order","variant":"default"},
+    {"id":"insert_return","from":"database","to":"api","y":425,"label":"order_id","variant":"return"},
+    {"id":"publish_event","from":"api","to":"queue","y":485,"label":"OrderCreated","variant":"dashed"},
+    {"id":"response_created","from":"api","to":"app","y":545,"label":"201 Created","variant":"return"}
+  ],
+  "cards":[
+    {"dot":"cyan","title":"Phần đồng bộ","items":["API chờ thanh toán và ghi cơ sở dữ liệu","Ứng dụng nhận order_id sau khi dữ liệu đã bền vững"]},
+    {"dot":"violet","title":"Phần bất đồng bộ","items":["OrderCreated được phát sau khi lưu đơn","Các consumer xử lý tiếp mà không kéo dài request"]}
+  ]
+}

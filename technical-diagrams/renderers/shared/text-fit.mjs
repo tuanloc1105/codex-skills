@@ -47,3 +47,42 @@ export function minimumNodeTextWidth(text, minimum) {
 export function availableNodeTextWidth(width) {
   return width - nodeTextFit.horizontalPadding;
 }
+
+// Primary labels are centered, while renderer-owned semantic and brand marks
+// occupy a top rail at either edge. Convert each occupied rail into the
+// largest symmetric label width whose nearest edge keeps `gap` pixels clear.
+// The tightest side wins; left and right reservations are not added together.
+export function primaryNodeLabelWidth(width, {
+  semanticSide = 'left',
+  semanticInset = 6,
+  semanticSize = 11,
+  brand = false,
+  brandSide = 'right',
+  brandInset = 6,
+  brandSize = 16,
+  gap = 2,
+} = {}) {
+  const marks = [
+    { side: semanticSide, inset: semanticInset, size: semanticSize },
+    ...(brand ? [{ side: brandSide, inset: brandInset, size: brandSize }] : []),
+  ];
+  const railWidth = marks.reduce((available, { side, inset, size }) => {
+    if (side !== 'left' && side !== 'right') return available;
+    return Math.min(available, width - 2 * (inset + size + gap));
+  }, width);
+  // fittedNodeFontSize subtracts the shared border padding from its input.
+  // Add that padding back here so its remaining width is the exact rail-safe
+  // text rectangle rather than an accidentally double-padded value.
+  return Math.max(1, railWidth + nodeTextFit.horizontalPadding);
+}
+
+export function primaryNodeLabelProblem(node, width, minimumFontSize, {
+  subject = 'Node',
+  ...railOptions
+} = {}) {
+  const available = primaryNodeLabelWidth(width, railOptions);
+  const required = minimumNodeTextWidth(node.label, minimumFontSize);
+  if (available - nodeTextFit.horizontalPadding >= required) return null;
+  return `${subject} "${node.id}" primary-label rail leaves ${Math.max(0, available - nodeTextFit.horizontalPadding)}px for its label, but `
+    + `"${node.label}" needs ~${Math.ceil(required)}px at the ${minimumFontSize}px legible minimum — widen the node or shorten the label.`;
+}

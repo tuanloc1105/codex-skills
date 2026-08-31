@@ -38,8 +38,32 @@ import {
   suggestComponentSeparation,
 } from '../renderers/shared/geometry.mjs';
 import { textUnits, applyTemplate, renderSemanticSigil } from '../renderers/shared/utils.mjs';
+import { primaryNodeLabelProblem, primaryNodeLabelWidth } from '../renderers/shared/text-fit.mjs';
 
 const rect = (x, y, w, h) => ({ x, y, width: w, height: h, cx: x + w / 2, cy: y + h / 2 });
+
+test('primaryNodeLabelWidth reserves centered clearance for left and right semantic rails', () => {
+  assert.equal(primaryNodeLabelWidth(100), 70);
+  assert.equal(primaryNodeLabelWidth(100, { semanticSide: 'right' }), 70);
+});
+
+test('primaryNodeLabelWidth uses the tighter semantic or brand rail without adding both', () => {
+  assert.equal(primaryNodeLabelWidth(100, { brand: true }), 60);
+  assert.equal(primaryNodeLabelWidth(100, {
+    brand: true,
+    semanticSide: 'right',
+    brandSide: 'left',
+  }), 60);
+});
+
+test('primaryNodeLabelProblem rejects labels that only fit by touching a renderer-owned mark', () => {
+  const problem = primaryNodeLabelProblem({ id: 'forecast', label: 'ABCDEFGHIJKLM' }, 100, 8, {
+    semanticSide: 'right',
+    subject: 'State',
+  });
+  assert.match(problem, /State "forecast" primary-label rail leaves 62px/);
+  assert.match(problem, /needs ~63px at the 8px legible minimum/);
+});
 
 test('automaticPortRhythmBridge: near parallel ports use readable outside runs', () => {
   const points = automaticPortRhythmBridge(
