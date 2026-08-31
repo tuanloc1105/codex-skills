@@ -606,6 +606,30 @@ for (const [mode, collection, tag, preferred] of TAG_SHRINK_CASES) {
   });
 }
 
+const PRIMARY_LABEL_RAIL_CASES = [
+  ['architecture', 'components', (node) => { node.size = [100, 60]; }],
+  ['workflow', 'nodes', (node) => { node.width = 100; }],
+  ['sequence', 'participants', () => {}],
+  ['dataflow', 'nodes', (node) => { node.width = 100; }],
+  ['lifecycle', 'states', (node) => { node.width = 100; }],
+];
+
+for (const [mode, collection, resize] of PRIMARY_LABEL_RAIL_CASES) {
+  test(`${mode}: primary label validation reserves the semantic icon rail`, () => {
+    const d = load(mode);
+    const node = d[collection][0];
+    node.label = mode === 'sequence' ? 'ABCDEFGHIJK' : 'ABCDEFGHIJKLM';
+    delete node.brand;
+    delete node.sublabel;
+    delete node.tag;
+    resize(node);
+    const { code, stderr } = render(mode, d);
+    assert.notEqual(code, 0, `${mode}: expected semantic rail rejection`);
+    assert.match(stderr, /primary-label rail/);
+    assert.match(stderr, /widen|increase|shorten/);
+  });
+}
+
 test('contract: a too-wide label is never redirected into sublabel', () => {
   // Every renderer used to advise "move detail to sublabel" for an over-long
   // label. Sublabels are measured now, so that advice would move the problem
@@ -662,16 +686,16 @@ test('workflow: same-lane offset auto edge stays orthogonal', () => {
     meta: { title: 'Same-lane offset route' },
     lanes: [{ id: 'main', label: 'Main lane' }],
     nodes: [
-      { id: 'left', lane: 'main', col: 1, type: 'backend', label: 'A', width: 32, height: 38, yOffset: -14 },
-      { id: 'right', lane: 'main', col: 2, type: 'backend', label: 'B', width: 32, height: 38, yOffset: 14 },
+      { id: 'left', lane: 'main', col: 1, type: 'backend', label: 'A', width: 64, height: 38, yOffset: -14 },
+      { id: 'right', lane: 'main', col: 2, type: 'backend', label: 'B', width: 64, height: 38, yOffset: 14 },
     ],
     edges: [{ from: 'left', to: 'right' }],
   };
   const { code, stderr, outPath } = render('workflow', d);
   assert.equal(code, 0, stderr);
   const html = fs.readFileSync(outPath, 'utf8');
-  assert.doesNotMatch(html, /M 236 105 L 284 133/);
-  assert.match(html, /M 236 105 L 260 105 L 260 133 L 284 133/);
+  assert.doesNotMatch(html, /M 252 105 L 268 133/);
+  assert.match(html, /M 252 105 L 260 105 L 260 133 L 268 133/);
 });
 
 test('workflow: automatic routing uses one bend and avoids every node border', () => {
@@ -679,6 +703,8 @@ test('workflow: automatic routing uses one bend and avoids every node border', (
     path.join(skillRoot, 'test/fixtures/automatic-routing-node-border-clearance.workflow.json'),
     'utf8',
   ));
+  d.nodes[0].label = 'Target';
+  d.nodes[1].label = 'Source';
   const { code, stderr, outPath } = render('workflow', d);
   assert.equal(code, 0, stderr);
   const html = fs.readFileSync(outPath, 'utf8');
@@ -919,6 +945,8 @@ test('workflow: explicit labelAt remains authoritative on an automatic one-bend 
     path.join(skillRoot, 'test/fixtures/automatic-routing-node-border-clearance.workflow.json'),
     'utf8',
   ));
+  d.nodes[0].label = 'Target';
+  d.nodes[1].label = 'Source';
   d.edges[0].labelAt = [350, 166];
   const { code, stderr, outPath } = render('workflow', d);
   assert.equal(code, 0, stderr);
@@ -1096,7 +1124,7 @@ test('architecture: auto route enters explicit top and bottom ports perpendicula
     meta: { title: 'Endpoint direction regression' },
     components: [
       { id: 'cli-agents', type: 'external', label: 'CLI Agents', pos: [300, 100], size: [100, 60] },
-      { id: 'tasks-watch', type: 'backend', label: 'Tasks Watcher', pos: [100, 240], size: [100, 60] },
+      { id: 'tasks-watch', type: 'backend', label: 'Watcher', pos: [100, 240], size: [100, 60] },
     ],
     connections: [
       { id: 'tasks-file', from: 'cli-agents', to: 'tasks-watch', variant: 'dashed', fromSide: 'bottom', toSide: 'top' },
@@ -1117,7 +1145,7 @@ test('architecture: auto route preserves inferred side normals when the primary 
       { id: 'workspace', type: 'frontend', label: 'Workspace UI', pos: [40, 300], size: [120, 60] },
       { id: 'runtime-server', type: 'backend', label: 'Runtime Server', pos: [220, 300], size: [120, 60] },
       { id: 'runtime-store', type: 'backend', label: 'Runtime Store', pos: [400, 300], size: [120, 60] },
-      { id: 'stream-hub', type: 'messagebus', label: 'Terminal Stream Hub', pos: [700, 100], size: [120, 60] },
+      { id: 'stream-hub', type: 'messagebus', label: 'Stream Hub', pos: [700, 100], size: [120, 60] },
     ],
     connections: [
       { id: 'terminal-return', from: 'stream-hub', to: 'workspace' },

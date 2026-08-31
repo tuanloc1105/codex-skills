@@ -176,7 +176,7 @@ test('a branded node fails before its semantic sigil, label, and brand badge can
   const { result, html } = renderSync('workflow', input, 'narrow-brand-rail');
 
   assert.equal(result.status, 1, result.stderr || result.stdout);
-  assert.match(result.stderr, /brand top rail/i);
+  assert.match(result.stderr, /primary-label rail/i);
   assert.equal(html, '');
 });
 
@@ -191,7 +191,7 @@ test('every renderer enforces the same collision-free brand top rail', () => {
     });
     const { result, html } = renderSync(type, input, `narrow-brand-rail-${type}`);
     assert.equal(result.status, 1, `${type}: ${result.stderr || result.stdout}`);
-    assert.match(result.stderr, /brand top rail/i, type);
+    assert.match(result.stderr, /primary-label rail/i, type);
     assert.equal(html, '', type);
   }
 });

@@ -5,7 +5,7 @@ import https from 'node:https';
 import net from 'node:net';
 import { BRAND_MARKS } from './generated-brand-marks.mjs';
 import { throwDiagnosticError } from './diagnostics.mjs';
-import { esc, textUnits } from './utils.mjs';
+import { esc } from './utils.mjs';
 
 const COLLECTIONS = Object.freeze({
   architecture: 'components',
@@ -516,19 +516,6 @@ export function brandMetadataFor(node) {
     brandStatus: mark.status,
     brandSource: mark.sourceUrl,
   } : {};
-}
-
-export function brandLabelFitWidth(node, width) {
-  return brandMarkFor(node) ? Math.max(1, width - 48) : width;
-}
-
-export function brandTopRailProblem(node, width, minimumFontSize, subject = 'Node') {
-  if (!brandMarkFor(node)) return null;
-  const available = width - 48;
-  const required = textUnits(node.label) * minimumFontSize * 0.6;
-  if (available >= required) return null;
-  return `${subject} "${node.id}" brand top rail leaves ${Math.max(0, available)}px for its label, but `
-    + `"${node.label}" needs ~${Math.ceil(required)}px at the ${minimumFontSize}px legible minimum — widen the node or shorten the label.`;
 }
 
 function markAttrs(mark) {

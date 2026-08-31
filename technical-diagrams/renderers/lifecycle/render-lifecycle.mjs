@@ -4,8 +4,8 @@ import { esc, renderDefinitions, renderSemanticSigil, textUnits } from '../share
 import { animateAttr, focusEdgeAttrs, focusNodeAttrs, focusNodeTitle, loadDiagramWithBrandMarks, writeDiagram, svgAccessibleText, svgRootAttrs } from '../shared/cli.mjs';
 import { throwDiagnosticProblems } from '../shared/diagnostics.mjs';
 import { resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
-import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
-import { brandLabelFitWidth, brandMarkFor, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
+import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth, primaryNodeLabelProblem, primaryNodeLabelWidth } from '../shared/text-fit.mjs';
+import { brandMarkFor, brandMetadataFor, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
 import {
   asArray,
@@ -183,8 +183,13 @@ function validateLifecycle() {
     if (estLabelW > state.width + 6) {
       problems.push(`Label "${state.label}" (~${Math.round(estLabelW)}px) is wider than state "${state.id}" (${state.width}px) — shorten the label or increase state.width.`);
     }
-    const brandRailProblem = brandTopRailProblem(state, state.width, 8, 'State');
-    if (brandRailProblem) problems.push(brandRailProblem);
+    const hasBrand = Boolean(brandMarkFor(state));
+    const labelRailProblem = primaryNodeLabelProblem(state, state.width, 8, {
+      brand: hasBrand,
+      semanticSide: hasBrand ? 'left' : 'right',
+      subject: 'State',
+    });
+    if (labelRailProblem) problems.push(labelRailProblem);
     // sublabel and tag render as single unwrapped <text> elements; shrink-to-fit
     // handles the ordinary case, this rejects what it cannot rescue.
     const availableTextW = availableNodeTextWidth(state.width);
@@ -444,7 +449,10 @@ function renderState(state) {
     ? `\n        <text data-detail="fine" x="${state.x + (hasBrand ? 23 : 10)}" y="${state.y + 14}" class="${accent}" font-size="7" font-weight="700">${esc(state.step)}</text>`
     : '';
   const brand = renderBrandMark(state, { x: state.x + state.width - 22, y: state.y + 6 });
-  const labelFontSize = fittedNodeFontSize(state.label, brandLabelFitWidth(state, state.width), 10, 8);
+  const labelFontSize = fittedNodeFontSize(state.label, primaryNodeLabelWidth(state.width, {
+    brand: hasBrand,
+    semanticSide: hasBrand ? 'left' : 'right',
+  }), 10, 8);
   const passport = {
     kind: state.type,
     sublabel: state.sublabel,
