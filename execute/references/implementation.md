@@ -2,16 +2,17 @@
 
 Read before implementation, amendments, workspace setup, commits, scheduling, or recovery. Add this file to Required references through a record write, read it, then acknowledge rules before mutating work.
 
-## Workspace Selection
+## Mandatory Dedicated Worktree
 
 Follow the user's chosen workspace and repository policy. Inspect the starting branch, HEAD, staged/unstaged diffs, untracked paths, and existing worktrees before implementation. Preserve all pre-existing changes and record the baseline needed to distinguish this task's changes.
 
-Use a dedicated worktree when isolation is required by policy, requested by the user, or materially protects concurrent/pre-existing work. Otherwise a clean or safely scoped existing checkout is valid. Do not ask about a reversible workspace choice that can be resolved from the task and policy.
+Before beginning or resuming implementation in each affected Git repository, create or safely reuse a dedicated linked worktree bound to this execution record. This is mandatory for small and large plans alike, including sequential work and clean repositories. Never implement in the user's original checkout. Do not ask whether isolation is worth the overhead or infer an exception from plan size. Higher-priority instructions still apply; report an actual conflict rather than silently choosing the original checkout.
 
-- Reuse a worktree only when it belongs to this task and has no conflicting unrelated work. Record the actual path, branch, and base in evidence.
-- Choose a task-focused branch under repository conventions. Avoid hiding unrelated files when maintaining ignore rules; prefer an existing ignored worktree location or local Git exclude configuration when permitted.
-- If a recorded worktree disappeared, inspect the branch and surviving work before safe recreation. Never discard changes or reset a checkout to recover it.
-- When no worktree can be created, use an existing checkout only if authorized and safe; otherwise report the concrete blocker. Do not treat worktree creation itself as a completion criterion.
+- Inspect `git worktree list --porcelain`. Reuse a linked worktree only when it is dedicated to this record and has no conflicting unrelated work. Keep new worktrees under the main repository's `.worktrees/` directory unless repository policy specifies another dedicated location. Verify an in-repository location is ignored before creating it; use a narrow ignore rule or permitted local Git exclude configuration without hiding unrelated files.
+- Use the approved task branch and base under repository and domain policy. Respect any required branch-creation authorization; do not invent a different branch to avoid it or force-checkout a branch already used elsewhere. Record the canonical worktree path, branch, base, and registration evidence before implementation.
+- Run implementation edits, generators, checks, staging, authorized commits, integration, and simplify fixes from the dedicated worktree. Set tool working directories and subagent paths explicitly; changing a terminal directory alone does not redirect absolute file paths or other tools. Verify the worktree identity again on resume or after workspace drift.
+- If a recorded worktree disappeared, inspect the branch and surviving work before safe recreation. Update the recorded replacement path and verify it before resuming. Never discard changes or reset the original checkout to recover it.
+- If a dedicated worktree cannot be created or safely reused, stop dependent implementation and report the concrete blocker after safe recovery. Do not fall back to the original checkout. Read-only investigation and accurate blocker/pause reporting remain allowed without successful worktree setup.
 - For non-Git work, skip Git operations. The execution record stays at its exact bound path even if implementation uses another workspace. Required authorized outputs or skill mirrors may live elsewhere; record their exact scope and repository rules rather than banning all outside-worktree writes.
 
 ## Dependency Scheduling and Ownership
@@ -25,7 +26,7 @@ Delegate only when authorized and useful: a bounded phase needs stable inputs, n
 The coordinator is the sole writer of the record bundle. Subagents do not change phase status metadata, commit, push, deploy, or mutate shared resources unless separately authorized. Assume a shared workspace. Give each delegated task:
 
 - Phase goal, satisfied dependencies, inputs, and output contract
-- Exact owned files/resources and exclusions; tell it others share the codebase and their changes must be preserved
+- Exact dedicated-worktree path, owned files/resources and exclusions; tell it others share the codebase and their changes must be preserved. Prohibit implementation in the original checkout.
 - Relevant repository instructions and required verification
 - A requirement to report unexpected overlap, scope changes, or blockers before proceeding
 - A return contract: changes, checks, assumptions, risks, and remaining work
@@ -59,18 +60,20 @@ Use these checklist states:
 
 Multiple items may be in progress only when ownership and dependencies make concurrent work safe. A blocked prerequisite may leave dependent items pending with its ID noted. Update phase status in its phase file, overall status in `index.md`, checks in `verification.md`, and evidence in `evidence.md` through one consistent write. Do not duplicate authoritative scheduling state in plan tables.
 
-## Commits When Authorized
+## Mandatory Small Commits When Authorized
 
 Implementation does not automatically authorize commits. Follow explicit user/plan/repository instructions; if commits are not authorized, leave the verified changes reviewable in the working tree. Do not ask for commit permission merely to finish an otherwise completed task.
 
 When commits are authorized:
 
 1. Use the captured starting HEAD and diff boundaries to isolate this task's changes.
-2. Group coherent behavior changes with their necessary tests and dependencies. Commit size follows reviewability, not a mandatory one-file/DTO/component cadence or a forced phase boundary.
-3. Run focused checks, review the staged diff, and stage only current-task files/hunks. Preserve pre-existing and concurrent changes.
+2. Before coding, identify the smallest complete, independently verifiable units within the selected phase. A behavior slice, component, DTO, configuration change, or refactor prerequisite may be a unit only when it is coherent with its required tests and dependencies. Do not split mechanically by file or line count, or commit a scaffold that only works after omitted changes.
+3. As soon as a unit's focused checks pass and the coordinator accepts it, stage only its current-task files/hunks, review the staged diff, and commit immediately before starting the next separable unit. Preserve pre-existing and concurrent changes. Do not combine separately complete units merely because they share a phase, checklist step, feature, or layer. A phase normally produces multiple commits unless it is genuinely indivisible; this cadence is mandatory even when executing only one phase. Subagents return bounded unit results for coordinator verification and commit, without staging or committing another worker's changes.
 4. Follow repository message conventions. Do not push, deploy, squash, amend, or rewrite history without corresponding authority.
 5. Record SHA, subject, branch, and associated work in evidence. The producing commit cannot contain its own SHA; do not amend to chase a self-reference or create an unrequested metadata commit.
 6. Scope any later review to the whole task's committed changes plus in-scope working-tree changes, not just the latest commit. Reconcile a recorded baseline with branch/worktree drift before using it as a range.
+
+If a commit fails, inspect the failure and recover before moving to the next separable unit; do not defer failed commits into an end-of-phase batch. A user stop still takes precedence: preserve the verified but uncommitted work and report it instead of creating a commit after a stop. Apply the same cadence to authorized review/simplify fixes as separate coherent commits; do not rewrite earlier history without authority.
 
 ## Recovery and User Stops
 
@@ -83,8 +86,8 @@ If persistence fails, follow the entrypoint suspend/repair/recover protocol. Kee
 ## Execution Sequence
 
 1. Adopt the exact record, restore scope/authority, and capture the starting workspace and diff boundaries.
-2. Select the workspace under policy, record it, and perform any authorized setup as a bounded action.
+2. For every affected Git repository, create or verify its mandatory dedicated linked worktree as an authorized bounded setup action, record the path and branch, and bind implementation tools/subagents to it before any implementation. Skip this setup only for non-Git work or an explicit higher-priority instruction.
 3. Inspect context, choose dependency-ready work, and amend the record for material new information.
-4. Execute coherent work units, verify and reconcile their evidence; commit only if authorized.
+4. Execute the smallest complete work units, verify and reconcile their evidence, and, when commits are authorized, commit each accepted unit immediately before beginning the next separable unit. Do not wait for the phase or plan to finish.
 5. Accept phase outputs and integration checks before starting dependents. Continue until the authorized task is complete, genuinely blocked, or explicitly stopped.
 6. Apply the outcome-specific completion reference, persist the actual result, checkpoint, and report it.

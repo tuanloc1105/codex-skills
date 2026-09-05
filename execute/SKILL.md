@@ -17,6 +17,10 @@ An explicit request to execute the supplied plan approves its recorded scope eve
 
 Implementation authority does not imply commit, push, deploy, or unrelated external actions. Follow explicit user instructions, repository policy, and recorded authorization. Ask only when a missing decision materially affects outcome or authority; safe implementation details do not require a new approval.
 
+Before beginning or resuming implementation in any Git repository, create or safely reuse a dedicated linked worktree for this execution record. This is mandatory regardless of plan size, checkout cleanliness, or whether work runs sequentially. Never implement in the user's original checkout or silently fall back to it. Follow the dedicated-worktree procedure in the implementation reference, record its path and branch, and give every implementation tool and subagent that workspace explicitly. Read-only adoption does not require a worktree; non-Git directories skip Git-specific setup.
+
+When local commits are authorized, the smallest-complete-verified-unit commit cadence is mandatory. Commit each such unit immediately after its focused checks pass and its changes are accepted, before starting the next separable unit. Do not accumulate an entire phase or plan before committing. Unit boundaries follow coherent behavior and dependencies, not an arbitrary file or line count. Follow the implementation reference; this cadence does not itself grant commit, push, or deployment authority.
+
 On entry, persist `Execute mode: Active`, current timestamp, and the resume instruction to read this exact bundle. Use the `Durable` profile by default, upgrading Lightweight and preserving Audited. Keep implementation status independent of mode status. Record the source and scope of execution authority; `Execution authorization: Granted` is an acknowledgment of user authority, not a grant produced by the hook.
 
 ## Reference Routing

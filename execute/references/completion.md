@@ -29,8 +29,8 @@ Run or offer security review only when requested or when the change exposes a co
 
 - Preserve the exact adopted record and classify the actual outcome above.
 - Confirm phase acceptance, dependency gates, amendments, and verification agree. Do not require all phases to be completed for Blocked or Paused.
-- Record the actual workspace and branch; a worktree is required only when chosen or mandated by repository/user policy.
-- If commits were authorized and created, record their SHA, subject, branch, and associated work. Do not create commits just to satisfy completion.
+- For Git implementation, verify and record the dedicated linked worktree path and branch, and confirm implementation tools and subagents used it. A clean original checkout or a large/small plan is not an exception. For non-Git work, record that Git worktree setup is inapplicable. A Blocked or Paused report remains valid when worktree setup failed; do not claim implementation completion or continue in the original checkout to satisfy this gate. If implementation occurred in the wrong checkout, disclose it and reconcile only task-owned changes safely before claiming compliance; creating a worktree afterward does not retroactively prove isolation.
+- If commits were authorized, confirm each smallest complete verified implementation unit was committed at the required cadence, and record its SHA, subject, branch, and associated work. Do not defer separable units to a final batch. If cadence was missed, disclose it; splitting commits afterward does not prove the required cadence occurred. A user stop or genuine commit blocker permits an accurate Paused/Blocked report with uncommitted work preserved. If commits were not authorized, do not create them just to satisfy completion.
 - Close action markers with the actual terminal result and close the record transaction. Checkpoint material deltas.
 - Keep Execute mode Active for a normal task checkpoint; use Paused/Exited and deactivate on a user stop or clear switch to a separate task.
 
