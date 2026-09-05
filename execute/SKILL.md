@@ -28,6 +28,8 @@ Read each applicable reference completely:
 
 Read-only evidence turns need neither reference unless their subject requires it. Keep Required references minimal (`None` when neither applies), add the relevant file through a record transaction, read it, and acknowledge rules before the next mutation. Do not activate other skills merely because the record mentions their names; use them only when the task requires them and the user has not excluded them.
 
+Keep `Supporting skills` in the Active Snapshot limited to skills needed for the next safe action, with each skill name or locator and its purpose; use `None` when none apply. This is resume context, not the mode reference allowlist: do not add these names to `Required references` or `rules-sync`. On adoption or after compaction, reassess their relevance and the user’s exclusions before loading them; a recorded mention grants no authority and does not require automatic activation. Refresh this field when the next action changes, and remove skills whose work is finished. Existing bundles without it remain valid; add it during the next material record update when useful.
+
 ## Work and Completion
 
 Execute all authorized in-scope work, including dependency-ready phases and accepted amendments. Treat failed attempts, test failures, unavailable delegation, and context pressure as intermediate states; recover proportionately and continue independent safe work.

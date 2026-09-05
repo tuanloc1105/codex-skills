@@ -59,6 +59,7 @@ Current state: <current state>
 Accepted decisions: <IDs or None>
 Open items: <IDs or None>
 Next safe action: <one exact action>
+Supporting skills: <skill name or locator — purpose for the next action; or None>
 <!-- workflow-active-snapshot:end -->
 
 ## Resume Checkpoint
@@ -82,6 +83,8 @@ evidence.md
 ```
 
 The manifest begins with `index.md`; every entry is a unique relative `.md` path inside the bundle. `index.md` is the sole location for identity, lifecycle markers, Active Snapshot, manifest, and resume checkpoint.
+
+Keep `Supporting skills` in the Active Snapshot limited to skills needed for the next safe action, with each skill name or locator and its purpose; use `None` when none apply. This is resume context, not the mode reference allowlist: do not add these names to `Required references` or `rules-sync`. On adoption or after compaction, reassess their relevance and the user’s exclusions before loading them; a recorded mention grants no authority and does not require automatic activation. Refresh this field when the next action changes, and remove skills whose work is finished. Existing bundles without it remain valid; add it during the next material record update when useful.
 
 ## Content Ownership
 

@@ -224,6 +224,89 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("currently required record scope", json.dumps(denied))
         self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch("app.py")))
 
+    def test_post_compact_resume_to_checkpoint_in_all_modes(self) -> None:
+        def accepted(expected: str, *args: str) -> None:
+            self.assertIn(expected, json.dumps(self.control(*args)))
+            result = subprocess.run(
+                [sys.executable, str(CONTROL), *args, "--marker", MARKER],
+                capture_output=True, text=True, env=self.env,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+        def read_file(path: Path) -> str:
+            # Exercise the read tool boundary, then actually read the fixture.
+            output = self.run_hook(
+                "PreToolUse", tool_name="exec_command",
+                tool_input={"cmd": f'cat "{path}"'},
+            )
+            self.assertIsNone(output)
+            return path.read_text(encoding="utf-8")
+
+        for mode in ("discuss", "plan", "execute"):
+            with self.subTest(mode=mode):
+                self.session_id = f"compact-{mode}"
+                self.record = self.cwd / mode / "record"
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                target = self.cwd / f"{mode}.py"
+                evidence = self.record / "evidence.md"
+                self.write_open()
+                self.index.write_text(self.index.read_text().replace(
+                    "Next safe action: Continue",
+                    "Next safe action: Continue\nSupporting skills: surgical-coding — inspect changes",
+                ), encoding="utf-8")
+                if mode != "plan":
+                    evidence.write_text(
+                        "# Evidence\n<!-- workflow-action:A001 status:open -->\n", encoding="utf-8",
+                    )
+                    self.index.write_text(self.index.read_text().replace(
+                        "Active action: None", "Active action: A001",
+                    ), encoding="utf-8")
+                accepted("WORKFLOW_WRITE_CLOSED", "write-close", "--record", str(self.record))
+                if mode != "plan":
+                    accepted("WORKFLOW_ACTION_OPEN", "action-open", "--record", str(self.record),
+                             "--evidence-id", "A001", "--impact", "source-confirmed", "--path", str(target))
+
+                output = self.run_hook("PostCompact")
+                message = output["systemMessage"]
+                for value in (f"mode={mode}", str(self.record), "sync_status=record", "SKILL.md",
+                              *MODE_REFERENCES[mode]):
+                    self.assertIn(value, message)
+                self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
+                self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.run_hook("Stop")))
+                self.assertIn("WORKFLOW_RECORD_SYNC_REQUIRED", json.dumps(
+                    self.control("sync", "--record", str(self.record), "--scope", "snapshot")))
+
+                skill = PLUGIN_ROOT.parent / mode
+                read_file(skill / "SKILL.md")
+                for reference in MODE_REFERENCES[mode]:
+                    read_file(skill / reference)
+                for path in sorted(self.record.rglob("*.md")):
+                    read_file(path)
+                accepted("WORKFLOW_RECORD_SYNCED", "sync", "--record", str(self.record))
+                self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
+                references = tuple(item for ref in MODE_REFERENCES[mode] for item in ("--reference", ref))
+                accepted("WORKFLOW_RULES_SYNCED", "rules-sync", "--record", str(self.record), *references)
+                if mode == "plan":
+                    self.assertIn("WORKFLOW_PLAN_READ_ONLY", json.dumps(self.patch(str(target))))
+                else:
+                    # No reactivation or second action-open: the original scope survived.
+                    self.assertIsNone(self.patch(str(target)))
+                    self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch("other.py")))
+                    target.write_text("# resumed action\n", encoding="utf-8")
+                self.write_open()
+                self.assertIsNone(self.patch(str(evidence)))
+                evidence.write_text(evidence.read_text().replace("status:open", "status:completed")
+                                    + "\nResumed work verified.\n", encoding="utf-8")
+                self.index.write_text(self.index.read_text().replace(
+                    "Active action: A001", "Active action: None",
+                ), encoding="utf-8")
+                accepted("WORKFLOW_WRITE_CLOSED", "write-close", "--record", str(self.record))
+                if mode != "plan":
+                    accepted("WORKFLOW_ACTION_CLOSED", "action-close", "--result", "completed")
+                accepted("WORKFLOW_TURN_CHECKPOINTED", "checkpoint", "--record", str(self.record))
+                self.assertIsNone(self.run_hook("Stop"))
+
     def test_snapshot_only_change_requests_snapshot_sync(self) -> None:
         self.activate("discuss")
         self.index.write_text(
