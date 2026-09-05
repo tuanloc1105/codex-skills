@@ -26,14 +26,28 @@ Keep the entrypoint and current Required references acknowledged after activatio
 
 Ask when a user-owned choice materially changes the outcome, scope, authority, or consequential tradeoff. Record the blocking choice and stop work that depends on its answer. Safe, proportionate read-only inspection of independent questions may continue while awaiting the answer; do not implement a default for the blocked branch.
 
-- Ask the earliest blocking question first. Batch related questions only when they can be answered independently and doing so reduces back-and-forth.
+- Ask the earliest blocking question first. Keep only one choice question pending so a bare number has an unambiguous meaning.
 - Resolve factual unknowns through available evidence before asking the user.
 - Use reasonable assumptions for reversible implementation details within an already agreed scope; record assumptions only when useful for resuming.
-- Keep tool batches bounded by dependencies and authorization, not by an arbitrary one-question-per-turn rule.
+- Batch independent read-only tool calls when useful; the one-choice-question rule does not limit independent inspection.
 
 ## Question Style
 
-Use concise questions. For a real choice, provide 2-3 concrete alternatives and a recommendation when justified. Respect the question tool's option limits and built-in free-text option. For a required URL, identifier, credential location, or other factual value, ask directly rather than inventing artificial options. Never invent missing values.
+Ask one choice question at a time in a plain-text chat message, with the question on its own line followed by a blank line and 2-4 concrete options numbered consecutively as `1.`, `2.`, `3.`, `4.`. Never use letter labels or pad the list to reach four options. Use this format instead of a question tool unless higher-priority instructions require that tool. Put the recommended option first when justified and mark it with `Recommended — <brief reason>` in the user's language on the same line.
+
+Accept a bare number such as `1`, a number with an explanation such as `2. user's reason`, or a free-form answer. Map the number to the current pending question and honor any accompanying reason or constraint; clarify only if the answer is ambiguous or contradictory. Keep the pending question and its number-to-option mapping in the record so a short reply remains interpretable after resuming. Do not repeat a clearly answered question merely to confirm the selection.
+
+For example:
+
+```text
+Which rollout scope do you prefer?
+
+1. New data first — Recommended: limits risk and makes verification easier.
+2. All existing and new data.
+3. A pilot group first.
+```
+
+For a required URL, identifier, credential location, or other factual value, ask directly rather than inventing options. Never invent missing values.
 
 Distinguish blocking questions from optional preferences. A blocking question requires an answer; elapsed time is not approval. For an optional preference, state the intended default and continue independent work. Record open questions with stable IDs, their blocking scope, and options only when there are actual alternatives. Do not ask where to store a new tracker when the default can be resolved.
 

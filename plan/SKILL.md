@@ -34,9 +34,25 @@ Keep Required references minimal and acknowledge changes before the next substan
 
 ## Questions and Independent Work
 
-Ask only for missing choices that materially change the plan. Offer 2-3 concrete alternatives for decisions and recommend one when justified; use a direct factual question for a URL or identifier. Respect question-tool limits and built-in free-text support. Never ask a storage-choice question when the default applies.
+Ask only for missing choices that materially change the plan. Never ask a storage-choice question when the default applies.
 
-Record whether each question blocks execution and which work depends on it. Continue safe independent inspection while waiting; do not assume an answer to a blocking question. Optional preferences may use a stated reasonable default. Batch related independent questions when useful instead of forcing one round trip per issue.
+Ask one choice question at a time in a plain-text chat message, with the question on its own line followed by a blank line and 2-4 concrete options numbered consecutively as `1.`, `2.`, `3.`, `4.`. Never use letter labels or pad the list to reach four options. Use this format instead of a question tool unless higher-priority instructions require that tool. Put the recommended option first when justified and mark it with `Recommended — <brief reason>` in the user's language on the same line.
+
+Accept a bare number such as `1`, a number with an explanation such as `2. user's reason`, or a free-form answer. Map the number to the current pending question and honor any accompanying reason or constraint; clarify only if the answer is ambiguous or contradictory. Keep the pending question and its number-to-option mapping in the record so a short reply remains interpretable after resuming. Do not repeat a clearly answered question merely to confirm the selection.
+
+For example:
+
+```text
+Which rollout scope do you prefer?
+
+1. New data first — Recommended: limits risk and makes verification easier.
+2. All existing and new data.
+3. A pilot group first.
+```
+
+For a required URL, identifier, credential location, or other factual value, ask directly rather than inventing options. Never invent missing values.
+
+Record whether each question blocks execution and which work depends on it. Continue safe independent inspection while waiting; do not assume an answer to a blocking question. Optional preferences may use a stated reasonable default. Ask the earliest blocking question first and keep only one choice question pending. This does not limit batching independent read-only tool calls.
 
 ## Workflow Modes Hook
 
