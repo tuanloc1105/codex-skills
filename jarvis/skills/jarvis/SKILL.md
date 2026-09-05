@@ -55,7 +55,10 @@ Translate the surrounding labels and prose when appropriate, but keep `Main → 
    - preservation requirements and approval boundaries;
    - current evidence, assumptions, and unknowns;
    - completion criteria and intended verification.
-6. Spawn exactly one supervisor named `jarvis_supervisor` using the strongest capability-first model exposed by the subagent tool and the highest supported reasoning effort. Prefer `gpt-5.6-sol` with `max` reasoning when available. Never silently choose a speed- or cost-optimized model.
+6. At each activation, inspect the subagent tool's current model descriptions and supported reasoning levels. Spawn exactly one supervisor named `jarvis_supervisor` using the model described as most capable for complex reasoning and demanding work, with the highest reasoning effort supported by that model.
+   - Select only models exposed by the current subagent tool. Use its capability metadata rather than a fixed model name, remembered ranking, release date, or version number; a newly released model becomes eligible when the tool exposes it.
+   - Prioritize capability over speed or cost. If the metadata does not establish a strongest eligible model, report the ambiguity and ask the user to choose before spawning; do not silently guess or downgrade.
+   - Before spawning, tell the user the selected model, reasoning effort, and brief metadata-based selection rationale. Pass the model and reasoning effort explicitly through the tool's supported override parameters; do not rely on inherited defaults to match the selection.
    - Use a read-only/default agent profile and explicitly forbid file edits, external mutations, and further delegation.
    - Give it the goal contract and the complete supervisor prompt.
    - If a model override cannot be combined with a full-history fork, prioritize the strongest model and pass a self-contained goal contract with the largest permitted recent-turn fork.
@@ -70,7 +73,7 @@ If the subagent tools or required frontier model are unavailable, fail closed: r
 
 ## Keep Jarvis In The Loop
 
-Reuse the same supervisor for the entire task. Send it a follow-up and wait for its verdict at these checkpoints:
+Reuse the same supervisor and model for the entire task; evaluate newly available models at the next activation, without switching an ongoing task. Send it a follow-up and wait for its verdict at these checkpoints:
 
 - before the first material mutation;
 - when the implementation path, touched area, or user goal changes materially;
