@@ -274,7 +274,7 @@ class WorkflowModesHookTests(unittest.TestCase):
                 for value in (f"mode={mode}", str(self.record), "sync_status=record", "SKILL.md",
                               *MODE_REFERENCES[mode]):
                     self.assertIn(value, message)
-                self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
+                self.assertIn("WORKFLOW_EXECUTE_ADVISORY" if mode == "execute" else "WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
                 self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.run_hook("Stop")))
                 self.assertIn("WORKFLOW_RECORD_SYNC_REQUIRED", json.dumps(
                     self.control("sync", "--record", str(self.record), "--scope", "snapshot")))
@@ -286,7 +286,7 @@ class WorkflowModesHookTests(unittest.TestCase):
                 for path in sorted(self.record.rglob("*.md")):
                     read_file(path)
                 accepted("WORKFLOW_RECORD_SYNCED", "sync", "--record", str(self.record))
-                self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
+                self.assertIn("WORKFLOW_EXECUTE_ADVISORY" if mode == "execute" else "WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
                 references = tuple(item for ref in MODE_REFERENCES[mode] for item in ("--reference", ref))
                 accepted("WORKFLOW_RULES_SYNCED", "rules-sync", "--record", str(self.record), *references)
                 if mode == "plan":
@@ -294,7 +294,7 @@ class WorkflowModesHookTests(unittest.TestCase):
                 else:
                     # No reactivation or second action-open: the original scope survived.
                     self.assertIsNone(self.patch(str(target)))
-                    self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(
+                    self.assertIn("WORKFLOW_EXECUTE_ADVISORY" if mode == "execute" else "WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(
                         self.patch("other.md" if mode == "discuss" else "other.py")))
                     target.write_text("# resumed action\n", encoding="utf-8")
                 self.write_open()
@@ -432,6 +432,38 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(opened))
         self.assertIsNone(self.patch(str(self.cwd / "notes.md")))
         self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(self.cwd / "other.md"))))
+
+    def test_read_shell_forms_need_no_action_in_discuss_or_plan(self) -> None:
+        for mode in ("discuss", "plan"):
+            self.session_id = "read-forms-" + mode
+            self.record = self.cwd / mode / "read-forms"
+            self.index = self.record / "index.md"
+            self.activate(mode)
+            for command in (
+                "printf '%s\\n' '--- labels ---'; rg -n needle apps | head -n 400; sed -n '1,280p' file.md",
+                "rg --files apps | sort",
+                "nl -ba app.ts | sed -n '45,70p;420,475p'",
+                "rg -n 'a>b' app.ts\nsed -n '1,20p' app.ts",
+                "find . -type f -print | sort | uniq -c",
+                "jq -r '.items[] | select(.value > 0)' data.json",
+                "git blame app.ts",
+            ):
+                with self.subTest(mode=mode, command=command):
+                    self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command}))
+            for command in (
+                "sort -o output app.ts", "sed -n '1,20p' app.ts -e 'w output'",
+                "printf -v variable '%s' value", "rg --files\ntouch output",
+                "uniq input output", "find . -delete",
+            ):
+                with self.subTest(mode=mode, command=command):
+                    denied = json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command}))
+                    self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED" if mode == "discuss" else "WORKFLOW_PLAN_READ_ONLY", denied)
+
+    def test_discuss_denial_identifies_unrecognized_command(self) -> None:
+        self.activate("discuss")
+        denied = json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": "rg --files | mystery private-argument"}))
+        self.assertIn("Commands/options not recognized as read-only: mystery", denied)
+        self.assertNotIn("private-argument", denied)
 
     def test_discuss_cannot_open_source_or_shell_actions(self) -> None:
         self.activate("discuss")
@@ -849,7 +881,23 @@ class WorkflowModesHookTests(unittest.TestCase):
         git = {"cmd": "git -C /repo commit -m change"}
         self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=git))
         mixed = {"cmd": "git -C /repo commit -m change; python3 unrelated.py"}
-        self.assertIn("WORKFLOW_ACTION_UNSCOPED_TOOL", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=mixed)))
+        self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=mixed))
+        external = {"cmd": "git status; gh pr create"}
+        self.assertIn("WORKFLOW_ACTION_UNSCOPED_TOOL", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=external)))
+
+    def test_execute_bookkeeping_advises_without_auto_suspension(self) -> None:
+        self.activate("execute")
+        output = self.patch("app.py")
+        self.assertIn("WORKFLOW_EXECUTE_ADVISORY", json.dumps(output))
+        self.assertNotIn("permissionDecision", output["hookSpecificOutput"])
+        self.run_hook("UserPromptSubmit")
+        for _ in range(2):
+            stopped = self.run_hook("Stop")
+            self.assertIn("WORKFLOW_EXECUTE_ADVISORY", stopped["systemMessage"])
+            self.assertNotIn("decision", stopped)
+        self.assertIn("suspended=False", json.dumps(self.control("snapshot")))
+        self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
+        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch("app.py")))
 
     def test_unready_discussion_cannot_activate_execute(self) -> None:
         self.create_bundle("discuss")

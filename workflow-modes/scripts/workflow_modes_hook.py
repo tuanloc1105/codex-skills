@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 from workflow_modes_control import help_request
 from bundle_schema import phase_errors
-from tool_policy import (is_mutating_tool, is_shell_tool, mutation_classes, paths_for_tool, tool_command)
+from tool_policy import (classification_detail, is_mutating_tool, is_shell_tool, mutation_classes, paths_for_tool, tool_command)
 
 
 MARKER = "workflow-modes-v1"
@@ -1153,6 +1153,57 @@ def record_or_housekeeping_path(path: str, state: dict[str, Any], cwd: str) -> b
     return False
 
 
+def execute_mutation(state: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Execution bookkeeping advises; user stops and effect scope still gate."""
+    cwd = str(payload.get("cwd", os.getcwd()))
+    paths = paths_for_tool(payload)
+    requested = {normalized(path, cwd) for path in paths}
+    transaction = state.get("write_transaction")
+    record_write = bool(paths) and all(record_or_housekeeping_path(path, state, cwd) for path in paths)
+    transaction_write = bool(requested) and bool(transaction) and requested.issubset(set(transaction.get("paths", [])))
+    recovery = state.get("recovery")
+    if recovery:
+        # Preserve the existing record-repair route, including cached paths.
+        if transaction_write:
+            return None
+        if recovery.get("reason") == "user-stop" or not record_write:
+            return deny_tool("WORKFLOW_RECOVERY_REQUIRED: execution is suspended; only record repair is permitted. A user stop must be reconciled before resuming work.")
+    if transaction_write:
+        return None
+    action = state.get("action")
+    if action and action.get("impact") == "non-source" and not record_write and (
+        any(Path(path).suffix.lower() in SOURCE_EXTENSIONS for path in requested)
+        or not paths and mutation_classes(payload) & {"git", "shell"}
+    ):
+        return deny_tool("WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: the action is explicitly non-source; reconcile actual user authority before source or opaque shell work.")
+    if not paths:
+        classes = mutation_classes(payload)
+        allowed = set(action.get("unscoped", [])) if action else set()
+        # An implementation action already covers its shell tooling. It does
+        # not grant Git/external effects, nor make arbitrary no-action scripts safe.
+        if action and action.get("impact") == "source-confirmed":
+            allowed.add("shell")
+        if classes - allowed:
+            return deny_tool("WORKFLOW_ACTION_UNSCOPED_TOOL: establish scope for Git/external effects or opaque execution before proceeding; missing classes: " + ", ".join(sorted(classes - allowed)))
+    reminders = []
+    if not action and not record_write and not transaction_write:
+        reminders.append("record an evidence action for the authorized work")
+    if paths and action and not record_write and not transaction_write and not requested.issubset(set(action.get("paths", []))):
+        reminders.append("reconcile additional files with the user's task scope")
+    if transaction and not transaction_write:
+        reminders.append("reconcile and close the pending record transaction")
+    elif record_write and not transaction_write:
+        reminders.append("reconcile this record edit and its revision")
+    if state.get("rules_sync_required"):
+        reminders.append("reread and sync the execution rules")
+    if not record_is_synced(state):
+        reminders.append("read and sync the changed execution record")
+    if reminders:
+        return context_output("PreToolUse", "WORKFLOW_EXECUTE_ADVISORY: " + "; ".join(reminders)
+                              + ". Continue only within existing user authority; this advisory grants no new permissions.")
+    return None
+
+
 def handle_pre_tool(
     store: StateStore, key: str, payload: dict[str, Any]
 ) -> dict[str, Any] | None:
@@ -1163,6 +1214,8 @@ def handle_pre_tool(
     if not state or not is_mutating_tool(payload):
         return None
     mode = state.get("mode")
+    if mode == "execute":
+        return execute_mutation(state, payload)
     cwd = str(payload.get("cwd", os.getcwd()))
     paths = paths_for_tool(payload)
     if state.get("write_transaction"):
@@ -1215,11 +1268,6 @@ def handle_pre_tool(
             "WORKFLOW_RECORD_SYNC_REQUIRED: the active tracker is unacknowledged or changed; "
             "read it completely and run sync before non-record mutation."
         )
-    if mode == "execute" and not state.get("action"):
-        return deny_tool(
-            "WORKFLOW_EXECUTE_ACTION_REQUIRED: persist an evidence checkpoint, open an "
-            "execute action, then perform the mutation."
-        )
     if mode == "plan":
         return deny_tool(
             "WORKFLOW_PLAN_READ_ONLY: source mutation is blocked in plan mode. Persist the "
@@ -1235,6 +1283,7 @@ def handle_pre_tool(
             "WORKFLOW_DISCUSS_EXECUTE_REQUIRED: source mutation and potentially mutating "
             "shell/Git execution are blocked in discuss, including legacy source actions. "
             "Reconcile pending work and transition to execute only on a user execution request."
+            + (classification_detail(payload) if not paths else "")
         )
     if not action:
         return deny_tool(
@@ -1244,7 +1293,7 @@ def handle_pre_tool(
     allowed_paths = set(action.get("paths", []))
     if paths:
         requested = {normalized(path, cwd) for path in paths}
-        if (not allowed_paths and mode == "execute") or not requested.issubset(
+        if not requested.issubset(
             allowed_paths | {str(state.get("record"))}
         ):
             return deny_tool(
@@ -1350,6 +1399,11 @@ def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[st
     if state.get("recovery"):
         return {"systemMessage": "WORKFLOW_SUSPENDED: report the blocker or user stop honestly; unfinished state is retained and non-record mutations remain denied."}
     result = stop_requirement(store, key, payload)
+    if state.get("mode") == "execute" and result and result.get("decision") == "block":
+        state.pop("last_stop_reason", None)
+        store.mutate(key, lambda _old: state)
+        return {"systemMessage": "WORKFLOW_EXECUTE_ADVISORY: " + result["reason"]
+                + " Report any unresolved bookkeeping honestly; no unfinished work is marked complete."}
     if result and result.get("decision") == "block":
         reason = result["reason"]
         if state.get("last_stop_reason") == reason:
