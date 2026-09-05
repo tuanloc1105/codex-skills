@@ -15,6 +15,9 @@ import tempfile
 import time
 from typing import Any, Callable
 
+from bundle_schema import phase_errors
+from tool_policy import (is_mutating_tool, is_shell_tool, mutation_classes, paths_for_tool, tool_command)
+
 
 MARKER = "workflow-modes-v1"
 SNAPSHOT_START_PATTERN = re.compile(
@@ -31,43 +34,12 @@ MODE_REFERENCES = {
     "plan": ("references/plan-record.md", "references/phase-planning.md"),
     "execute": ("references/implementation.md", "references/completion.md"),
 }
-GIT_MUTATION_COMMANDS = "add|commit|push|merge|rebase|reset|clean|checkout|switch|restore"
-GIT_MUTATION_PATTERN = rf"\bgit\s+(?:{GIT_MUTATION_COMMANDS})(?=$|[\s;&|])"
-EXTERNAL_MUTATION_PATTERN = (
-    r"\b(?:glab|gh|tea)\b[^;&|\n]*"
-    r"\b(?:approve|close|comment|create|delete|edit|merge|note|reopen|review|update)\b"
-    r"|\bacli\s+jira\s+workitem\b[^;&|\n]*"
-    r"\b(?:comment|create|edit|transition)\b"
-)
-MUTATING_SHELL = re.compile(
-    r"(?:^|[;&|]\s*|\s)(?:rm|mv|cp|mkdir|touch|chmod|chown|install)\b"
-    rf"|{GIT_MUTATION_PATTERN}"
-    r"|\b(?:npm|pnpm|yarn|pip|pip3|uv)\s+(?:install|uninstall|add|remove|publish)\b"
-    r"|\b(?:docker|podman)\s+(?:build|push|run|compose\s+up)\b"
-    r"|\bkubectl\s+(?:apply|create|delete|patch|replace|scale|set)\b"
-    r"|\bterraform\s+(?:apply|destroy|import)\b"
-    rf"|{EXTERNAL_MUTATION_PATTERN}"
-    r"|(?:^|[^>])>{1,2}(?!>)",
-    re.IGNORECASE,
-)
-MUTATING_TOOL_VERBS = {
-    "add", "approve", "archive", "close", "comment", "commit", "create",
-    "delete", "deploy", "edit", "install", "merge", "move", "publish",
-    "push", "remove", "rename", "reopen", "send", "set", "transition",
-    "update", "write",
-}
-COORDINATION_TOOLS = {
-    "followup_task", "get_goal", "interrupt_agent", "list_agents",
-    "request_user_input", "send_message", "spawn_agent", "update_goal",
-    "update_plan", "wait_agent",
-}
 SOURCE_EXTENSIONS = {
     ".c", ".cc", ".cpp", ".cs", ".css", ".go", ".h", ".hpp", ".html",
     ".java", ".js", ".jsx", ".kt", ".kts", ".lua", ".php", ".py", ".rb",
     ".rs", ".sh", ".sql", ".swift", ".ts", ".tsx", ".vue",
+    ".mjs", ".cjs", ".mts", ".cts", ".svelte", ".ps1", ".psm1", ".bash", ".zsh",
 }
-SOURCE_MUTATING_SHELL = re.compile(GIT_MUTATION_PATTERN, re.IGNORECASE)
-EXTERNAL_MUTATING_SHELL = re.compile(EXTERNAL_MUTATION_PATTERN, re.IGNORECASE)
 
 
 def utc_now() -> str:
@@ -143,58 +115,18 @@ def deny_tool(reason: str) -> dict[str, Any]:
     }
 
 
-def tool_command(payload: dict[str, Any]) -> str:
-    tool_input = payload.get("tool_input")
-    if isinstance(tool_input, dict):
-        for key in ("command", "cmd"):
-            value = tool_input.get(key)
-            if isinstance(value, str):
-                return value
-    return ""
-
-
-def is_shell_tool(payload: dict[str, Any]) -> bool:
-    name = str(payload.get("tool_name", "")).lower()
-    return name == "bash" or bool(re.search(r"(?:^|[.:/_-])exec_command$", name))
-
-
-def is_mutating_tool(payload: dict[str, Any]) -> bool:
-    name = str(payload.get("tool_name", ""))
-    lowered = name.lower()
-    if lowered in COORDINATION_TOOLS:
-        return False
-    if lowered == "apply_patch" or lowered.endswith("apply_patch"):
-        return True
-    if is_shell_tool(payload):
-        return bool(MUTATING_SHELL.search(tool_command(payload)))
-    parts = {part for part in re.split(r"[_\W]+", lowered) if part}
-    return bool(parts & MUTATING_TOOL_VERBS)
-
-
-def patch_paths(command: str) -> set[str]:
-    paths = set(
-        re.findall(
-            r"^\*\*\* (?:Add|Update|Delete) File: (.+)$",
-            command,
-            flags=re.MULTILINE,
-        )
-    )
-    paths.update(re.findall(r"^\*\*\* Move to: (.+)$", command, flags=re.MULTILINE))
-    return {path.strip() for path in paths if path.strip()}
-
-
 def normalized(path: str, cwd: str) -> str:
     candidate = Path(path).expanduser()
     if not candidate.is_absolute():
         candidate = Path(cwd) / candidate
-    return os.path.normcase(os.path.abspath(candidate))
+    return os.path.normcase(str(candidate.resolve()))
 
 
 def canonical_record(path: str, cwd: str | None = None) -> str:
     candidate = Path(normalized(path, cwd or os.getcwd()))
     if candidate.name == "index.md":
         candidate = candidate.parent
-    return normalized(str(candidate), cwd or os.getcwd())
+    return normalized(str(candidate.resolve()), cwd or os.getcwd())
 
 
 def record_matches(path: object, active: object, cwd: str) -> bool:
@@ -231,11 +163,12 @@ def manifest_paths(path: str | None, text: str | None = None) -> tuple[str, ...]
     total = 0
     for entry in entries:
         relative = Path(entry)
-        if relative.is_absolute() or relative.suffix.lower() != ".md" or ".." in relative.parts:
+        if (relative.is_absolute() or relative.suffix.lower() != ".md" or ".." in relative.parts
+                or relative.as_posix() != entry or "\\" in entry):
             return None
         candidate = root / relative
         try:
-            if not candidate.is_file() or candidate.is_symlink():
+            if not candidate.is_file() or any(part.is_symlink() for part in (candidate, *candidate.parents) if part != root and root in part.parents):
                 return None
             candidate.resolve().relative_to(root.resolve())
             total += candidate.stat().st_size
@@ -284,48 +217,7 @@ def validate_bundle(files: dict[str, str]) -> bool:
         required.add("verification.md")
     if not required.issubset(files):
         return False
-    phase_files = sorted(name for name in files if name.startswith("phases/") and name.endswith(".md"))
-    phase_ids: dict[str, str] = {}
-    dependencies: dict[str, set[str]] = {}
-    plan_text = files.get("plan.md", "")
-    for name in phase_files:
-        filename = Path(name).name
-        file_id = filename.split("-", 1)[0]
-        match = re.search(r"^#\s+(P\d{2}):\s+.+$", files[name], re.MULTILINE)
-        depends = re.search(r"^Depends on:\s*(.*?)\s*$", files[name], re.MULTILINE)
-        required_metadata = ("Status:", "Wave:", "Subagent:", "Owned scope:", "Produces:")
-        if (
-            not match
-            or not depends
-            or match.group(1) != file_id
-            or file_id in phase_ids
-            or name not in plan_text
-            or missing_markers(files[name], required_metadata)
-        ):
-            return False
-        phase_ids[file_id] = name
-        values = set()
-        if depends and depends.group(1) != "None":
-            values = {item.strip() for item in depends.group(1).split(",") if item.strip()}
-        dependencies[file_id] = values
-    if any(not values.issubset(phase_ids) for values in dependencies.values()):
-        return False
-    visiting: set[str] = set()
-    visited: set[str] = set()
-
-    def visit(phase_id: str) -> bool:
-        if phase_id in visiting:
-            return False
-        if phase_id in visited:
-            return True
-        visiting.add(phase_id)
-        if any(not visit(dependency) for dependency in dependencies.get(phase_id, set())):
-            return False
-        visiting.remove(phase_id)
-        visited.add(phase_id)
-        return True
-
-    if any(not visit(phase_id) for phase_id in phase_ids):
+    if phase_errors(files):
         return False
     open_markers = re.findall(r"<!-- workflow-action:([A-Z][A-Z0-9_-]{2,63}) status:open -->", files["evidence.md"])
     active = re.search(r"^Active action:\s*([^\s]+)", index, re.MULTILINE)
@@ -467,25 +359,23 @@ def action_marker(evidence_id: str, status: str) -> str:
     return f"<!-- workflow-action:{evidence_id} status:{status} -->"
 
 
-def unscoped_mutation_kind(payload: dict[str, Any]) -> str:
-    if not is_shell_tool(payload):
-        return "external"
-    command = tool_command(payload)
-    if SOURCE_MUTATING_SHELL.search(command):
-        return "git"
-    if EXTERNAL_MUTATING_SHELL.search(command):
-        return "external"
-    return "shell"
-
-
 def missing_markers(text: str, markers: tuple[str, ...]) -> list[str]:
-    return [marker for marker in markers if marker not in text]
+    lines = {line.strip() for line in text.splitlines()}
+    return [marker for marker in markers if not (
+        any(line.startswith(marker) for line in lines) if marker.endswith(":") else marker in lines
+    )]
 
 
-def paths_for_tool(payload: dict[str, Any]) -> set[str]:
-    if str(payload.get("tool_name", "")).lower().endswith("apply_patch"):
-        return patch_paths(tool_command(payload))
-    return set()
+def matching_control_script(path: str) -> bool:
+    """The marketplace source and versioned hook cache may be different paths."""
+    candidate = Path(path)
+    expected = Path(__file__).with_name("workflow_modes_control.py")
+    try:
+        return (candidate.is_absolute() and candidate.is_file()
+                and candidate.stat().st_size == expected.stat().st_size
+                and candidate.read_bytes() == expected.read_bytes())
+    except OSError:
+        return False
 
 
 def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -532,6 +422,16 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
         return {"action": "ambiguous"}
 
     segment, script_index, marker_index = candidates[0]
+    # A control request is its own command; never exempt companion shell code.
+    prefix = segment[:script_index]
+    interpreter = Path(prefix[0]).name if prefix else ""
+    valid_prefix = not prefix or (
+        bool(re.fullmatch(r"python(?:\d+(?:\.\d+)*)?(?:\.exe)?", interpreter)) and len(prefix) == 1
+    ) or (interpreter in {"py", "py.exe"} and prefix[1:] == ["-3"])
+    if (len(segments) != 1 or not valid_prefix or marker_index + 2 != len(segment)
+            or any(character in tool_command(payload) for character in ("\n", "\r", "`", "$", ">", "<"))
+            or not matching_control_script(segment[script_index])):
+        return {"action": "ambiguous"}
     args = segment[script_index + 1:marker_index]
     if not args:
         return None
@@ -570,7 +470,8 @@ def state_summary(state: dict[str, Any]) -> str:
     action_text = "none" if not action else str(action.get("status", "unknown"))
     return (
         f"mode={state.get('mode')}, record={state.get('record')}, "
-        f"action={action_text}"
+        f"action={action_text}, acknowledged_revision={state.get('acknowledged_revision')}, "
+        f"suspended={bool(state.get('recovery'))}"
     )
 
 
@@ -615,16 +516,17 @@ def handle_control(
         )
     cwd = str(payload.get("cwd", os.getcwd()))
     current = store.get(key)
+    if current and current.get("recovery") and action in {"activate", "transition", "action-open", "plan-init"}:
+        return deny_tool("WORKFLOW_RECOVERY_REQUIRED: repair and reconcile the record, then recover before new work.")
     if action in {"activate", "transition"}:
+        if current and (current.get("write_transaction") or current.get("action")):
+            return deny_tool("WORKFLOW_RECONCILIATION_REQUIRED: close the existing write and action before activation or transition.")
         positionals = control.get("positionals", [])
         mode = positionals[0] if positionals else None
         record = control.get("record")
-        if mode not in MODES or (
-            not isinstance(record, str) and not (action == "activate" and mode == "plan")
-        ):
+        if mode not in MODES or not isinstance(record, str):
             return deny_tool(
-                "WORKFLOW_MODE_INVALID: a valid mode is required, and --record is required "
-                "except for initial plan activation."
+                "WORKFLOW_MODE_INVALID: a valid mode and --record are required."
             )
         if action == "activate" and current and current.get("mode") != mode:
             return deny_tool(
@@ -667,13 +569,27 @@ def handle_control(
                 )
         if action == "activate" and mode == "execute":
             missing = missing_markers(record_text or "", ("Execute mode: Active",))
+            if re.search(r"workflow-record[^\n>]*kind:discuss", record_text or ""):
+                missing += missing_markers(record_text or "", ("Mode status: Exited", "Execution readiness: Ready"))
+                if not {"plan.md", "verification.md"}.issubset(record_files(absolute_record) or {}):
+                    missing.append("plan.md and verification.md")
             if missing:
                 return deny_tool(
                     "WORKFLOW_RECORD_NOT_ACTIVE: persist execute activation before implementation."
                 )
+        if action == "activate" and current and not current.get("plan_handoff_source"):
+            if absolute_record != current.get("record"):
+                return deny_tool("WORKFLOW_RECORD_MISMATCH: exit the current record before activating a different one.")
+            if record_tracker_id(absolute_record) != current.get("tracker_id"):
+                return deny_tool("WORKFLOW_RECORD_IDENTITY_MISMATCH: activation cannot replace the bound tracker identity.")
+            refresh_sync_requirement(current)
+            store.mutate(key, lambda _old: current)
+            return context_output("PreToolUse", f"WORKFLOW_MODE_ACTIVE: existing state retained; {state_summary(current)}.")
         if action == "transition":
             if not current:
                 return deny_tool("WORKFLOW_MODE_INACTIVE: activate a tracker-backed mode first.")
+            if not record_matches(record, current.get("record"), cwd):
+                return deny_tool("WORKFLOW_RECORD_MISMATCH: transition must retain the active source record.")
             if current.get("write_transaction"):
                 return deny_tool("WORKFLOW_WRITE_CLOSE_REQUIRED: close the record write transaction before transition.")
             allowed = {
@@ -701,7 +617,9 @@ def handle_control(
                         "WORKFLOW_HANDOFF_NOT_DURABLE: direct execute requires plan.md and verification.md."
                     )
             else:
-                required = ("Status: Approved plan, not yet implemented", "Execute mode: Ready")
+                required = ("Status: Approved plan, not yet implemented", "Plan mode: Exited", "Execution readiness: Ready", "Execute mode: Ready")
+            if mode == "execute":
+                required += ("Execution authorization: Granted",)
             missing = missing_markers(record_text, required)
             if missing:
                 return deny_tool(
@@ -713,6 +631,7 @@ def handle_control(
             "active": True,
             "mode": mode,
             "record": absolute_record,
+            "record_paths": list(manifest_paths(absolute_record) or ()),
             "action": None,
             "write_transaction": None,
             "stop_warning_issued": False,
@@ -747,21 +666,59 @@ def handle_control(
             "read and reconcile it before substantive work.",
         )
     if action == "deactivate":
+        if current and current.get("recovery"):
+            return deny_tool("WORKFLOW_RECOVERY_REQUIRED: suspended state must be reconciled before deactivation; a blocker response is already allowed.")
         if current and current.get("write_transaction"):
             return deny_tool("WORKFLOW_WRITE_CLOSE_REQUIRED: close the record write transaction first.")
-        if current and current.get("mode") == "execute" and current.get("action"):
+        if current and current.get("action"):
             return deny_tool(
-                "WORKFLOW_ACTION_CLOSE_REQUIRED: reconcile and close the execute action "
-                "before deactivating execute mode."
+                "WORKFLOW_ACTION_CLOSE_REQUIRED: reconcile and close the current action "
+                "before deactivating the workflow."
             )
-        if current and current.get("mode") != "execute":
-            return deny_tool(
-                "WORKFLOW_EXIT_DENIED: discuss and plan exit only through a valid plan/execute transition."
-            )
+        if current:
+            text = read_index(current.get("record")) or ""
+            field = {"discuss": "Mode status", "plan": "Plan mode", "execute": "Execute mode"}[current["mode"]]
+            if current.get("plan_handoff_source"):
+                field = "Mode status"
+            if not any(not missing_markers(text, (f"{field}: {value}",)) for value in ("Exited", "Paused")):
+                return deny_tool("WORKFLOW_EXIT_NOT_DURABLE: persist the mode's Exited or Paused state before deactivation.")
+            if not record_is_synced(current):
+                return deny_tool("WORKFLOW_RECORD_SYNC_REQUIRED: reconcile the record before deactivation.")
         store.mutate(key, lambda _old: None)
-        return context_output("PreToolUse", "WORKFLOW_MODE_INACTIVE: execute explicitly exited.")
+        return context_output("PreToolUse", "WORKFLOW_MODE_INACTIVE: workflow explicitly exited or paused.")
     if not current:
         return deny_tool("WORKFLOW_MODE_INACTIVE: activate a tracker-backed mode first.")
+    if action == "suspend":
+        if not record_matches(control.get("record"), current.get("record"), cwd):
+            return deny_tool("WORKFLOW_RECORD_MISMATCH: suspend must retain the active record.")
+        reason = control.get("reason")
+        if reason not in {"persistence-failed", "user-stop"}:
+            return deny_tool("WORKFLOW_SUSPEND_INVALID: specify persistence-failed or user-stop.")
+        current["recovery"] = {"reason": reason, "since": utc_now()}
+        store.mutate(key, lambda _old: current)
+        return context_output("PreToolUse", "WORKFLOW_SUSPENDED: blocker/stop response allowed; all non-record mutations remain denied. No work was marked completed.")
+    if action == "recover":
+        if not record_matches(control.get("record"), current.get("record"), cwd):
+            return deny_tool("WORKFLOW_RECORD_MISMATCH: recover must retain the active record.")
+        if (current.get("write_transaction") or current.get("action") or current.get("plan_bootstrap")
+                or current.get("rules_sync_required") or not record_is_synced(current)):
+            return deny_tool("WORKFLOW_RECOVERY_REQUIRED: close writes/actions/bootstrap and sync the repaired record and rules first.")
+        current.pop("recovery", None)
+        current.pop("last_stop_reason", None)
+        store.mutate(key, lambda _old: current)
+        return context_output("PreToolUse", "WORKFLOW_RECOVERED: record reconciled; normal mode boundaries restored.")
+    if action == "plan-cancel":
+        if not current.get("plan_handoff_source") or not record_matches(control.get("record"), current.get("record"), cwd):
+            return deny_tool("WORKFLOW_PLAN_CANCEL_DENIED: only a pending discuss-to-plan bootstrap may be cancelled.")
+        if current.get("write_transaction") or current.get("action"):
+            return deny_tool("WORKFLOW_RECONCILIATION_REQUIRED: close writes/actions before cancelling bootstrap.")
+        current.pop("plan_bootstrap", None)
+        current.pop("plan_handoff_source", None)
+        current["mode"] = "discuss"
+        refresh_required_references(current)
+        current["rules_sync_required"] = True
+        store.mutate(key, lambda _old: current)
+        return context_output("PreToolUse", "WORKFLOW_PLAN_INIT_CANCELLED: partial target files preserved; source discuss state rebound for reconciliation and deactivation. A new plan needs a new transition.")
     if action == "plan-init":
         if current.get("mode") != "plan" or not current.get("plan_handoff_source"):
             return deny_tool(
@@ -888,6 +845,7 @@ def handle_control(
         current["sync_required"] = False
         current["sync_scope"] = None
         current["profile"] = record_profile(str(current.get("record")))
+        current["record_paths"] = list(manifest_paths(str(current.get("record"))) or ())
         refresh_required_references(current)
         current["updated_at"] = utc_now()
         store.mutate(key, lambda _old: current)
@@ -903,7 +861,8 @@ def handle_control(
         if current.get("write_transaction"):
             return deny_tool("WORKFLOW_WRITE_ALREADY_OPEN: close the current write transaction first.")
         previous = control.get("previous_revision")
-        if previous != current.get("acknowledged_revision") or not record_is_synced(current):
+        recovery_write = bool(current.get("recovery") and current.get("record_paths") and record_files(current.get("record")) is None)
+        if not previous or previous != current.get("acknowledged_revision") or (not recovery_write and not record_is_synced(current)):
             return deny_tool(
                 "WORKFLOW_WRITE_OPEN_STALE: previous revision is not the acknowledged bundle "
                 "baseline; read and sync the record first."
@@ -911,12 +870,15 @@ def handle_control(
         root = Path(str(current.get("record")))
         allowed = {
             normalized(str(root / entry), cwd)
-            for entry in (manifest_paths(str(root)) or ())
+            for entry in (current.get("record_paths", ()) if recovery_write else manifest_paths(str(root)) or ())
         }
+        if any(root != Path(path).parent and root not in Path(path).parents for path in allowed):
+            return deny_tool("WORKFLOW_WRITE_PATH_INVALID: a cached manifest path now escapes the record; restore its original location before repair.")
         for requested_path in control.get("paths", []):
             candidate = Path(normalized(requested_path, cwd))
             try:
                 candidate.relative_to(root)
+                candidate.resolve().relative_to(root.resolve())
             except ValueError:
                 return deny_tool("WORKFLOW_WRITE_PATH_INVALID: declared write paths must stay inside the bundle.")
             if candidate.suffix.lower() != ".md":
@@ -940,13 +902,22 @@ def handle_control(
         transaction = current.get("write_transaction")
         if not isinstance(transaction, dict):
             return deny_tool("WORKFLOW_WRITE_MISSING: no record write transaction is open.")
-        previous = transaction.get("baseline")
         revision, snapshot_revision, outside_revision = record_revisions(
             str(current.get("record"))
         )
-        if revision is None or revision == previous:
+        if revision is None:
+            files = {}
+            root = Path(str(current["record"]))
+            for path in transaction.get("paths", ()):
+                try:
+                    candidate = Path(path)
+                    name = candidate.relative_to(root).as_posix()
+                    files[name] = candidate.read_text(encoding="utf-8")
+                except (OSError, UnicodeError, ValueError):
+                    pass
+            details = "; ".join(phase_errors(files))
             return deny_tool(
-                "WORKFLOW_WRITE_CLOSE_INVALID: the bundle must be valid and have a new revision."
+                "WORKFLOW_WRITE_CLOSE_INVALID: repair the bundle manifest, identity, or phase metadata. " + details
             )
         tracker_id = record_tracker_id(str(current.get("record")))
         if current.get("tracker_id") and tracker_id != current.get("tracker_id"):
@@ -963,6 +934,7 @@ def handle_control(
         current["sync_scope"] = None
         current["write_transaction"] = None
         current["profile"] = record_profile(str(current.get("record")))
+        current["record_paths"] = list(manifest_paths(str(current.get("record"))) or ())
         refresh_required_references(current)
         current["updated_at"] = utc_now()
         store.mutate(key, lambda _old: current)
@@ -1018,6 +990,8 @@ def handle_control(
     if action == "snapshot":
         return context_output("PreToolUse", f"WORKFLOW_MODE_SNAPSHOT: {state_summary(current)}.")
     if action == "action-open":
+        if current.get("write_transaction"):
+            return deny_tool("WORKFLOW_WRITE_CLOSE_REQUIRED: close the record transaction before opening an action.")
         if current.get("mode") not in {"discuss", "execute"}:
             return deny_tool("WORKFLOW_ACTION_DENIED: scoped actions require discuss or execute mode.")
         if current.get("action"):
@@ -1081,14 +1055,16 @@ def handle_control(
             "only after persisting the terminal result in the tracker.",
         )
     if action == "action-close":
+        if current.get("write_transaction"):
+            return deny_tool("WORKFLOW_WRITE_CLOSE_REQUIRED: close the record transaction before closing an action.")
         if current.get("mode") not in {"discuss", "execute"} or not current.get("action"):
             return deny_tool("WORKFLOW_ACTION_MISSING: no workflow action is open.")
         action_mode = current.get("mode")
         result = control.get("result")
-        if result not in {"completed", "failed", "blocked"}:
+        if result not in {"completed", "failed", "blocked", "paused", "cancelled"}:
             return deny_tool(
                 "WORKFLOW_ACTION_RESULT_INVALID: action-close requires completed, failed, "
-                "or blocked."
+                "blocked, paused, or cancelled."
             )
         if current.get("mode") == "execute":
             record_text = read_evidence(str(current.get("record")))
@@ -1133,13 +1109,12 @@ def handle_control(
             return deny_tool(
                 "WORKFLOW_ACTION_ABORT_DENIED: the active execution record is still readable."
             )
-        current["action"] = None
-        current["stop_warning_issued"] = False
+        current["recovery"] = {"reason": "persistence-failed", "since": utc_now()}
         store.mutate(key, lambda _old: current)
         return context_output(
             "PreToolUse",
-            "WORKFLOW_ACTION_ABORTED: unreadable-record recovery cleared the execute action; "
-            "repair or restore the tracker before further mutation.",
+            "WORKFLOW_SUSPENDED: unreadable-record recovery retained the action; "
+            "repair the record, persist the actual terminal result, close the action, then recover.",
         )
     return deny_tool("WORKFLOW_CONTROL_INVALID: unsupported lifecycle action.")
 
@@ -1153,7 +1128,9 @@ def record_or_housekeeping_path(path: str, state: dict[str, Any], cwd: str) -> b
         if absolute in owned:
             return True
     if state.get("mode") != "execute" and Path(absolute).name == ".gitignore":
-        return True
+        for parent in Path(str(record)).parents:
+            if (parent / ".git").exists():
+                return Path(absolute) == parent / ".gitignore"
     return False
 
 
@@ -1179,6 +1156,8 @@ def handle_pre_tool(
             "WORKFLOW_WRITE_SCOPE_DENIED: while a record write is open, only manifest-owned "
             "Markdown files may be mutated."
         )
+    if state.get("recovery"):
+        return deny_tool("WORKFLOW_RECOVERY_REQUIRED: only record repair inside a write transaction is allowed while suspended.")
     bootstrap = state.get("plan_bootstrap")
     if isinstance(bootstrap, str):
         requested = {normalized(path, cwd) for path in paths}
@@ -1250,31 +1229,16 @@ def handle_pre_tool(
                 "source-confirmed discuss action."
             )
         return None
-    if mode == "execute":
-        mutation_kind = unscoped_mutation_kind(payload)
-        if action.get("impact") == "non-source" and mutation_kind == "git":
-            return deny_tool(
-                "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: Git source/history mutations require "
-                "an execute action opened with --impact source-confirmed."
-            )
-        allowed_unscoped = set(action.get("unscoped", []))
-        if mutation_kind not in allowed_unscoped:
-            return deny_tool(
-                "WORKFLOW_ACTION_UNSCOPED_TOOL: this execute action did not authorize the "
-                f"unscoped mutation class '{mutation_kind}'."
-            )
-        return None
-    mutation_kind = unscoped_mutation_kind(payload)
-    if action.get("impact") == "non-source" and mutation_kind == "git":
+    classes = mutation_classes(payload)
+    if action.get("impact") == "non-source" and "git" in classes:
         return deny_tool(
-            "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: Git source/history mutations require "
-            "a discuss action opened with --impact source-confirmed."
+            "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: Git mutations require source-confirmed scope."
         )
-    allowed_unscoped = set(action.get("unscoped", []))
-    if mutation_kind not in allowed_unscoped:
+    missing_classes = classes - set(action.get("unscoped", []))
+    if missing_classes:
         return deny_tool(
-            "WORKFLOW_ACTION_UNSCOPED_TOOL: this discuss action did not authorize the "
-            f"unscoped mutation class '{mutation_kind}'."
+            "WORKFLOW_ACTION_UNSCOPED_TOOL: action lacks mutation classes: "
+            + ", ".join(sorted(missing_classes))
         )
     return None
 
@@ -1288,18 +1252,19 @@ def mode_message(state: dict[str, Any]) -> str:
         f"sync_status={state.get('sync_scope') or 'current'}; "
         f"required_references={','.join(state.get('required_references', [])) or 'None'}; "
         f"rules_sync_required={str(bool(state.get('rules_sync_required'))).lower()}; "
+        f"suspended={str(bool(state.get('recovery'))).lower()}; "
         "rule=when sync is required, read the requested record or active snapshot scope, "
         "then run matching sync before substantive work; "
         "rule=persist material turn changes and run checkpoint before final response. "
     )
     if mode == "discuss":
-        return common + "exit=only plan or execute. </workflow-anchor>"
+        return common + "exit=explicit exit/pause/cancel, or plan/execute handoff. </workflow-anchor>"
     if mode == "plan":
-        return common + "boundary=source-read-only until execute transition. </workflow-anchor>"
-    return common + "exit=explicit request only, including after implementation. </workflow-anchor>"
+        return common + "boundary=read-only planning; approval alone does not transition; exit/pause/cancel allowed. </workflow-anchor>"
+    return common + "exit=explicit exit/pause/cancel or clear switch to a separate task. </workflow-anchor>"
 
 
-def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+def stop_requirement(store: StateStore, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
     state = store.get(key)
     if not state:
         return None
@@ -1337,17 +1302,31 @@ def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[st
         }
     if state.get("mode") != "discuss":
         return None
-    if payload.get("stop_hook_active") or state.get("stop_warning_issued"):
-        state["stop_warning_issued"] = False
-        store.mutate(key, lambda _old: state)
-        return {"systemMessage": "A discuss action is still open; stop allowed to prevent a loop."}
-    state["stop_warning_issued"] = True
-    store.mutate(key, lambda _old: state)
     return {
         "decision": "block",
         "reason": "WORKFLOW_ACTION_CLOSE_REQUIRED: persist the terminal action result, run "
         "action-close, and return to full discuss behavior before stopping.",
     }
+
+
+def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    state = store.get(key)
+    if not state:
+        return None
+    if state.get("recovery"):
+        return {"systemMessage": "WORKFLOW_SUSPENDED: report the blocker or user stop honestly; unfinished state is retained and non-record mutations remain denied."}
+    result = stop_requirement(store, key, payload)
+    if result and result.get("decision") == "block":
+        reason = result["reason"]
+        if state.get("last_stop_reason") == reason:
+            state["recovery"] = {"reason": "persistence-failed", "since": utc_now()}
+            store.mutate(key, lambda _old: state)
+            return {"systemMessage": "WORKFLOW_SUSPENDED: reconciliation still failed after a Stop retry. Report the unresolved state; mutation guardrails remain active. Repair and recover before resuming."}
+        state["last_stop_reason"] = reason
+    else:
+        state.pop("last_stop_reason", None)
+    store.mutate(key, lambda _old: state)
+    return result
 
 
 def run(payload: dict[str, Any]) -> dict[str, Any] | None:

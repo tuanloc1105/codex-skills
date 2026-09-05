@@ -15,7 +15,7 @@ def parse_args() -> argparse.Namespace:
 
     activate = subparsers.add_parser("activate")
     activate.add_argument("mode", choices=("discuss", "plan", "execute"))
-    activate.add_argument("--record")
+    activate.add_argument("--record", required=True)
     activate.add_argument("--marker", required=True)
 
     transition = subparsers.add_parser("transition")
@@ -27,6 +27,19 @@ def parse_args() -> argparse.Namespace:
     plan_init.add_argument("--record", required=True)
     plan_init.add_argument("--target", required=True)
     plan_init.add_argument("--marker", required=True)
+
+    plan_cancel = subparsers.add_parser("plan-cancel")
+    plan_cancel.add_argument("--record", required=True)
+    plan_cancel.add_argument("--marker", required=True)
+
+    suspend = subparsers.add_parser("suspend")
+    suspend.add_argument("--record", required=True)
+    suspend.add_argument("--reason", choices=("persistence-failed", "user-stop"), required=True)
+    suspend.add_argument("--marker", required=True)
+
+    recover = subparsers.add_parser("recover")
+    recover.add_argument("--record", required=True)
+    recover.add_argument("--marker", required=True)
 
     action_open = subparsers.add_parser("action-open")
     action_open.add_argument("--record", required=True)
@@ -41,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     action_open.add_argument("--marker", required=True)
 
     action_close = subparsers.add_parser("action-close")
-    action_close.add_argument("--result", choices=("completed", "failed", "blocked"), required=True)
+    action_close.add_argument("--result", choices=("completed", "failed", "blocked", "paused", "cancelled"), required=True)
     action_close.add_argument("--marker", required=True)
 
     action_abort = subparsers.add_parser("action-abort")

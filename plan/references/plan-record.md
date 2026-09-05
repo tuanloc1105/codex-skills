@@ -40,9 +40,10 @@ Tracker ID: <stable non-secret ID>
 Created: <timestamp and timezone>
 Last updated: <timestamp and timezone>
 Status: <Draft planning discussion | Approved plan, not yet implemented | In progress | Implemented | Blocked | Paused>
-Plan mode: <Active | Exited>
+Plan mode: <Active | Paused | Exited>
 Execution readiness: <Not ready | Ready>
-Execute mode: <Inactive | Ready | Active | Exited>
+Execution authorization: <Not granted | Granted>
+Execute mode: <Inactive | Ready | Active | Paused | Exited>
 Resume instruction: <mode-appropriate bundle instruction>
 Workspace: <working directory>
 Repository: <root, branch, commit>
@@ -85,8 +86,8 @@ The manifest begins with `index.md`; every entry is a unique relative `.md` path
 ## Content Ownership
 
 - `context.md`: goal, background, current-state inspection, behavioral baseline, preservation requirements, scope, constraints, touchpoints, desired behavior, risks, and rollback.
-- `decisions.md`: accepted/rejected decisions, assumptions, unknowns, and option-bearing open questions.
-- `plan.md`: overall strategy, authoritative phase dependency table, derived waves, integration gates, and links to phase files. For a simple non-phased plan, it may also contain the one linear checklist.
+- `decisions.md`: accepted/rejected decisions, assumptions, unknowns, and open questions with their blocking scope.
+- `plan.md`: overall strategy, phase links, and integration gates; phase files own dependency and scheduling metadata. For a simple non-phased plan, it may also contain the one linear checklist.
 - `phases/P<NN>-<slug>.md`: one self-contained phase each.
 - `verification.md`: phase-local, wave integration, regression, final end-to-end checks, expected results, skipped checks, and residual risks.
 - `evidence.md`: discussion source link, planning evidence, approval, amendments, action markers, commit records, execution decisions, handoff notes, re-entry, and exit.
@@ -117,7 +118,15 @@ Produces: <downstream contract>
 ## Execution Notes
 ```
 
-`Depends on` is authoritative; wave is derived. Links and metadata in `plan.md` and the phase file must agree before `write-close`.
+`Depends on` in each phase file is authoritative; `Wave` is the earliest wave derived from it. Keep scheduling, ownership, output, and status only in the phase file. In `plan.md`, use a lightweight index:
+
+```markdown
+| ID | Phase file |
+| --- | --- |
+| P01 | [P01](phases/P01-add-bundle-model.md) |
+```
+
+Do not duplicate phase metadata in new plan tables. Existing version 4 tables may retain duplicated columns only while their values exactly match the corresponding phase files. Every link and declared phase must resolve to a manifest file. The hook validates IDs, links in both directions, nonempty metadata, dependency cycles, and earliest waves; meaningful tasks and acceptance criteria still require review.
 
 ## Persistence Contract
 
@@ -131,21 +140,34 @@ Produces: <downstream contract>
 
 Approval requires a decision-complete bundle: concrete goal and scope, verified baseline, preservation criteria, accepted decisions, no blocking questions, complete phase dependencies and ownership, implementation logic, verification, integration gates, and rollback.
 
-After explicit approval, update the same bundle:
+After explicit approval, record the source and accepted scope in `evidence.md` and keep planning active:
 
 ```markdown
 Status: Approved plan, not yet implemented
-Plan mode: Exited
+Plan mode: Active
 Execution readiness: Ready
-Execute mode: Ready
-Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
+Execution authorization: Not granted
+Execute mode: Inactive
 ```
 
-Set the profile to `Durable` unless already `Audited`, change Required references to the execute minimum, record approval in `evidence.md`, update the checkpoint, close the transaction, checkpoint, then run `transition execute --record <root>`.
+Approval alone is a valid stopping point. Revisions stay in the same bundle; a material change to the approved outcome makes the affected approval stale until the user accepts it.
+
+Only when the user explicitly requests implementation (including “approve and implement”), persist:
+
+```markdown
+Plan mode: Exited
+Execution authorization: Granted
+Execute mode: Ready
+Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit or pause.
+```
+
+Record the execution request and scope in evidence. Checkpoint planning deltas with the planning reference set first. In the handoff write, set the profile to `Durable` unless already `Audited`, change Required references to `None` for execute adoption, update the checkpoint, and close the transaction. Then run `transition execute --record <root>`; execute acknowledges its own rules. Do not transition on approval alone.
+
+For exit, pause, or cancellation, preserve the actual approval and checklist state, set `Plan mode: Exited` or `Paused`, record the instruction, close writes, checkpoint, and deactivate. Do not manufacture execution readiness. Follow the entrypoint recovery path if persistence fails.
 
 ## Quality Bar
 
-- Make the plan operational and decision-complete without preserving a raw transcript.
+- Make the plan operational and decision-complete without preserving a raw transcript. For Lightweight records, keep sections short, link evidence by ID, batch related updates, and use no-change checkpoints without timestamp-only edits. Summarize superseded history before the bundle approaches the hook’s 2 MiB limit; preserve decisions, authority, unresolved work, and evidence locators.
 - Record current behavior and evidence before changing an existing mechanism.
 - Give each material risk a targeted check and each intentional behavior change explicit acceptance criteria.
 - Keep phase IDs, filenames, dependencies, waves, ownership, outputs, verification, and manifest internally consistent.
@@ -154,4 +176,4 @@ Set the profile to `Durable` unless already `Audited`, change Required reference
 
 ## Repository Ignore Rule
 
-When inside a Git worktree, idempotently ignore the containing plans directory with one root-anchored trailing-slash rule, normally `/plans/`. Preserve existing `.gitignore` content and index state. If ignore maintenance fails, retain the bundle and report the limitation.
+When inside a Git worktree, idempotently ignore this exact bundle with one root-anchored trailing-slash rule, such as `/plans/2026-09-05-topic/`. Reuse an existing matching rule; do not add a broad rule hiding unrelated files. Preserve existing `.gitignore` content and index state. If ignore maintenance fails, retain the bundle and report the limitation.

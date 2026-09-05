@@ -1,7 +1,7 @@
 interface:
   display_name: "Discuss"
-  short_description: "Discuss, track, then choose plan or execute"
-  default_prompt: "Use $discuss to keep one version 4 Markdown record bundle with index.md as its control plane. Synchronize the manifest at context boundaries, update bundle files through write transactions, checkpoint every turn, and pause at the first material user-owned decision. Keep discuss active until I transition with $plan or $execute."
+  short_description: "Discuss with resumable decisions and evidence"
+  default_prompt: "Use $discuss to keep a concise resumable record, resolve material decisions, and respect an explicit pause, exit, or plan/execute handoff."
 
 policy:
   allow_implicit_invocation: false

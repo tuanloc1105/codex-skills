@@ -71,7 +71,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         elif mode == "execute":
             lifecycle = "Status: In progress\nExecute mode: Active\n"
         else:
-            lifecycle = f"Status: {status or 'Draft'}\nExecute mode: Inactive\n"
+            lifecycle = f"Status: {status or 'Draft'}\nPlan mode: Active\nExecute mode: Inactive\n"
         return (
             f"<!-- workflow-record version:4 kind:{kind} tracker-id:TEST-TRACKER -->\n"
             + lifecycle + "Active action: None\n"
@@ -411,6 +411,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.index.write_text(
             self.index.read_text(encoding="utf-8")
             .replace("Status: Draft", "Status: Approved plan, not yet implemented")
+            .replace("Plan mode: Active", "Plan mode: Exited\nExecution readiness: Ready\nExecution authorization: Granted")
             .replace("Execute mode: Inactive", "Execute mode: Ready"),
             encoding="utf-8",
         )
@@ -428,7 +429,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.index.write_text(
             self.index.read_text(encoding="utf-8")
             .replace("Mode status: Active", "Mode status: Exited")
-            .replace("Execute mode: Inactive", "Execution readiness: Ready\nExecute mode: Ready")
+            .replace("Execute mode: Inactive", "Execution readiness: Ready\nExecution authorization: Granted\nExecute mode: Ready")
             .replace(
                 "evidence.md\n<!-- workflow-manifest:end -->",
                 "evidence.md\nplan.md\nverification.md\n<!-- workflow-manifest:end -->",
@@ -438,6 +439,236 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.control("write-close", "--record", str(self.record))
         transitioned = self.control("transition", "execute", "--record", str(self.record))
         self.assertIn("mode=execute", json.dumps(transitioned))
+
+    def test_approval_alone_keeps_plan_active_and_revisable(self) -> None:
+        self.activate("plan")
+        self.write_open()
+        self.index.write_text(self.index.read_text().replace("Status: Draft", "Status: Approved plan, not yet implemented") + "Execution readiness: Ready\n", encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_HANDOFF_NOT_DURABLE", json.dumps(self.control("transition", "execute", "--record", str(self.record))))
+        self.assertIn("mode=plan", json.dumps(self.control("snapshot")))
+        self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
+        self.assertIsNone(self.patch(str(self.record / "plan.md")))
+
+    def test_all_modes_can_exit_without_execute_handoff(self) -> None:
+        for mode, field in (("discuss", "Mode status"), ("plan", "Plan mode"), ("execute", "Execute mode")):
+            with self.subTest(mode=mode):
+                self.session_id = "exit-" + mode
+                self.record = self.cwd / mode
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                self.assertIn("WORKFLOW_EXIT_NOT_DURABLE", json.dumps(self.control("deactivate")))
+                self.write_open()
+                self.index.write_text(self.index.read_text().replace(field + ": Active", field + ": Exited"), encoding="utf-8")
+                self.control("write-close", "--record", str(self.record))
+                self.assertIn("WORKFLOW_MODE_INACTIVE", json.dumps(self.control("deactivate")))
+                self.assertIsNone(self.patch("new-task.py"))
+
+    def test_noop_write_can_close_without_fake_timestamp(self) -> None:
+        self.activate("discuss")
+        self.write_open()
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
+        self.assertIsNone(self.run_hook("Stop"))
+
+    def test_activation_cannot_erase_open_write_or_action(self) -> None:
+        self.activate("discuss")
+        self.write_open()
+        self.assertIn("WORKFLOW_RECONCILIATION_REQUIRED", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
+        self.control("write-close", "--record", str(self.record))
+        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", str(self.cwd / "app.py"))
+        self.assertIn("WORKFLOW_RECONCILIATION_REQUIRED", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_RECONCILIATION_REQUIRED", json.dumps(self.control("transition", "plan", "--record", str(self.record))))
+
+    def test_action_cannot_open_inside_write(self) -> None:
+        self.activate("discuss")
+        self.write_open()
+        denied = self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", "app.py")
+        self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", json.dumps(denied))
+
+    def test_repeat_stop_suspends_without_unlocking_mutation(self) -> None:
+        self.activate("discuss")
+        self.write_open()
+        self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", json.dumps(self.run_hook("Stop")))
+        self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.run_hook("Stop", stop_hook_active=True)))
+        self.assertIn("deny", json.dumps(self.patch("outside.py")))
+        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_RECOVERED", json.dumps(self.control("recover", "--record", str(self.record))))
+        self.assertIsNone(self.run_hook("Stop"))
+
+    def test_unreadable_record_repairs_from_cached_manifest(self) -> None:
+        self.activate("discuss")
+        baseline = self.revision()
+        context = self.record / "context.md"
+        context.unlink()
+        self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.control("suspend", "--record", str(self.record), "--reason", "persistence-failed")))
+        self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.run_hook("Stop")))
+        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.control("write-open", "--record", str(self.record), "--previous-revision", baseline)))
+        self.assertIsNone(self.patch(str(context)))
+        context.write_text("# Context repaired from evidence\n", encoding="utf-8")
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_RECOVERED", json.dumps(self.control("recover", "--record", str(self.record))))
+
+    def test_suspension_does_not_allow_nonrecord_writes_or_new_actions(self) -> None:
+        self.activate("discuss")
+        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", str(self.cwd / "app.py"))
+        self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
+        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch(str(self.cwd / "app.py"))))
+        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.control("recover", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_ACTION_CLOSED", json.dumps(self.control("action-close", "--result", "paused")))
+        self.assertIn("WORKFLOW_RECOVERED", json.dumps(self.control("recover", "--record", str(self.record))))
+
+    def test_execute_pause_preserves_pending_work_and_terminal_evidence(self) -> None:
+        self.activate("execute")
+        evidence = self.record / "evidence.md"
+        plan = self.record / "plan.md"
+        self.write_open()
+        evidence.write_text("# Evidence\n<!-- workflow-action:A001 status:open -->\n", encoding="utf-8")
+        plan.write_text("# Plan\n- [ ] Unfinished work\n", encoding="utf-8")
+        self.index.write_text(self.index.read_text().replace("Active action: None", "Active action: A001"), encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.control("action-open", "--record", str(self.record), "--evidence-id", "A001", "--impact", "source-confirmed", "--path", "app.py")
+        self.assertIn("WORKFLOW_EVIDENCE_NOT_RECONCILED", json.dumps(self.control("action-close", "--result", "paused")))
+        self.write_open()
+        evidence.write_text(evidence.read_text().replace("status:open", "status:paused"), encoding="utf-8")
+        self.index.write_text(self.index.read_text().replace("Active action: A001", "Active action: None").replace("Status: In progress", "Status: Paused").replace("Execute mode: Active", "Execute mode: Paused"), encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_ACTION_CLOSED", json.dumps(self.control("action-close", "--result", "paused")))
+        self.assertIn("WORKFLOW_MODE_INACTIVE", json.dumps(self.control("deactivate")))
+        self.assertIn("[ ] Unfinished work", plan.read_text())
+
+    def test_scripts_and_new_file_adapters_respect_plan_boundary(self) -> None:
+        self.activate("plan")
+        for payload in (
+            {"tool_name": "exec_command", "tool_input": {"cmd": "python3 change.py"}},
+            {"tool_name": "exec_command", "tool_input": {"cmd": "git -C /repo commit -m change"}},
+            {"tool_name": "Write", "tool_input": {"file_path": "app.py", "content": "change"}},
+            {"tool_name": "functions.exec", "tool_input": {"code": "anything"}},
+        ):
+            with self.subTest(payload=payload):
+                self.assertIn("WORKFLOW_PLAN_READ_ONLY", json.dumps(self.run_hook("PreToolUse", **payload)))
+
+    def test_compound_control_never_exempts_other_commands(self) -> None:
+        self.activate("plan")
+        control = f'{sys.executable} "{CONTROL}" snapshot --marker {MARKER}'
+        for command in (control + "; touch outside.py", "touch outside.py; " + control, control + "\ntouch outside.py", "echo " + control):
+            with self.subTest(command=command):
+                denied = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
+                self.assertIn("WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(denied))
+
+    def test_transition_cannot_switch_to_another_record(self) -> None:
+        self.activate("discuss")
+        other = self.cwd / "other"
+        other.mkdir()
+        for path in self.record.iterdir():
+            (other / path.name).write_text(path.read_text().replace("Mode status: Active", "Mode status: Exited"), encoding="utf-8")
+        denied = self.control("transition", "plan", "--record", str(other))
+        self.assertIn("WORKFLOW_RECORD_MISMATCH", json.dumps(denied))
+
+    def test_file_scope_resolves_symlink_target(self) -> None:
+        self.activate("discuss")
+        target = self.cwd / "inside.py"
+        outside = self.cwd / "outside.py"
+        target.write_text("", encoding="utf-8")
+        outside.write_text("", encoding="utf-8")
+        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", str(target))
+        alias = self.cwd / "alias.py"
+        alias.symlink_to(outside)
+        self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(alias))))
+
+    def test_bootstrap_can_be_cancelled_without_deleting_target(self) -> None:
+        self.activate("discuss")
+        self.write_open()
+        self.index.write_text(self.index.read_text().replace("Mode status: Active", "Mode status: Exited"), encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.control("transition", "plan", "--record", str(self.record))
+        target = self.cwd / "plans" / "partial"
+        self.control("plan-init", "--record", str(self.record), "--target", str(target))
+        target.mkdir(parents=True)
+        (target / "index.md").write_text("partial", encoding="utf-8")
+        self.assertIn("WORKFLOW_PLAN_INIT_CANCELLED", json.dumps(self.control("plan-cancel", "--record", str(self.record))))
+        self.control("sync", "--record", str(self.record))
+        self.assertIn("WORKFLOW_MODE_INACTIVE", json.dumps(self.control("deactivate")))
+        self.assertEqual((target / "index.md").read_text(), "partial")
+
+    def test_handoff_acknowledges_execute_rules_before_active_metadata(self) -> None:
+        self.activate("plan")
+        self.write_open()
+        self.index.write_text(self.index.read_text().replace("Status: Draft", "Status: Approved plan, not yet implemented")
+                              .replace("Plan mode: Active", "Plan mode: Exited\nExecution readiness: Ready\nExecution authorization: Granted")
+                              .replace("Execute mode: Inactive", "Execute mode: Ready")
+                              .replace(", ".join(MODE_REFERENCES["plan"]), "None"), encoding="utf-8")
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
+        self.assertIn("mode=execute", json.dumps(self.control("transition", "execute", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(self.control("sync", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(self.control("rules-sync", "--record", str(self.record))))
+        self.write_open()
+        self.index.write_text(self.index.read_text().replace("Execute mode: Ready", "Execute mode: Active"), encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_TURN_CHECKPOINTED", json.dumps(self.control("checkpoint", "--record", str(self.record))))
+        self.assertIsNone(self.run_hook("Stop"))
+
+    def test_reactivation_preserves_prompt_checkpoint_requirement(self) -> None:
+        self.activate("discuss")
+        self.run_hook("UserPromptSubmit", prompt="Continue")
+        self.assertIn("existing state retained", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_TURN_CHECKPOINT_REQUIRED", json.dumps(self.run_hook("Stop")))
+
+    def test_scope_requires_all_compound_mutation_classes(self) -> None:
+        self.activate("discuss")
+        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--unscoped", "git")
+        git = {"cmd": "git -C /repo commit -m change"}
+        self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=git))
+        mixed = {"cmd": "git -C /repo commit -m change; python3 unrelated.py"}
+        self.assertIn("WORKFLOW_ACTION_UNSCOPED_TOOL", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=mixed)))
+
+    def test_unready_discussion_cannot_activate_execute(self) -> None:
+        self.create_bundle("discuss")
+        self.index.write_text(self.index.read_text().replace("Execute mode: Inactive", "Execute mode: Active"), encoding="utf-8")
+        self.assertIn("WORKFLOW_RECORD_NOT_ACTIVE", json.dumps(self.control("activate", "execute", "--record", str(self.record))))
+
+    def test_phase_error_explains_which_field_needs_repair(self) -> None:
+        self.activate("plan")
+        phase = self.record / "phases" / "P01-first.md"
+        self.write_open(phase)
+        phase.parent.mkdir()
+        phase.write_text("# P01: First\nStatus: Pending\nDepends on: None\nWave: 2\nSubagent: Eligible\nOwned scope: app.py\nProduces: result\n", encoding="utf-8")
+        self.index.write_text(self.index.read_text().replace("evidence.md\n<!-- workflow-manifest:end -->", "evidence.md\nphases/P01-first.md\n<!-- workflow-manifest:end -->"), encoding="utf-8")
+        (self.record / "plan.md").write_text("phases/P01-first.md\n", encoding="utf-8")
+        denied = self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_WRITE_CLOSE_INVALID", json.dumps(denied))
+        # Details must include new files declared in the open transaction too.
+        self.assertIn("Wave must be 1", json.dumps(denied))
+
+    def test_matching_source_control_works_with_versioned_hook_cache(self) -> None:
+        self.activate("discuss")
+        source = self.cwd / "marketplace" / "scripts" / "workflow_modes_control.py"
+        source.parent.mkdir(parents=True)
+        source.write_bytes(CONTROL.read_bytes())
+        command = f'{sys.executable} "{source}" snapshot --marker {MARKER}'
+        self.assertIn("WORKFLOW_MODE_SNAPSHOT", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})))
+        source.write_text("print('unrelated program')\n", encoding="utf-8")
+        self.assertIn("WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})))
+
+    def test_cached_recovery_scope_cannot_follow_replaced_symlink(self) -> None:
+        self.activate("discuss")
+        baseline = self.revision()
+        context = self.record / "context.md"
+        outside = self.cwd / "outside.md"
+        outside.write_text("Unrelated data", encoding="utf-8")
+        context.unlink()
+        context.symlink_to(outside)
+        self.control("suspend", "--record", str(self.record), "--reason", "persistence-failed")
+        denied = self.control("write-open", "--record", str(self.record), "--previous-revision", baseline)
+        self.assertIn("WORKFLOW_WRITE_PATH_INVALID", json.dumps(denied))
+        self.assertEqual(outside.read_text(), "Unrelated data")
+
+    def test_user_can_interrupt_owned_process_while_suspended(self) -> None:
+        self.activate("discuss")
+        self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
+        self.assertIsNone(self.run_hook("PreToolUse", tool_name="write_stdin", tool_input={"session_id": 42, "chars": "\x03"}))
+        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.run_hook("PreToolUse", tool_name="write_stdin", tool_input={"session_id": 42, "chars": "python3 change.py\n"})))
 
     def test_control_script_and_hook_schema(self) -> None:
         result = subprocess.run(

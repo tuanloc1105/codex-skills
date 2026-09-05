@@ -1,184 +1,90 @@
 # Execute Implementation Reference
 
-Read this reference completely before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
+Read before implementation, amendments, workspace setup, commits, scheduling, or recovery. Add this file to Required references through a record write, read it, then acknowledge rules before mutating work.
 
-First add `references/implementation.md` through a record write transaction, read this file completely, and complete `rules-sync` before mutation.
+## Workspace Selection
 
-## Dedicated Worktree
+Follow the user's chosen workspace and repository policy. Inspect the starting branch, HEAD, staged/unstaged diffs, untracked paths, and existing worktrees before implementation. Preserve all pre-existing changes and record the baseline needed to distinguish this task's changes.
 
-Before beginning or resuming implementation in a git repository, work from a dedicated linked worktree for the adopted execution record. Never implement in the user's existing checkout.
+Use a dedicated worktree when isolation is required by policy, requested by the user, or materially protects concurrent/pre-existing work. Otherwise a clean or safely scoped existing checkout is valid. Do not ask about a reversible workspace choice that can be resolved from the task and policy.
 
-- Resolve the repository root from the current working directory. If the current directory is not inside a Git repository, skip the dedicated-worktree and Git-ignore steps and continue with the non-Git workflow.
-- Keep execute-created worktrees under `<repository-root>/.worktrees/`. Before creating or reusing one there, ensure the repository root ignores that directory. Prefer an existing matching ignore rule; otherwise append the root-anchored `/.worktrees/` rule to the root `.gitignore` without changing or reordering existing content. Verify the result with `git check-ignore` against a path beneath `.worktrees/`. If the rule cannot be added or the verification fails, do not create the worktree or begin implementation.
-- Inspect the repository's current worktrees first. Reuse one only when it is already dedicated to the same execution record and contains no unrelated work; otherwise create a new linked worktree on the intended task branch or on a new task-focused branch from the approved base.
-- Treat the recorded worktree path as resumable state, not a permanent dependency. The user may remove or clean `.worktrees/` between sessions. If the recorded worktree is missing or no longer registered, prune stale worktree metadata when safe, recreate a dedicated worktree under `.worktrees/` from the recorded branch or current execution commit, update `evidence.md` with the replacement path and branch, and continue. Do not declare a blocker merely because the previous worktree disappeared.
-- Run all implementation edits, checks, staging, commits, integration, and simplify-driven fixes inside that worktree. The adopted execution record remains at its exact bound path and is the only permitted execute-mode write outside the dedicated worktree when that path lives elsewhere.
-- Record the worktree path and branch in the handoff section of `evidence.md` before implementation so a later session can resume the same isolated workspace.
-- If a dedicated worktree cannot be created or safely reused, do not fall back to the existing checkout. Report the concrete blocker and wait for the permission or user decision required to proceed.
+- Reuse a worktree only when it belongs to this task and has no conflicting unrelated work. Record the actual path, branch, and base in evidence.
+- Choose a task-focused branch under repository conventions. Avoid hiding unrelated files when maintaining ignore rules; prefer an existing ignored worktree location or local Git exclude configuration when permitted.
+- If a recorded worktree disappeared, inspect the branch and surviving work before safe recreation. Never discard changes or reset a checkout to recover it.
+- When no worktree can be created, use an existing checkout only if authorized and safe; otherwise report the concrete blocker. Do not treat worktree creation itself as a completion criterion.
+- For non-Git work, skip Git operations. The execution record stays at its exact bound path even if implementation uses another workspace. Required authorized outputs or skill mirrors may live elsewhere; record their exact scope and repository rules rather than banning all outside-worktree writes.
 
-## Parallel Phase Scheduling
+## Dependency Scheduling and Ownership
 
-Treat `Subagent: Eligible` as permission, not a mandate. Build a dependency-ready set from phases whose prerequisites are completed and accepted, then form the safest useful execution wave from that set.
+For a simple plan, execute its linear checklist. For phases, read each phase's ID, Depends on, Wave, Subagent, Owned scope, Produces, tasks, verification, and acceptance criteria. Phase files are authoritative; `plan.md` links them and describes integration. Validate links and dependencies before acting. A duplicate legacy table must agree with the phase files.
 
-Delegate an eligible phase only when all of these are true:
+Build the dependency-ready set from accepted completed prerequisites. Wave is the earliest wave derived from those dependencies, not permission to ignore a dependency. Revalidate ownership and coupling against live code.
 
-- The phase has a bounded task, stable inputs, a concrete output contract, and phase-local verification.
-- Its write ownership does not overlap another active phase or pre-existing user work that cannot be preserved safely.
-- It neither consumes another same-wave phase's output nor mutates a shared contract, migration, lockfile, generated artifact, external resource, persistent test data, stateful process, or similarly coupled resource without an explicit safe coordination strategy.
-- A separate subagent and runtime capacity are available, and delegation is likely to improve speed or quality enough to justify coordination.
+Delegate only when authorized and useful: a bounded phase needs stable inputs, non-overlapping file/resource ownership, independent verification, and a clear output. Shared contracts, migrations, lockfiles, generated files, external effects, or stateful tests need explicit coordination or serialization. Available slots are a ceiling, never a target. Unavailable or unhelpful delegation means sequential execution, not a blocker.
 
-Use one subagent per eligible phase. The main agent may execute another dependency-ready, non-conflicting phase concurrently. Never hardcode a concurrency count; respect the active runtime's available capacity.
+The coordinator is the sole writer of the record bundle. Subagents do not change phase status metadata, commit, push, deploy, or mutate shared resources unless separately authorized. Assume a shared workspace. Give each delegated task:
 
-If delegation is unavailable, unsafe, or not worthwhile, execute the eligible phase sequentially and add a concise plan note when the reason matters for handoff. Lack of subagent capacity is not a blocker.
+- Phase goal, satisfied dependencies, inputs, and output contract
+- Exact owned files/resources and exclusions; tell it others share the codebase and their changes must be preserved
+- Relevant repository instructions and required verification
+- A requirement to report unexpected overlap, scope changes, or blockers before proceeding
+- A return contract: changes, checks, assumptions, risks, and remaining work
 
-## Coordinator and Subagent Ownership
+Mark dispatched phases in progress first. Inspect actual changes and checks before accepting results. Run necessary integration gates before releasing dependent phases. Continue safe independent work while recovering a failed phase.
 
-The main agent is the sole writer of the execution bundle. Subagents never edit `index.md`, `plan.md`, `verification.md`, `evidence.md`, or phase status metadata.
+## Bounded Work Units
 
-Assume subagents share the current workspace unless the runtime explicitly guarantees isolation. Enforce one writer per file or mutable touchpoint within a wave.
+Follow the approved goal and constraints; read relevant code and callers before editing. Use the repository's coding workflow, keep changes scoped, and verify preserved behavior. Open one evidence-backed action per coherent work unit as described in the entrypoint, including authorized setup, tests with side effects, Git operations, or external writes. An action can cover several related files and calls; do not create one per file.
 
-Before dispatch, mark the phase in progress and give the subagent a bounded task containing:
+A failed test/build is an intermediate result. Inspect the failure, recover proportionately, and rerun the relevant check after a fix. Do not retry endlessly when progress requires an external decision or system. Record useful failure evidence, not raw terminal logs.
 
-- The exact phase ID, goal, satisfied dependencies, and authoritative inputs
-- Allowed files, modules, services, or mutable resources, plus explicit exclusions
-- Required repository instructions and read-before-write context
-- The expected output or handoff contract and phase-local checks
-- A requirement not to edit the execution record, broaden scope, or run commits, pushes, deployments, destructive commands, broad formatters, or other operations outside its ownership unless separately authorized
-- A return contract covering summary, files or resources changed, checks and results, assumptions, risks, and blockers
+## Amendments and Evidence
 
-Require a subagent to stop and report before touching an unassigned or overlapping resource or materially changing the approved approach. Review its reported output and actual changes before accepting the phase; never treat a successful agent status as sufficient verification.
+Before related implementation, record material user corrections, added deliverables, changed decisions, and discovered constraints in `evidence.md`. Give an entry a stable ID (such as A001), timestamp, source locator, affected work, and actual status. Link to existing evidence instead of repeating it across files.
 
-## Execution Rules
+- Add or revise executable checklist items, dependencies, ownership, and verification when the approved task changes. Record the source of authority; do not expand scope merely because a possible improvement was found.
+- Preserve completed history. Mark obsolete pending work superseded and create corrective work for already implemented behavior that must change.
+- Evidence-only turns need no artificial implementation item or status change.
+- Reopen Implemented/Paused/Blocked to In progress only when authorized task work can resume.
+- If the user clearly moves to a separate task, record a concise handoff, pause/deactivate this workflow, and respect the new task boundary. Do not append unrelated work to the approved baseline.
+- Keep evidence concise: source, result, affected acceptance criterion, and revalidation condition. Do not store transcripts, hidden reasoning, secrets, unrelated conversation, or raw outputs.
+- Batch related findings and checklist changes in one record transaction at a meaningful checkpoint. Do not create timestamp-only updates on unchanged turns. Summarize superseded detail before the bundle approaches 2 MiB, preserving authority, unresolved work, decisions, and evidence locators.
 
-Follow the plan as written, subject to higher-priority instructions and current repository rules.
+Use these checklist states:
 
-- Read relevant project instructions, local conventions, callers, tests, and touched files before writing.
-- For non-trivial code edits, follow the active repository coding workflow and use any required coding skill or semantic retrieval tools available in the session.
-- Keep changes surgical and scoped to the plan.
-- After implementation is authorized, commit the smallest complete, accepted, and independently verifiable unit of work as soon as its proportionate focused check passes. Apply this cadence across every domain; a single finished component, DTO, design token set, configuration unit, migration, documentation section, test fixture, script, workflow step, or similarly self-contained artifact may each be its own commit. Prefer a smaller valid checkpoint over combining separately complete units merely because they belong to the same task, checklist step, feature, layer, or phase. Include only the minimum dependent edits required to make the unit complete and keep the repository in an acceptable state. A saved file, partial scaffold, broken artifact, or change that is only valid after omitted required work is not a commit unit. Treat phases and checklist steps as scheduling containers, never as commit boundaries: either may produce many commits, and the same cadence applies when the current execution session covers only one phase or step. Preserve dependency order, commit before starting the next separable unit, and do not wait until the phase, step, or plan is complete. Do not commit when the user or plan forbids commits.
-- Do not push, deploy, run destructive commands, or broaden scope unless the plan or user explicitly says to.
-- If the plan references additional skills, tools, apps, or commands, use them when available.
-- Recover from failed attempts using the recovery workflow before considering a step blocked.
-- Allow unrelated dependency-ready phases to continue when one phase fails, but never start a dependent phase until its prerequisite is accepted and integrated.
+- `[ ]` pending
+- `[~]` in progress (annotate a user pause if work stops partway)
+- `[x]` completed and accepted
+- `[!]` genuinely blocked
 
-## Updating The Plan
+Multiple items may be in progress only when ownership and dependencies make concurrent work safe. A blocked prerequisite may leave dependent items pending with its ID noted. Update phase status in its phase file, overall status in `index.md`, checks in `verification.md`, and evidence in `evidence.md` through one consistent write. Do not duplicate authoritative scheduling state in plan tables.
 
-Update the original bundle transactionally. Update each phase checklist and status in its own phase file; keep the authoritative dependency table in `plan.md`, check results in `verification.md`, and amendments/commits in `evidence.md`.
+## Commits When Authorized
 
-In each active phase file, update checklist items directly:
+Implementation does not automatically authorize commits. Follow explicit user/plan/repository instructions; if commits are not authorized, leave the verified changes reviewable in the working tree. Do not ask for commit permission merely to finish an otherwise completed task.
 
-- `- [ ]` or `1. [ ]` for pending
-- `- [~]` or `1. [~]` for in progress
-- `- [x]` or `1. [x]` for completed
-- `- [!]` or `1. [!]` for blocked
+When commits are authorized:
 
-Preserve the original step text where possible. Add concise inline notes only when they help a future session understand a decision, blocker, or verification result.
+1. Use the captured starting HEAD and diff boundaries to isolate this task's changes.
+2. Group coherent behavior changes with their necessary tests and dependencies. Commit size follows reviewability, not a mandatory one-file/DTO/component cadence or a forced phase boundary.
+3. Run focused checks, review the staged diff, and stage only current-task files/hunks. Preserve pre-existing and concurrent changes.
+4. Follow repository message conventions. Do not push, deploy, squash, amend, or rewrite history without corresponding authority.
+5. Record SHA, subject, branch, and associated work in evidence. The producing commit cannot contain its own SHA; do not amend to chase a self-reference or create an unrequested metadata commit.
+6. Scope any later review to the whole task's committed changes plus in-scope working-tree changes, not just the latest commit. Reconcile a recorded baseline with branch/worktree drift before using it as a range.
 
-The coordinator may mark multiple items in progress only when their phases are explicitly safe to run in the same wave. Mark every dispatched phase in progress before spawning its subagent, and mark it completed only after reviewing scope, accepting its output, and confirming its phase-local checks. Keep dependent phases pending until their prerequisites pass the required integration gate.
+## Recovery and User Stops
 
-Add short notes such as `parallel wave 1` or `serialized: overlaps <path or state>` when they explain an execution decision. Do not let subagents edit the plan concurrently. Use `[!]` only for a genuine blocker that requires user input or an external state change, not merely for a crashed, timed-out, or unavailable subagent.
+Inspect partial effects before retrying. Use a safe alternative, serialize coupled work, or finish delegated work locally when that resolves the failure. Continue independent authorized work when a dependency is blocked.
 
-Also update the plan status line when present:
+A user stop ends new scheduling immediately. Interrupt owned work appropriately, record actual effects, leave unfinished items pending/in progress, and close actions with paused/cancelled results. Do not run optional cleanup, commits, reviews, or remaining phases to satisfy completion after a stop.
 
-- Before implementation: `Status: In progress`
-- After implementation and verification: `Status: Implemented`
-- If blocked: `Status: Blocked`
-- After an explicit mode exit with unfinished non-blocked work: `Status: Paused`
+If persistence fails, follow the entrypoint suspend/repair/recover protocol. Keep the exact record, cached manifest scope, and open action evidence; suspension permits reporting the blocker but never grants non-record mutation. Do not discard unrelated changes or erase an open action to escape a denied hook.
 
-When checks are run, update `verification.md` directly with checkboxes or short result notes. Put skipped checks and residual risk there or in `evidence.md` handoff notes.
+## Execution Sequence
 
-### Amendment and Evidence Gate
-
-Before substantive work or a user-facing response, persist every material user correction, added request, changed decision, discovered fact, verification result, external handoff, or out-of-scope item received while execute mode is active.
-
-Use `evidence.md` for amendments and evidence. Remove `None at approval` when adding the first entry. Give entries stable IDs such as `A001` and record:
-
-- Timestamp and timezone
-- Kind: `Additive`, `Corrective`, `Superseding`, `Evidence`, `Out-of-scope handoff`, `Re-entry`, or `Exit`
-- Source: user request, repository path and symbol, command or check, commit, artifact, ticket, URL, or other exact locator
-- The change, decision, handoff, or evidence
-- Affected goal, scope, phase, checklist item, verification, rollback, or external consumer
-- Current status and any result that a future session must revalidate
-
-Apply these rules:
-
-1. Write the amendment or evidence entry before starting related implementation. If the plan write fails, report the persistence blocker and do not perform the unrecorded work.
-2. For executable work, also add or revise the corresponding checklist item, dependency, ownership, integration, verification, and rollback details before implementation.
-3. For a corrective or superseding request, preserve completed history, mark obsolete pending work as superseded by the amendment ID, and add corrective items for already completed behavior that must change. Update `Goal`, `Scope`, `Desired Logic and Behavior`, or acceptance criteria when they are no longer accurate.
-4. For evidence-only updates or handoffs that require no execution, keep the implementation `Status` unchanged.
-5. If the plan is `Implemented`, `Blocked`, or `Paused` and new executable work can proceed, change it to `In progress` before starting.
-6. A request to keep work separate or outside the approved baseline still requires an `Out-of-scope handoff` record. If the agent performs that work while the mode remains active, add an amendment checklist item so its execution and verification remain auditable.
-7. Do not save a raw transcript, hidden reasoning, secrets, or unrelated conversation. Persist only actionable context and evidence needed for handoff.
-
-### User-Requested Follow-Up Work
-
-When the user asks for implementation, fixes, tests, documentation, cleanup, or another deliverable not represented in the approved baseline while execute mode is active:
-
-1. Pass the request through the `Amendment and Evidence Gate`, then add it to the affected phase file or the simple checklist in `plan.md` before starting it. Reference its amendment ID and date.
-2. Add or adjust dependency, ownership, integration, and verification notes when the new work affects them. Do not rewrite completed history merely to make the addition look original.
-3. If the plan was `Implemented`, `Blocked`, or `Paused`, change its status back to `In progress` before doing work that can proceed.
-4. Mark the new item in progress, execute it under the same recovery and verification rules, then mark it completed or genuinely blocked.
-5. Return the plan to `Implemented` only after the added work and its required verification are complete.
-
-Do not silently perform user-requested follow-up work outside the plan record. If the user wants the work kept separate from the approved baseline, preserve that boundary while still recording the handoff, evidence, and any work performed. Only an explicit execute exit disables this requirement.
-
-### Incremental Commits and Commit Records
-
-In a git repository, once implementation and its local commits are authorized, use this cadence:
-
-1. Capture the starting `HEAD`, branch, status, staged diff, unstaged diff, and untracked paths before implementation. Treat the starting `HEAD` as the exclusive lower bound of the current execution session's commit range.
-2. Derive commit-sized work units inside each selected phase before coding. Prefer the smallest logical change that leaves the repository in a coherent, reviewable state and can pass focused checks, such as one behavior slice with its tests, one refactor prerequisite, or one isolated configuration change.
-3. Never assume one phase equals one commit. A phase commonly produces multiple commits; use a single commit only when the entire phase is genuinely one indivisible logical change. Apply this rule unchanged when the session executes only one phase from a larger plan.
-4. After a unit's focused checks pass and the coordinator accepts all changes in its scope, stage only files and hunks created for that unit, review the staged diff, and commit it immediately before beginning the next dependent unit. Never include unrelated pre-existing or concurrent user changes.
-5. Use the active repository's commit conventions. Keep one logical change per commit and preserve dependency order. Do not create a partial commit merely because time elapsed; the unit must be coherent and verified.
-6. Record every successful commit in the handoff section of `evidence.md`, including full SHA, subject, branch, and associated phase or checklist item.
-7. If a commit attempt fails, keep the unit in progress while recovering and add a concise failure note only when it helps a future session. Use `[!]` only when the failure meets the genuine blocker definition.
-8. After all implementation units included in the current session are committed, define the simplify scope as every current-session commit after the captured starting `HEAD` through the current `HEAD`, plus any remaining in-scope staged, unstaged, or untracked changes. Do not substitute only the final commit or current working-tree diff, even when the session executed a single phase.
-9. Commit simplify-driven fixes as one or more separate coherent commits after their checks pass. Record them like other session commits. Never rewrite, squash, or amend the earlier implementation commits unless the user explicitly requests history rewriting.
-
-The final commit SHA cannot be embedded in the commit that produced it because changing the plan would change that SHA. Record the SHA immediately after the commit, do not amend solely to make the SHA self-referential, and disclose the resulting plan-only working-tree change. Create a separate plan-metadata commit only when the user explicitly requests it; do not try to record that metadata commit's own SHA inside itself.
-
-## Implementation Workflow
-
-1. Resolve, adopt, and read the complete execution-record path; activate or re-enter execute mode and persist its metadata.
-2. When the current directory is inside a Git repository, ensure `<repository-root>/.worktrees/` is ignored, create or safely reuse the dedicated worktree there, record its path and branch in the execution record, and perform the remaining implementation workflow there. Otherwise skip worktree setup and continue in the non-Git directory.
-3. Inspect enough repository context to execute safely.
-4. Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
-5. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
-6. Mark the selected phase items in progress and dispatch each eligible delegated phase with the required ownership and return contract.
-7. Execute any coordinator-owned phase that can run concurrently without conflicting with active subagents.
-8. Collect subagent reports, inspect actual changed files or resources against the baseline and assigned ownership, and review each implementation.
-9. As each commit-sized unit becomes coherent, run its focused checks, review and commit it immediately, then continue with the next unit. A selected phase may therefore produce multiple commits before its phase-local checks are complete.
-10. Run or confirm phase-local checks, mark each accepted phase completed, and run the wave's integration gate before unlocking dependent phases; recover or mark a genuine blocker as appropriate.
-11. Repeat the ready-set workflow until all phases are accepted or a genuine blocker requires user input or an external state change.
-12. Run the final checks from `verification.md` on the integrated result.
-13. Use `$simplify` to review the complete current-session commit range from the captured starting `HEAD` through the current `HEAD`, together with any remaining in-scope working-tree changes.
-14. Fix confirmed or plausible `$simplify` findings that are in scope.
-15. Re-run the narrowest meaningful checks after any simplify-driven fixes, then commit those fixes separately in coherent units.
-16. If the current execution session's commit range or remaining working-tree diff contains substantial agent-facing changes that are not already covered in agent docs, use `$update-agent-docs` with the session-change-only scope in this skill.
-17. Re-run the narrowest meaningful checks after any agent-doc updates.
-18. Update the plan status, checklist, amendments and evidence, verification notes, execution decisions, `Last updated`, and residual risks.
-19. If the user adds follow-up work, changes an earlier decision, provides a material handoff or evidence item, or requests a commit, pass it through the amendment gate and resume the applicable workflow before treating the task as complete.
-20. Apply the final completion gate and continue working if any requirement fails.
-
-## Recovery Before Blocking
-
-Before declaring a blocker:
-
-1. Inspect partial changes and the concrete failure.
-2. Retry when the failure may be transient.
-3. Attempt a safe in-scope alternative.
-4. Replace failed delegation with coordinator-owned execution.
-5. Serialize conflicting work.
-6. Continue all unrelated dependency-ready phases.
-7. Record skipped optional checks and residual risk when implementation can still be completed safely.
-
-Ask the user only after these recovery paths are exhausted and the Genuine Blocker Definition is satisfied.
-
-## Failure and Conflict Handling
-
-A subagent failure is not automatically a plan blocker. Inspect any partial changes, preserve pre-existing user work, and choose the safest recovery: retry, reassign, finish locally, or serialize the phase. Continue unrelated ready phases when safe and keep dependent phases pending.
-
-If ownership overlaps or an unexpected dependency appears, stop only the conflicting dispatch, preserve and inspect the current changes, update the plan note or dependency metadata, and resume in a safe sequence. Continue unrelated ready work when safe. Never use a blanket reset or discard unrelated user changes to recover from parallel work.
-
-If a wave integration check fails, return the implicated phase items to in progress while correcting them. Mark the plan blocked only when meaningful progress truly requires user input or an external state change.
+1. Adopt the exact record, restore scope/authority, and capture the starting workspace and diff boundaries.
+2. Select the workspace under policy, record it, and perform any authorized setup as a bounded action.
+3. Inspect context, choose dependency-ready work, and amend the record for material new information.
+4. Execute coherent work units, verify and reconcile their evidence; commit only if authorized.
+5. Accept phase outputs and integration checks before starting dependents. Continue until the authorized task is complete, genuinely blocked, or explicitly stopped.
+6. Apply the outcome-specific completion reference, persist the actual result, checkpoint, and report it.

@@ -28,7 +28,7 @@ Before starting such an action:
 2. Require the user to confirm that source-code impact. A request that already explicitly asks to edit, implement, fix, refactor, generate, or otherwise change named code is both the request and confirmation when its mutating effect is unambiguous; do not ask redundantly. A plan approval, hypothetical statement, or request to discuss a possible change is not confirmation.
 3. Persist the action scope, confirmation, expected touchpoints, and `Action status: Authorized` in the tracker before mutation. If persistence fails, do not start the action.
 4. Temporarily lift only the source-code mutation restriction needed for that action. Apply the repository's normal coding, safety, approval, and verification workflows; do not broaden the authorization or treat it as permission for unrelated follow-up work.
-5. When the action succeeds, fails, or becomes blocked, persist its files or resources changed, checks and results, residual risks, and terminal action status. Then automatically resume full `discuss` behavior and the `Immediate Decision Gate` before responding. State that discuss remains active.
+5. When the action succeeds, fails, or becomes blocked, persist its files or resources changed, checks and results, residual risks, and terminal action status. Unless the user exited or paused the mode, automatically resume full `discuss` behavior and the `Decision Gate` before responding. State that discuss remains active.
 
 If it is unclear whether a target counts as source code, disclose that it will be treated as source code and obtain confirmation before mutating it. Read-only inspection remains allowed under the rules below.
 
@@ -42,9 +42,9 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Record what is observed to work now and the evidence supporting it. Distinguish verified behavior from inference, user-reported behavior, and unknowns; never present an unverified assumption as an established baseline.
 - Identify behaviors, invariants, interfaces, data contracts, error handling, UX expectations, and backward-compatibility requirements that must remain stable unless the user explicitly chooses to change them.
 - Map likely touchpoints and regression risks. Separate intentional behavior changes from accidental regressions and call out downstream consumers that could break.
-- Identify existing checks that demonstrate the baseline, including tests, type checks, runtime probes, screenshots, logs, or manual reproduction. Use only checks guaranteed not to mutate source or external state; if a useful baseline check cannot be run safely, record the gap and the evidence still needed.
+- Identify existing checks that demonstrate the baseline, including tests, type checks, runtime probes, screenshots, logs, or manual reproduction. Use checks with understood read-only behavior; if a useful baseline check cannot be run safely, record the gap and the evidence still needed.
 - Include preservation acceptance criteria, targeted regression checks, and rollback or recovery considerations in any recommended plan.
-- If the available context is insufficient to establish a material part of the baseline, label it as unknown and resolve it through safe inspection or a focused user question before recommending a potentially breaking change. When resolution requires a material user-owned decision, apply `Immediate Decision Gate` instead of continuing the baseline analysis.
+- If the available context is insufficient to establish a material part of the baseline, label it as unknown and resolve it through safe inspection or a focused user question before recommending a potentially breaking change. When resolution requires a material user-owned decision, apply `Decision Gate` instead of continuing the baseline analysis.
 
 ## Allowed Work
 
@@ -52,7 +52,7 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Explain existing context using information available in the conversation or established through permitted read-only inspection.
 - Ask clarifying questions and help the user decide what to do next.
 - Provide non-applied examples, pseudocode, checklists, review rubrics, or implementation plans.
-- Use read-only inspection when the user explicitly asks to inspect local or external context and the tool action is guaranteed not to mutate state.
+- Use read-only inspection when inspection is relevant to the requested discussion and the tool is reasonably established as read-only.
 - Use the minimal read-only inspection needed to establish existing behavior and regression safety when the requested discussion concerns changing an existing mechanism.
 - Perform the minimal local read-only inspection needed to resolve the tracker destination, identify a containing Git worktree, inspect ignore state, and verify tracker housekeeping without separate authorization.
 - Create or transactionally update the automatically selected or user-specified Markdown record bundle for this discussion.
@@ -76,12 +76,12 @@ If the user clearly requests an in-scope non-source-code mutation, perform it wi
 
 ## Tool Discipline
 
-Prefer answering from conversation context. Use read-only tools only when the user requests inspection, when they are necessary to establish existing behavior and regression safety for a requested change, or when they are necessary for tracker housekeeping. Confirm that the tools will not change source code, local runtime state, or external state.
+Prefer answering from conversation context. Use read-only tools when relevant to the requested discussion, behavioral baseline, a factual unknown, or tracker housekeeping. Inspect likely side effects of unfamiliar commands; a script or build is not read-only merely because it is called a check. Continue independent inspection while a user-owned choice blocks another branch.
 
 Avoid commands or tools with side effects unless they maintain tracker housekeeping or are necessary for an action authorized under `Scoped Action Authorization` or `Temporary Source-Code Actions`. Before using a mutating tool, verify that its target and effect fit the granted scope. If source-code impact is possible and has not been confirmed, do not run it; disclose the impact and obtain confirmation first.
 
 ## Combining With Other Skills
 
-This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains tracker housekeeping or the user authorizes an action under `Scoped Action Authorization` or `Temporary Source-Code Actions`. During an authorized source-code action, apply any coding skill required by the repository only within the persisted action scope; when the action terminates, suspend its mutation instructions again and return to full discuss behavior. A direct `$execute` invocation uses `Direct Execute Handoff`: `$execute` must not mutate source code until the tracker is durably marked ready and discuss is exited.
+This skill supplies the active discussion boundary, subject to higher-priority instructions and the user’s current scope. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains tracker housekeeping or the user authorizes an action under `Scoped Action Authorization` or `Temporary Source-Code Actions`. During an authorized source-code action, apply any coding skill required by the repository only within the persisted action scope; when the action terminates, suspend its mutation instructions again and return to full discuss behavior. A direct `$execute` invocation uses `Direct Execute Handoff`: `$execute` must not mutate source code until the tracker is durably marked ready and discuss is exited.
 
 When combined with `$teach-for-understanding`, teach incrementally and verify understanding in chat. Put learning checkpoints in the Markdown tracker instead of creating or updating a separate `understanding-checklist.md`.

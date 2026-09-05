@@ -1,106 +1,54 @@
 ---
 name: plan
-description: Plan-first collaboration workflow for Codex. Creates one version 4 Markdown plan bundle under ./plans/, keeps it active through approval and execute handoff, and stores every declared phase in its own self-contained, stable-ID Markdown file under phases/. Use for reviewed implementation planning and durable cross-session handoff.
+description: Plan-first collaboration with one version 4 Markdown record bundle under ./plans/. Inspect the problem, preserve decisions and verification, obtain approval, and hand the same bundle to execute only when execution is requested.
 ---
 
 # Plan
 
-## Workflow Modes Hook
+## Boundaries and Lifecycle
 
-When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`. Invoke it with the configured Python interpreter because the installed script may not have executable permissions, and pass `--marker workflow-modes-v1` after the lifecycle action's other required arguments, as advertised by that action's local `--help` output.
+Plan the requested work without implementing it. Read repository instructions and inspect relevant context, but do not edit production code, commit, push, deploy, or mutate external systems. Plan housekeeping is allowed.
 
-- On fresh `$plan` entry, reserve and initialize the draft bundle before substantive inspection, then run `activate plan --record <bundle-root>`. Keep this exact bundle through approval and execute handoff.
-- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <plan-path> --reference <path>...` before substantive work or a final response.
-- On entry from `$discuss`, require its persisted `transition plan --record <discussion-tracker>` result instead of reactivating a different mode.
-- On entry from `$discuss`, resolve the separate target root, run `plan-init --record <discussion-root> --target <plan-root>`, initialize the complete bundle only beneath that declared target, then run `activate plan --record <plan-root>`. `plan-init` is a narrow bootstrap guard, not general plan-mode mutation permission.
-- At activation and after every `PostCompact` reminder, read `index.md` and every manifest file completely and run record-scope sync.
-- After `UserPromptSubmit`, follow `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running snapshot-scope sync; `record` requires a complete read and record-scope sync.
-- Before bundle edits, run `write-open` with the acknowledged revision and declare new phase paths with `--path`; run `write-close` only after manifest, phase links, dependencies, and lifecycle state agree.
-- Persist material planning deltas throughout the conversation. Before every user-facing response, run `checkpoint --record <plan-path>`; use `--no-change` only after confirming that the turn produced no material record change.
-- After approval and after the plan's execute-ready metadata is durable, run `transition execute --record <plan-path>` before handing control to `$execute`.
-- During that approval handoff, set the Active Snapshot profile to `Durable` unless it is already `Audited`; never downgrade `Audited`.
+Keep the same bundle through draft, approval, revisions, and execution handoff. Approval accepts a plan; it does not itself request implementation or change the active mode. A clear instruction such as “approve and implement” supplies both decisions and may trigger handoff after the approved bundle is saved.
 
-Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin is unavailable, planning may continue because it is read-only apart from plan housekeeping, but state that lifecycle enforcement is unavailable. Never mutate source in plan or bypass a denied hook decision.
-
-New plans use a version 4 bundle and the `Lightweight` profile. Profiles affect reread and persistence cadence only. Single-file and pre-v4 records are unsupported.
-
-Use this skill to turn an ambiguous or important request into an approved execution plan while keeping one durable Markdown bundle from the beginning of planning.
+Honor an explicit exit, pause, or cancellation without requiring execute. Persist current decisions and unfinished work, set `Plan mode: Paused` or `Exited`, close transactions, checkpoint, and deactivate. Do not mark unfinished planning complete or ask for confirmation of a clear stop. A review of this skill or a supplied plan is not by itself an instruction to activate a persistent mode.
 
 ## Reference Routing
 
-Load only the reference needed for the current stage, and read it completely before applying it.
+Read the relevant reference completely:
 
-- Read [references/plan-record.md](references/plan-record.md) before creating, updating, approving, or handing off the Markdown plan.
-- Read [references/phase-planning.md](references/phase-planning.md) only when phases, dependencies, waves, or subagent eligibility materially improve the plan.
-- Keep `Required references` minimal: always `references/plan-record.md`; add `references/phase-planning.md` while phases, dependencies, waves, or subagent eligibility are in use. Persist and acknowledge each set change before reading the new reference and running `rules-sync`.
+- [references/plan-record.md](references/plan-record.md): creating, updating, approving, exiting, or handing off a bundle. Always required while planning.
+- [references/phase-planning.md](references/phase-planning.md): only when phases, dependencies, waves, or delegation materially improve the plan.
 
-## Plan-First Boundary
+Keep Required references minimal and acknowledge changes before the next substantive step. For an ambiguous request, clarify within this same draft bundle; do not activate discuss or create a second tracker. Direct discuss-to-execute handoffs remain valid and do not require a plan bundle.
 
-Follow the `$plan` workflow directly without attempting to switch or discuss the runtime's collaboration mode.
+## Planning Sequence
 
-- Do not make production code edits, run destructive commands, commit, push, deploy, or implement the planned work while using this skill.
-- After saving the approved plan, begin implementation only when the user explicitly requests execution; hand the saved plan to `$execute` for that work.
-- Read and respect repository instructions, user rules, AGENTS.md, active developer instructions, and higher-priority safety constraints.
+1. Resolve and initialize the supplied destination or `./plans/YYYY-MM-DD-<slug>/`, with collision handling, before substantive planning. Freeze its canonical path and maintain the narrow ignore rule.
+2. Record the concrete goal and relevant constraints. Inspect missing facts that can be found safely in the workspace before asking the user.
+3. For a change to existing behavior, establish a proportionate baseline: evidence and its confidence, affected consumers, preserved contracts, intentional differences, regression risks, and targeted checks. Label material unknowns and their resolution steps.
+4. Develop an executable strategy, intended behavior, affected scope, verification, and recovery proportional to the change. Use a linear checklist for a small task; introduce phases only when useful. Record only decisions and evidence needed for handoff, not a transcript.
+5. Ask for approval when the plan is decision-complete. Offer revision or pause when relevant. Existing unambiguous approval need not be requested again.
+6. Save approval in the same bundle with `Plan mode: Active` and `Execute mode: Inactive`. Remain available for revisions. If a revision changes the approved outcome, invalidate the affected approval and obtain acceptance of that change.
+7. Only on an explicit execution request, persist the execute handoff metadata and transition to `$execute` with this exact bundle. Do not implement under plan mode.
 
-## Relationship to Direct Discuss Handoffs
+## Questions and Independent Work
 
-`$plan` remains the full plan-first workflow when the user wants a separate reviewed handoff. It is not mandatory between `$discuss` and `$execute`: an execution-ready discussion bundle may be adopted directly. Do not create a duplicate plan bundle for that route.
+Ask only for missing choices that materially change the plan. Offer 2-3 concrete alternatives for decisions and recommend one when justified; use a direct factual question for a URL or identifier. Respect question-tool limits and built-in free-text support. Never ask a storage-choice question when the default applies.
 
-## Discuss Fallback
+Record whether each question blocks execution and which work depends on it. Continue safe independent inspection while waiting; do not assume an answer to a blocking question. Optional preferences may use a stated reasonable default. Batch related independent questions when useful instead of forcing one round trip per issue.
 
-Follow the conversational restrictions and question style of `$discuss` before planning when the current session has no reliable clue about what the user wants, or when the agent is confused about the right direction. Do not activate a separate discuss tracker lifecycle during this fallback; the already-created `$plan` draft remains the only Markdown planning artifact.
+## Workflow Modes Hook
 
-Use this fallback when:
+Use the installed, trusted plugin's exact control script with the configured Python interpreter. Run one lifecycle command per call, ending with `--marker workflow-modes-v1`, and verify `WORKFLOW_*` context.
 
-- The user's goal is too vague to form an actionable plan.
-- The workspace or task context is missing and cannot be inferred safely.
-- Multiple materially different approaches are possible and choosing one would be guesswork.
-- The agent feels uncertain, stuck, or confused about the user's intent.
-- More conversation is needed before writing a useful "How to do it" handoff plan.
+- Fresh entry: initialize the bundle, `activate plan --record <root>`, read/sync the complete bundle, then `rules-sync --record <root> --reference <relative-reference>...`.
+- From discuss: require its successful `transition plan`, then `plan-init --record <discussion-root> --target <plan-root>`. Initialize only the declared target using file patches, then `activate plan --record <plan-root>`. If the user cancels during bootstrap, `plan-cancel --record <discussion-root>` preserves partial target files; reconcile the source and deactivate. Never delete partial work automatically.
+- Activation and compaction require a complete manifest read and record sync. After a prompt, `current` needs no reread, `snapshot` needs only the Active Snapshot and snapshot sync, and `record` needs the full bundle.
+- Before edits, `write-open --record <root> --previous-revision <acknowledged revision>` and declare new Markdown paths with `--path`; update affected files and `write-close --record <root>`. Valid no-op writes may close. Read newly required references and run rules-sync after changing that set.
+- Before a final response, `checkpoint --record <root>`; use `--no-change` only when nothing material changed. Progress commentary does not require a checkpoint or interrupt an open work unit.
+- On execution request, checkpoint planning deltas before replacing Required references with the execute minimum, close the handoff write, then `transition execute --record <root>`. The destination acknowledges its own rules. Approval alone must never invoke this transition.
 
-While in this fallback, keep using the already established draft plan as the planning record:
+If record persistence fails, `suspend --record <root> --reason persistence-failed` allows a blocker response while keeping all non-record mutations denied. Use `--reason user-stop` when a requested stop cannot be reconciled immediately. Repair the bundle through a write transaction, cancel an abandoned bootstrap if necessary, sync record/rules, then `recover --record <root>` before resuming or deactivating. A repeated unresolved Stop block suspends instead of looping.
 
-- Do not edit source files, create unrelated artifacts, implement changes, or mutate external state. Draft-plan housekeeping and persistence remain required.
-- Ask concise clarifying questions and follow the mandatory `Question and Open-Issue Contract` below.
-- Help the user choose the target outcome, constraints, and preferred approach.
-- Summarize the agreed direction before returning to the `$plan` workflow.
-
-## Conversation Workflow
-
-1. Resolve, reserve, initialize, activate, read, and sync the exact draft plan path under `Saving Rules`.
-2. Restate the user's goal in concrete terms and persist it to the draft.
-3. Gather only the missing information that materially changes the plan. Keep questions concise and follow the mandatory `Question and Open-Issue Contract`; do not ask for details that can be discovered safely from the workspace.
-4. Inspect enough context to remove guesswork:
-   - Relevant repository instructions and local conventions
-   - Existing files, exports, callers, routes, schemas, tests, configs, logs, or docs
-   - Current constraints from the user and active environment
-5. Establish an existing-behavior and regression-safety baseline before proposing changes to an existing mechanism:
-   - Record the current behavior and the evidence supporting it; distinguish verified facts, user-reported behavior, inferences, and unknowns
-   - Identify stable behaviors, invariants, interfaces, data contracts, UX expectations, error handling, and backward-compatibility requirements that must be preserved unless the user explicitly changes them
-   - Trace affected callers, consumers, integrations, data flows, and other downstream touchpoints
-   - Identify the existing tests, checks, logs, screenshots, or manual reproduction that demonstrate the baseline; run only safe read-only checks and record any checks that could not be run
-   - Separate intentional behavior changes from regressions and make material evidence gaps explicit before planning potentially breaking work
-6. Propose a plan with clear scope:
-   - What will change
-   - What will not change
-   - Main files, modules, services, UI surfaces, data flows, or external systems touched
-   - Phase dependencies, execution waves, and bounded subagent candidates when the work benefits from phases
-   - Risks, assumptions, and open questions
-   - Preservation acceptance criteria, regression checks, and verification strategy
-   - Rollback or recovery for material behavior changes
-7. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Approval is required before changing the existing draft record to its final execute-ready status.
-8. After approval, finalize the same exact bundle as the approved handoff. Do not create a replacement bundle or implement it in the same `$plan` flow unless the user explicitly requests execution after saving.
-
-## Question and Open-Issue Contract
-
-Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan bundle.
-
-- Present each distinct issue as a separate question block. Do not combine unrelated decisions under one option list.
-- Provide 2-4 practical, mutually distinguishable options that answer that question.
-- Mark one option as `Recommended` or `Default` when there is a reasonable choice.
-- Include `Other — specify` when the listed choices may not cover the user's intent.
-- When the user must supply a free-form value unrelated to plan-file storage, such as a URL or external resource name, offer useful defaults or actions first and include an option to provide a different value. Never invent the free-form value.
-- If a question is non-blocking, state which default the agent will use if the user does not answer.
-- Apply these rules to questions in chat and to every item in the proposed or saved plan's `Open Questions` section.
-- For each open question in a plan, record its options, recommendation/default when applicable, and whether it blocks execution.
-- Before sending a response or saving a plan, check that no user-facing question or open issue lacks its own option list.
+Check local `--help` for these commands before depending on them. Report incompatible installed hooks without bypassing denials or reinstalling mid-task. Planning may continue without an installed hook because its mutations are limited to housekeeping; disclose the missing enforcement. The hook recognizes supported schemas and treats opaque execution conservatively; it is not proof that arbitrary tools or shell programs are read-only. Do not run opaque baseline checks in plan merely to evade that boundary.

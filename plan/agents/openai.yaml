@@ -1,4 +1,4 @@
 interface:
   display_name: "Plan"
   short_description: "Discuss, approve, and auto-save execution plans"
-  default_prompt: "Use $plan to create one version 4 Markdown plan bundle before changing code. Keep index.md as the control plane, put each declared phase in its own phases/P<NN>-<slug>.md file, require explicit approval, and hand the same bundle to $execute."
+  default_prompt: "Use $plan to inspect the task and save one version 4 plan bundle, keeping approval separate from authorization to execute."
