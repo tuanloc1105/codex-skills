@@ -15,6 +15,7 @@ import tempfile
 import time
 from typing import Any, Callable
 
+from workflow_modes_control import help_request
 from bundle_schema import phase_errors
 from tool_policy import (is_mutating_tool, is_shell_tool, mutation_classes, paths_for_tool, tool_command)
 
@@ -435,6 +436,10 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
     args = segment[script_index + 1:marker_index]
     if not args:
         return None
+    if help_request(args):
+        return {"action": "help"}
+    if "--help" in args or "-h" in args:
+        return {"action": "invalid-help"}
     result: dict[str, Any] = {"action": args[0]}
     positionals: list[str] = []
     index = 1
@@ -514,6 +519,10 @@ def handle_control(
             "WORKFLOW_CONTROL_AMBIGUOUS: run only one marker-backed lifecycle control "
             "request per tool call."
         )
+    if action == "help":
+        return context_output("PreToolUse", "WORKFLOW_CONTROL_HELP: read-only CLI help permitted.")
+    if action == "invalid-help":
+        return deny_tool("WORKFLOW_CONTROL_INVALID: use --help or <subcommand> --help before the marker.")
     cwd = str(payload.get("cwd", os.getcwd()))
     current = store.get(key)
     if current and current.get("recovery") and action in {"activate", "transition", "action-open", "plan-init"}:

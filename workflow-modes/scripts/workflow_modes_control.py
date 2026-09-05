@@ -9,7 +9,7 @@ import argparse
 MARKER = "workflow-modes-v1"
 
 
-def parse_args() -> argparse.Namespace:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="action", required=True)
 
@@ -88,6 +88,23 @@ def parse_args() -> argparse.Namespace:
 
     subparsers.add_parser("snapshot").add_argument("--marker", required=True)
     subparsers.add_parser("deactivate").add_argument("--marker", required=True)
+    return parser
+
+
+def help_request(args: list[str]) -> bool:
+    """Accept only standalone root or known subcommand help."""
+    if args in (["--help"], ["-h"]):
+        return True
+    parser = build_parser()
+    commands = next(
+        action.choices for action in parser._actions
+        if isinstance(action, argparse._SubParsersAction)
+    )
+    return len(args) == 2 and args[0] in commands and args[1] in {"--help", "-h"}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = build_parser()
     args = parser.parse_args()
     if args.marker != MARKER:
         parser.error("invalid workflow-modes marker")

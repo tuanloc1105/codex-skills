@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -131,6 +132,52 @@ class WorkflowModesHookTests(unittest.TestCase):
         for path in extra_paths:
             args.extend(("--path", str(path)))
         return self.control(*args)
+
+    def test_help_through_hook_and_cli_preserves_all_session_state(self) -> None:
+        def state():
+            database = self.cwd / "workflow-modes.sqlite3"
+            if not database.exists():
+                return []
+            with sqlite3.connect(database) as connection:
+                return connection.execute("SELECT * FROM sessions").fetchall()
+
+        commands = ("activate", "transition", "plan-init", "plan-cancel", "suspend",
+                    "recover", "action-open", "action-close", "action-abort", "sync",
+                    "rules-sync", "write-open", "write-close", "checkpoint", "snapshot", "deactivate")
+        for mode in ("inactive", "active", "suspended"):
+            if mode == "active":
+                self.activate("execute")
+            elif mode == "suspended":
+                self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
+            before = state()
+            for command in (None, *commands):
+                for flag in ("--help", "-h"):
+                    args = [flag] if command is None else [command, flag]
+                    with self.subTest(mode=mode, args=args):
+                        self.assertIn("WORKFLOW_CONTROL_HELP", json.dumps(self.control(*args)))
+                        result = subprocess.run(
+                            [sys.executable, str(CONTROL), *args, "--marker", MARKER],
+                            capture_output=True, text=True, env=self.env,
+                        )
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertIn("usage:", result.stdout)
+                        self.assertEqual(state(), before)
+        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch("app.py")))
+
+    def test_help_does_not_exempt_unsafe_commands(self) -> None:
+        fake = self.cwd / "workflow_modes_control.py"
+        fake.write_text("print('untrusted')")
+        for command in (
+            f'{sys.executable} "{fake}" --help --marker {MARKER}',
+            f'bash "{CONTROL}" --help --marker {MARKER}',
+            f'{sys.executable} "{CONTROL}" --help --marker {MARKER}; touch bad',
+            f'{sys.executable} "{CONTROL}" --help --marker {MARKER} > bad',
+        ):
+            with self.subTest(command=command):
+                output = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
+                self.assertIn("WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(output))
+        for args in (("nonexistent", "--help"), ("--help", "activate")):
+            self.assertIn("WORKFLOW_CONTROL_INVALID", json.dumps(self.control(*args)))
 
     def test_dormant_until_activation(self) -> None:
         self.assertIsNone(self.patch("app.py"))

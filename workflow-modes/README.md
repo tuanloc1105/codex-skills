@@ -14,6 +14,8 @@ Dormant lifecycle hooks for the standalone `discuss`, `plan`, and `execute` skil
 
 Run each control request alone with the installed bundle's Python script and `--marker workflow-modes-v1` last. A successful control script process only prints a request; model-visible `WORKFLOW_*` hook context confirms lifecycle handling. `paused` and `cancelled` are valid terminal action results in addition to completed, failed, and blocked.
 
+Read CLI help with `python3 /absolute/path/to/workflow_modes_control.py --help --marker workflow-modes-v1` or replace `--help` with `<subcommand> --help`. `-h` is also supported. Keep the marker last, and run help alone without other arguments or shell commands. These forms are permitted before activation, while active, and while suspended; they do not change workflow state or require an open action. The same script-content and interpreter checks apply as for lifecycle calls.
+
 ## Enforcement boundary
 
 This is a workflow guard, not a sandbox or authorization system. The model still owns semantic scope checks and user authority.
