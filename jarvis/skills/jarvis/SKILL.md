@@ -61,8 +61,10 @@ Translate the surrounding labels and prose when appropriate, but keep `Main → 
    - Before spawning, tell the user the selected model, reasoning effort, and brief metadata-based selection rationale. Pass the model and reasoning effort explicitly through the tool's supported override parameters; do not rely on inherited defaults to match the selection.
    - Use a read-only/default agent profile and explicitly forbid file edits, external mutations, and further delegation.
    - Give it the goal contract and the complete supervisor prompt.
-   - If a model override cannot be combined with a full-history fork, prioritize the strongest model and pass a self-contained goal contract with the largest permitted recent-turn fork.
-7. Wait for Jarvis's baseline verdict. Resolve every `CHALLENGE` before continuing.
+   - Before calling spawn, check the actual payload: `model` must be the selected model identifier and `reasoning_effort` must be that model's highest supported effort, even when they match the primary agent. A prompt saying "frontier supervisor" does not select a model.
+   - When the tool disallows overrides with a full-history fork, explicitly set `fork_turns` to a supported positive turn-count string or `"none"`; never use `"all"` or omit the fork setting in that case. Pass the self-contained goal contract and supervisor prompt in the message. Preserve the selected model rather than dropping overrides to retain full history.
+   - If the tool rejects the selected override, recheck its current metadata and supported parameters. Do not retry with inherited defaults or a weaker model; report a blocker if the strongest selection cannot be requested.
+7. Before accepting the baseline, compare any model and effort reported by the spawn result or available agent metadata with the requested selection. On a mismatch, stop the baseline and report the requested and actual values; do not mark supervision established or spawn additional supervisors to hide the mismatch. If actual model metadata is unavailable, disclose that only the explicit request was checked, not the runtime selection. Do not use the supervisor's self-description as model verification. Wait for Jarvis's baseline verdict and resolve every `CHALLENGE` before continuing.
 8. After a `READY` verdict, run:
 
    ```sh

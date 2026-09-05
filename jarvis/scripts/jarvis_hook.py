@@ -309,6 +309,17 @@ def state_summary(state: dict[str, Any]) -> str:
     )
 
 
+MODEL_SELECTION_CONTEXT = (
+    "Select the strongest model from current spawn-tool capability metadata and its "
+    "highest supported effort; announce the selection and rationale. Pass explicit "
+    "model and reasoning_effort overrides. When full-history forks forbid overrides, "
+    "set fork_turns to a supported positive turn-count string or 'none', never 'all' "
+    "or omitted. Check reported model/effort before accepting baseline; on mismatch "
+    "or rejected overrides, stop rather than inherit or downgrade. If runtime metadata "
+    "is unavailable, disclose that only the request was checked. "
+)
+
+
 def handle_user_prompt(
     store: StateStore, key: str, payload: dict[str, Any]
 ) -> dict[str, Any] | None:
@@ -325,7 +336,8 @@ def handle_user_prompt(
             "UserPromptSubmit",
             "JARVIS_ACTIVE: Spawn exactly one frontier Jarvis supervisor, obtain its "
             "baseline verdict, and complete the baseline checkpoint before mutation. "
-            f"Hook state: {state_summary(state or default_state())}.",
+            + MODEL_SELECTION_CONTEXT
+            + f"Hook state: {state_summary(state or default_state())}.",
         )
     state = store.get(key)
     if not state:
@@ -350,7 +362,8 @@ def handle_control(
             event,
             "JARVIS_ACTIVE: Explicit activation confirmed. Spawn and consult the "
             "frontier supervisor before material mutation. "
-            f"Hook state: {state_summary(state or default_state())}.",
+            + MODEL_SELECTION_CONTEXT
+            + f"Hook state: {state_summary(state or default_state())}.",
         )
     if action == "deactivate":
         store.delete(key)
