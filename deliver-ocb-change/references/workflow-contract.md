@@ -4,10 +4,24 @@
 
 Add this English section to the approved implementation plan and keep it as the single execution record.
 
+For an existing discuss/plan/execute bundle, use the file ownership and resume binding in [Composition and resume](composition-and-resume.md). Keep one authoritative OCB contract and link evidence instead of duplicating the record. Do not alter the generic workflow's reference allowlist or lifecycle format.
+
 ```markdown
 ## OCB Delivery Workflow Contract
 
 Workflow State: MODE_UNRESOLVED
+
+### OCB Policy Binding and Resume
+
+- Policy owner: deliver-ocb-change
+- Applicable skill and policy sources: <resolved skill root, relative policy paths, and source revisions or content fingerprints>
+- Domain policy set: <backend, frontend, both for mixed, or unresolved before classification>
+- Repository policy/profile sources: <instruction paths and revisions; .ocb/deliver-change.yaml or verified absence>
+- Contract location: <exact record path and section>
+- Agreed delivery endpoint: <MERGED by default, or an explicitly limited user-requested endpoint with evidence>
+- Policy reload checkpoint: <session/context boundary, files read, and material drift or none>
+- Authorization reconciliation: <action-specific evidence links, current-session requirements checked, unresolved actions, and applicable expiry/drift conditions>
+- Resume instruction: Restore deliver-ocb-change and read its applicable policies before dependent work; retain this exact record, revalidate OCB gates, and apply company commit rules even when generic execution defaults differ.
 
 ### Delivery Mode
 
@@ -193,6 +207,8 @@ Use and evidence these transitions:
 - Resume only after revalidating stale evidence, mode/path classification, overrides, and authorization.
 
 When `$execute` owns execution, use its technical `Status: Blocked` only when the same condition meets that skill's blocker definition. Otherwise retain the truthful delivery state and resume checkpoint.
+
+Apply the outcome mapping in [Composition and resume](composition-and-resume.md): technical implementation completion, Jira Done, or a workflow-mode exit is never evidence of OCB merge completion. Preserve the actual delivery state, remaining gate owner, and resume condition at a pause or external wait.
 
 ## Readiness definitions
 

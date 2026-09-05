@@ -24,6 +24,8 @@ After resolving the delivery mode, read the complete applicable domain policy:
 
 Apply precedence, warning-first gates, and override rules from the core and applicable domain policies exactly.
 
+Before combining this skill with discuss, plan, or execute, handing off its record, or resuming after a new session or compaction, read [Composition and resume](references/composition-and-resume.md) completely. Persist its OCB policy binding in the existing record so the receiving workflow restores this skill and its applicable policies before dependent work. Reviewing this skill is not an instruction to activate OCB delivery.
+
 ## Resolve Delivery Mode
 
 Resolve exactly one mode before `$plan`, source mutation, or Git mutation: `backend`, `frontend`, or `mixed`.
@@ -64,6 +66,8 @@ Record the resolved mode, evidence source, affected roots, and per-path classifi
 - At `MR_READY`, Tech Lead owns review and approval while the Developer owns the merge after that approval is verified. Distinguish verified evidence, accepted assumptions, overrides, and residual risks explicitly.
 
 ## Compose with Other Skills
+
+Apply [Composition and resume](references/composition-and-resume.md) throughout the combined task. Generic workflow defaults do not relax OCB requirements. In particular, all existing company commit rules below and in core policy remain mandatory; references to an execution workflow's commit cadence must be interpreted with those OCB requirements, never as permission to make incremental commits optional.
 
 - With `$discuss`, honor its mutation overlay and update its sole tracker.
 - With `$plan`, place the complete `OCB Delivery Workflow Contract` in the plan.
