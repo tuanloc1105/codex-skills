@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -248,7 +249,7 @@ class WorkflowModesHookTests(unittest.TestCase):
                 self.record = self.cwd / mode / "record"
                 self.index = self.record / "index.md"
                 self.activate(mode)
-                target = self.cwd / f"{mode}.py"
+                target = self.cwd / (f"{mode}.md" if mode == "discuss" else f"{mode}.py")
                 evidence = self.record / "evidence.md"
                 self.write_open()
                 self.index.write_text(self.index.read_text().replace(
@@ -265,7 +266,8 @@ class WorkflowModesHookTests(unittest.TestCase):
                 accepted("WORKFLOW_WRITE_CLOSED", "write-close", "--record", str(self.record))
                 if mode != "plan":
                     accepted("WORKFLOW_ACTION_OPEN", "action-open", "--record", str(self.record),
-                             "--evidence-id", "A001", "--impact", "source-confirmed", "--path", str(target))
+                             "--evidence-id", "A001", "--impact",
+                             "non-source" if mode == "discuss" else "source-confirmed", "--path", str(target))
 
                 output = self.run_hook("PostCompact")
                 message = output["systemMessage"]
@@ -292,7 +294,8 @@ class WorkflowModesHookTests(unittest.TestCase):
                 else:
                     # No reactivation or second action-open: the original scope survived.
                     self.assertIsNone(self.patch(str(target)))
-                    self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch("other.py")))
+                    self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(
+                        self.patch("other.md" if mode == "discuss" else "other.py")))
                     target.write_text("# resumed action\n", encoding="utf-8")
                 self.write_open()
                 self.assertIsNone(self.patch(str(evidence)))
@@ -421,14 +424,89 @@ class WorkflowModesHookTests(unittest.TestCase):
 
     def test_discuss_mutation_requires_scoped_action(self) -> None:
         self.activate("discuss")
-        self.assertIn("WORKFLOW_DISCUSS_ACTION_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assertIn("WORKFLOW_DISCUSS_ACTION_REQUIRED", json.dumps(self.patch("notes.md")))
         opened = self.control(
-            "action-open", "--record", str(self.record), "--impact", "source-confirmed",
-            "--path", str(self.cwd / "app.py"),
+            "action-open", "--record", str(self.record), "--impact", "non-source",
+            "--path", str(self.cwd / "notes.md"),
         )
         self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(opened))
-        self.assertIsNone(self.patch(str(self.cwd / "app.py")))
-        self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(self.cwd / "other.py"))))
+        self.assertIsNone(self.patch(str(self.cwd / "notes.md")))
+        self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(self.cwd / "other.md"))))
+
+    def test_discuss_cannot_open_source_or_shell_actions(self) -> None:
+        self.activate("discuss")
+        for args in (
+            ("--impact", "source-confirmed", "--path", "app.py"),
+            ("--impact", "source-confirmed", "--path", "notes.md"),
+            ("--impact", "non-source", "--path", "app.tsx"),
+            ("--impact", "non-source", "--path", "generated/client.ts"),
+            ("--impact", "non-source", "--unscoped", "shell"),
+            ("--impact", "non-source", "--unscoped", "git"),
+        ):
+            with self.subTest(args=args):
+                denied = self.control("action-open", "--record", str(self.record), *args)
+                self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(denied))
+        self.assertIn("WORKFLOW_DISCUSS_ACTION_REQUIRED", json.dumps(self.patch("notes.md")))
+
+    def test_discuss_external_action_does_not_unlock_source_or_wrappers(self) -> None:
+        self.activate("discuss")
+        self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(self.control(
+            "action-open", "--record", str(self.record), "--impact", "non-source",
+            "--unscoped", "external",
+        )))
+        self.assertIsNone(self.run_hook("PreToolUse", tool_name="tickets.update_issue",
+                                      tool_input={"issue_id": "TEST-1", "body": "Authorized note"}))
+        for payload in (
+            {"tool_name": "exec_command", "tool_input": {"cmd": "python3 change.py"}},
+            {"tool_name": "exec_command", "tool_input": {"cmd": "git -C /repo commit -m change"}},
+            {"tool_name": "Write", "tool_input": {"file_path": "app.py", "content": "change"}},
+            {"tool_name": "functions.exec", "tool_input": {"code": "anything"}},
+            {"tool_name": "write_stdin", "tool_input": {"chars": "change\n"}},
+            {"tool_name": "apply_patch", "tool_input": "*** Update File: notes.md\n*** Move to: app.py\n"},
+        ):
+            with self.subTest(payload=payload):
+                self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(
+                    self.run_hook("PreToolUse", **payload)))
+        self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command",
+                                      tool_input={"cmd": "git diff"}))
+
+    def test_legacy_discuss_source_action_can_close_but_cannot_mutate(self) -> None:
+        self.activate("discuss")
+        database = self.cwd / "workflow-modes.sqlite3"
+        with closing(sqlite3.connect(database)) as connection, connection:
+            key = hashlib.sha256(self.session_id.encode("utf-8")).hexdigest()
+            row = connection.execute("SELECT state_json FROM sessions WHERE session_key = ?", (key,)).fetchone()
+            state = json.loads(row[0])
+            state["action"] = {"status": "authorized", "impact": "source-confirmed",
+                               "paths": [str(self.cwd / "app.py")], "unscoped": ["shell", "git"]}
+            connection.execute("UPDATE sessions SET state_json = ? WHERE session_key = ?", (json.dumps(state), key))
+        self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
+        self.assertIsNone(self.patch(str(self.record / "actions.md")))
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_ACTION_CLOSED", json.dumps(self.control("action-close", "--result", "paused")))
+
+    def test_discuss_source_detection_resolves_non_source_alias(self) -> None:
+        self.activate("discuss")
+        target = self.cwd / "app.py"
+        target.write_text("# source\n", encoding="utf-8")
+        alias = self.cwd / "notes.md"
+        alias.symlink_to(target)
+        self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.control(
+            "action-open", "--record", str(self.record), "--impact", "non-source", "--path", str(alias))))
+        self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.patch(str(alias))))
+
+    def test_behavior_answer_does_not_unlock_source_or_execute_transition(self) -> None:
+        self.activate("discuss")
+        self.write_open()
+        (self.record / "decisions.md").write_text(
+            "# Decisions\nQ1: Metric scope\n1. Visible page\n2. Filtered results\nAccepted: 1\n",
+            encoding="utf-8",
+        )
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assertIn("WORKFLOW_HANDOFF_NOT_DURABLE", json.dumps(
+            self.control("transition", "execute", "--record", str(self.record))))
 
     def test_execute_action_reconciles_evidence_file(self) -> None:
         self.activate("execute")
@@ -560,6 +638,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             self.index.read_text(encoding="utf-8")
             .replace("Mode status: Active", "Mode status: Exited")
             .replace("Execute mode: Inactive", "Execution readiness: Ready\nExecution authorization: Granted\nExecute mode: Ready")
+            .replace(", ".join(MODE_REFERENCES["discuss"]), "None")
             .replace(
                 "evidence.md\n<!-- workflow-manifest:end -->",
                 "evidence.md\nplan.md\nverification.md\n<!-- workflow-manifest:end -->",
@@ -569,6 +648,19 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.control("write-close", "--record", str(self.record))
         transitioned = self.control("transition", "execute", "--record", str(self.record))
         self.assertIn("mode=execute", json.dumps(transitioned))
+        self.assertIn(str(self.record), json.dumps(transitioned))
+        self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(self.control("sync", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(self.control("rules-sync", "--record", str(self.record))))
+        self.write_open()
+        self.index.write_text(self.index.read_text().replace("Active action: None", "Active action: A001"), encoding="utf-8")
+        (self.record / "evidence.md").write_text(
+            "# Evidence\nUser requested implementation of the agreed scope.\n"
+            "<!-- workflow-action:A001 status:open -->\n", encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A001",
+            "--impact", "source-confirmed", "--path", str(self.cwd / "app.py"))))
+        self.assertIsNone(self.patch("app.py"))
 
     def test_approval_alone_keeps_plan_active_and_revisable(self) -> None:
         self.activate("plan")
@@ -605,7 +697,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.write_open()
         self.assertIn("WORKFLOW_RECONCILIATION_REQUIRED", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
         self.control("write-close", "--record", str(self.record))
-        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", str(self.cwd / "app.py"))
+        self.control("action-open", "--record", str(self.record), "--impact", "non-source", "--path", str(self.cwd / "notes.md"))
         self.assertIn("WORKFLOW_RECONCILIATION_REQUIRED", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
         self.assertIn("WORKFLOW_RECONCILIATION_REQUIRED", json.dumps(self.control("transition", "plan", "--record", str(self.record))))
 
@@ -642,7 +734,7 @@ class WorkflowModesHookTests(unittest.TestCase):
 
     def test_suspension_does_not_allow_nonrecord_writes_or_new_actions(self) -> None:
         self.activate("discuss")
-        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", str(self.cwd / "app.py"))
+        self.control("action-open", "--record", str(self.record), "--impact", "non-source", "--path", str(self.cwd / "notes.md"))
         self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
         self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch(str(self.cwd / "app.py"))))
         self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.control("recover", "--record", str(self.record))))
@@ -698,12 +790,12 @@ class WorkflowModesHookTests(unittest.TestCase):
 
     def test_file_scope_resolves_symlink_target(self) -> None:
         self.activate("discuss")
-        target = self.cwd / "inside.py"
-        outside = self.cwd / "outside.py"
+        target = self.cwd / "inside.md"
+        outside = self.cwd / "outside.md"
         target.write_text("", encoding="utf-8")
         outside.write_text("", encoding="utf-8")
-        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", str(target))
-        alias = self.cwd / "alias.py"
+        self.control("action-open", "--record", str(self.record), "--impact", "non-source", "--path", str(target))
+        alias = self.cwd / "alias.md"
         alias.symlink_to(outside)
         self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(alias))))
 
@@ -746,8 +838,14 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("WORKFLOW_TURN_CHECKPOINT_REQUIRED", json.dumps(self.run_hook("Stop")))
 
     def test_scope_requires_all_compound_mutation_classes(self) -> None:
-        self.activate("discuss")
-        self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--unscoped", "git")
+        self.activate("execute")
+        self.write_open()
+        (self.record / "evidence.md").write_text(
+            "# Evidence\n<!-- workflow-action:A001 status:open -->\n", encoding="utf-8")
+        self.index.write_text(self.index.read_text().replace("Active action: None", "Active action: A001"), encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.control("action-open", "--record", str(self.record), "--evidence-id", "A001",
+                     "--impact", "source-confirmed", "--unscoped", "git")
         git = {"cmd": "git -C /repo commit -m change"}
         self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=git))
         mixed = {"cmd": "git -C /repo commit -m change; python3 unrelated.py"}

@@ -1026,6 +1026,16 @@ def handle_control(
             {"git", "external", "shell"}
         ):
             return deny_tool("WORKFLOW_ACTION_INVALID: unsupported --unscoped classification.")
+        if current.get("mode") == "discuss" and (
+            impact == "source-confirmed"
+            or any(Path(path).suffix.lower() in SOURCE_EXTENSIONS for path in paths)
+            or set(unscoped) & {"shell", "git"}
+        ):
+            return deny_tool(
+                "WORKFLOW_DISCUSS_EXECUTE_REQUIRED: source changes and potentially mutating "
+                "shell/Git execution require a durable execute handoff. A selected option, "
+                "plan approval, or source-confirmed label does not grant execution authority."
+            )
         evidence_id = control.get("evidence_id")
         if current.get("mode") == "execute":
             if not isinstance(evidence_id, str) or not evidence_id.strip():
@@ -1216,6 +1226,16 @@ def handle_pre_tool(
             "approved plan, then transition explicitly to execute."
         )
     action = state.get("action")
+    if mode == "discuss" and (
+        any(Path(normalized(path, cwd)).suffix.lower() in SOURCE_EXTENSIONS for path in paths)
+        or (action and action.get("impact") == "source-confirmed")
+        or (not paths and mutation_classes(payload) & {"shell", "git"})
+    ):
+        return deny_tool(
+            "WORKFLOW_DISCUSS_EXECUTE_REQUIRED: source mutation and potentially mutating "
+            "shell/Git execution are blocked in discuss, including legacy source actions. "
+            "Reconcile pending work and transition to execute only on a user execution request."
+        )
     if not action:
         return deny_tool(
             "WORKFLOW_DISCUSS_ACTION_REQUIRED: persist and open a scoped discuss action "
@@ -1235,7 +1255,7 @@ def handle_pre_tool(
         ):
             return deny_tool(
                 "WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: source-like files require a "
-                "source-confirmed discuss action."
+                "source-confirmed execute action."
             )
         return None
     classes = mutation_classes(payload)
@@ -1267,7 +1287,12 @@ def mode_message(state: dict[str, Any]) -> str:
         "rule=persist material turn changes and run checkpoint before final response. "
     )
     if mode == "discuss":
-        return common + "exit=explicit exit/pause/cancel, or plan/execute handoff. </workflow-anchor>"
+        return common + (
+            "boundary=no source mutation; behavior choices and review PASS are not execution "
+            "authority; source work requires execute handoff; stop at the first material "
+            "decision and ask one choice question; "
+            "exit=explicit exit/pause/cancel, or plan/execute handoff. </workflow-anchor>"
+        )
     if mode == "plan":
         return common + "boundary=read-only planning; approval alone does not transition; exit/pause/cancel allowed. </workflow-anchor>"
     return common + "exit=explicit exit/pause/cancel or clear switch to a separate task. </workflow-anchor>"

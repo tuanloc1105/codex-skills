@@ -5,6 +5,7 @@ Dormant lifecycle hooks for the standalone `discuss`, `plan`, and `execute` skil
 ## Lifecycle
 
 - Discuss can exit/pause/cancel, hand off to a separate plan, or make its own bundle execute-ready.
+- Discuss never mutates source code. An explicit implementation request uses the direct execute handoff; selecting a behavior option or approving a recommendation is not an implementation request. Authorized non-source actions remain available in discuss.
 - Approval keeps plan active. Only an execution request records `Execution authorization: Granted` and permits plan-to-execute transition.
 - Execute retains the exact adopted bundle. It supports completion, genuine blockers, and explicit pause/exit with unfinished work preserved.
 - Open record transactions and actions must be reconciled before rebinding or transitioning. Valid no-op record transactions may close without fabricated changes.
@@ -21,8 +22,9 @@ Read CLI help with `python3 /absolute/path/to/workflow_modes_control.py --help -
 This is a workflow guard, not a sandbox or authorization system. The model still owns semantic scope checks and user authority.
 
 - `tool_policy.py` handles known patch/file tool schemas, including raw patch input and move destinations. Exact canonical file paths are compared against action scope.
+- Discuss rejects `source-confirmed` actions, declared source-like paths, and `--unscoped shell`/`git`. The mutation gate also blocks source edits and potentially mutating shell/Git calls under legacy actions; those actions can still be reconciled and closed. Prefer direct file tools for authorized non-source edits. External effects and files without recognizable source suffixes still require semantic inspection by the model.
 - Known read-only shell forms remain available. Unrecognized commands, scripts, evaluation wrappers, and nonempty process input are treated as potentially mutating. Compound commands require every visible mutation class, including Git commands with global options.
-- `--unscoped shell`, `git`, and `external` do not restrict arbitrary programs to individual files, repositories, network resources, or read-only effects. Shell configuration, aliases, nested execution, unknown connector schemas, and subprocesses can have effects beyond what lexical inspection establishes.
+- In execute, `--unscoped shell`, `git`, and `external` do not restrict arbitrary programs to individual files, repositories, network resources, or read-only effects. Discuss permits only the external class for explicitly authorized non-source effects. Shell configuration, aliases, nested execution, unknown connector schemas, and subprocesses can have effects beyond what lexical inspection establishes.
 - Opaque orchestration/evaluation tools require action scope; prefer direct inspectable tools for read-only planning. Hook integration tests use the documented direct tool payloads. Actual runtime routing/trust and wrapper behavior must also be verified in a fresh installed task.
 - Lifecycle calls cannot contain companion shell commands or use an unrelated control script. An identical control script in the marketplace source is accepted when the hook runs from a versioned cache. This prevents the control-call exemption from also exempting an adjacent mutation.
 - Version 4 manifests, phase links, IDs, dependencies, cycles, earliest waves, and duplicate legacy table fields are validated. Phase files own scheduling metadata; new plan indexes should contain only ID and Phase file columns. Validation does not prove that tasks, acceptance criteria, or authority are semantically correct.

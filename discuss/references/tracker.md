@@ -42,6 +42,7 @@ Last updated: <timestamp and timezone>
 Mode: $discuss
 Mode status: <Active | Awaiting decision | Paused | Exited>
 Execution readiness: <Not ready | Ready>
+Execution authorization: <Not granted | Granted>
 Execute mode: <Inactive | Ready | Active | Paused | Exited>
 Resume instruction: Invoke $discuss, read index.md and the manifest files required by the current state, and continue this exact bundle before substantive work.
 Workspace: <captured working directory>
@@ -99,7 +100,7 @@ If persistence fails, do not present unsaved conclusions as durable state. Repor
 
 ## Cross-Session Handoff
 
-On resume, canonicalize the supplied directory or `index.md`, read the complete bundle, validate its identity and manifest, restore the Active Snapshot and Resume Checkpoint, then compare recorded repository/external revisions with live state when they matter. Preserve earlier authorization for the same task and scope unless revoked or invalidated by material drift; adoption or inspection alone adds no new authority.
+On resume, canonicalize the supplied directory or `index.md`, read the complete bundle, validate its identity and manifest, restore the Active Snapshot and Resume Checkpoint, then compare recorded repository/external revisions with live state when they matter. Preserve earlier authorization for the same task and scope unless revoked or invalidated by material drift; adoption or inspection alone adds no new authority. A legacy authorized source action does not reopen a discuss exception: reconcile it without further source changes and use execute for any still-authorized implementation.
 
 If two bundles claim the same tracker ID or the lineage is ambiguous, preserve both, record the conflict, and apply the Decision Gate.
 
@@ -131,13 +132,15 @@ Execute mode: Ready
 Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit or pause.
 ```
 
-The explicit request to execute supplies `Execution authorization: Granted`; record its source and scope in evidence. First checkpoint discussion deltas with the current reference set. Then set the profile to `Durable` unless already `Audited`, replace Required references with `None` for execute adoption, persist the handoff metadata above, and close the transaction. Run `transition execute --record <root>`; execute then acknowledges its own references. Do not run discuss rules-sync against execute reference names.
+The explicit request to execute, including a clear natural-language request to implement the agreed change, supplies `Execution authorization: Granted`; record its source and scope in evidence. A choice answer or recommendation approval alone does not. Do not ask for the same execution permission again when already explicit. First checkpoint discussion deltas with the current reference set. Then set the profile to `Durable` unless already `Audited`, replace Required references with `None` for execute adoption, persist the handoff metadata above, and close the transaction. Run `transition execute --record <root>`; execute then acknowledges its own references. Do not run discuss rules-sync against execute reference names.
 
 ## Authority and Evidence
 
 The bundle is authoritative for recorded discussion state, not for live repository, ticket, API, database, or external-system behavior. In `context.md`, classify material claims as verified, user-reported, inferred, proposed, or unknown and include exact locators, revisions or observation times, conflicts, and revalidation conditions. Higher-priority instructions and current live state override stale bundle content.
 
 Use stable decision and question IDs. Preserve superseded history without leaving contradictory entries active. Do not store transcripts, hidden reasoning, secrets, unrelated chat, or raw implementation output. In Lightweight records, keep each section concise and use IDs/links instead of duplicating evidence. Batch related turn deltas in one transaction; unchanged turns use a no-change checkpoint without timestamp-only edits. Summarize superseded details while preserving decisions, authority, unresolved items, evidence locators, and revalidation needs. The hook accepts bundles up to 2 MiB; compact history well before that limit, never by deleting unresolved work.
+
+In `decisions.md`, persist each pending question's text, displayed number-to-option mapping, evidence/impact, and blocked work before sending it. On answer, record the selection and accompanying constraints without broadening its meaning. Keep requirement decisions here and execution requests with their source and scope in `evidence.md`. Restore the pending mapping after resuming; do not infer implementation permission from an accepted requirement or rewrite it as an execution request.
 
 ## Repository Ignore Rule
 

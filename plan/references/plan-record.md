@@ -89,7 +89,7 @@ Keep `Supporting skills` in the Active Snapshot limited to skills needed for the
 ## Content Ownership
 
 - `context.md`: goal, background, current-state inspection, behavioral baseline, preservation requirements, scope, constraints, touchpoints, desired behavior, risks, and rollback.
-- `decisions.md`: accepted/rejected decisions, assumptions, unknowns, and open questions with their blocking scope.
+- `decisions.md`: accepted/rejected decisions, assumptions, unknowns, and open questions with their blocking scope. Before sending a choice question, persist its text, displayed number-to-option mapping, evidence/impact, and dependent planning, approval, or execution work. Record the answer and its constraints without expanding it into implementation permission; restore pending mappings on resume.
 - `plan.md`: overall strategy, phase links, and integration gates; phase files own dependency and scheduling metadata. For a simple non-phased plan, it may also contain the one linear checklist.
 - `phases/P<NN>-<slug>.md`: one self-contained phase each.
 - `verification.md`: phase-local, wave integration, regression, final end-to-end checks, expected results, skipped checks, and residual risks.
@@ -154,6 +154,8 @@ Execute mode: Inactive
 ```
 
 Approval alone is a valid stopping point. Revisions stay in the same bundle; a material change to the approved outcome makes the affected approval stale until the user accepts it.
+
+An answer to a requirements question approves only that choice, not the entire plan or its implementation. Keep requirement acceptance, plan approval, and execution authorization distinct; report each with its actual status. Do not complete dependent plan sections using a pending choice as an implicit default.
 
 Only when the user explicitly requests implementation (including “approve and implement”), persist:
 
