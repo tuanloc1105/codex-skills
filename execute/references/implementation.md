@@ -62,7 +62,9 @@ Multiple items may be in progress only when ownership and dependencies make conc
 
 ## Mandatory Small Commits When Authorized
 
-Implementation does not automatically authorize commits. Follow explicit user/plan/repository instructions; if commits are not authorized, leave the verified changes reviewable in the working tree. Do not ask for commit permission merely to finish an otherwise completed task.
+In a Git repository, a clear request to implement the adopted record authorizes local incremental commits for that implementation unless the user or plan explicitly forbids commits. Follow repository and applicable domain commit policies. Do not require a separate commit request for each unit or phase. If commits are forbidden or authority is otherwise withheld, preserve the verified changes in the working tree; reading or adopting a record alone does not authorize commits.
+
+After implementation is authorized, commit the smallest complete, accepted, and independently verifiable unit of work as soon as its proportionate focused check passes. Apply this cadence across every domain; a single finished component, DTO, design token set, configuration unit, migration, documentation section, test fixture, script, workflow step, or similarly self-contained artifact may each be its own commit. Prefer a smaller valid checkpoint over combining separately complete units merely because they belong to the same task, checklist step, feature, layer, or phase. Include only the minimum dependent edits required to make the unit complete and keep the repository in an acceptable state. A saved file, partial scaffold, broken artifact, or change that is only valid after omitted required work is not a commit unit. Treat phases and checklist steps as scheduling containers, never as commit boundaries: either may produce many commits, and the same cadence applies when the current execution session covers only one phase or step. Preserve dependency order, commit before starting the next separable unit, and do not wait until the phase, step, or plan is complete. Do not commit when the user or plan forbids commits.
 
 When commits are authorized:
 

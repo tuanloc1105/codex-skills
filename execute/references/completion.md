@@ -1,6 +1,6 @@
 # Execute Completion Reference
 
-Read before reporting an implementation outcome. Add this reference to Required references through a record write and acknowledge rules. This reference does not require using a review skill, creating commits, or completing work after a user stop.
+Read before reporting an implementation outcome. Add this reference to Required references through a record write and acknowledge rules. This reference does not independently grant commit authority or require using a review skill or completing work after a user stop. Apply the entrypoint's local incremental commit authorization and the implementation reference's mandatory cadence.
 
 ## Outcome-Specific Gate
 
