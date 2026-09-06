@@ -74,7 +74,7 @@ If the user clearly requests an in-scope non-source-code mutation, perform it wi
 
 Prefer answering from conversation context. Use read-only tools when relevant to the requested discussion, behavioral baseline, a factual unknown, or tracker housekeeping. Inspect likely side effects of unfamiliar commands; a script or build is not read-only merely because it is called a check. When the Immediate Decision Gate triggers, defer further inspection until the user answers.
 
-Avoid commands or tools with side effects unless they maintain tracker housekeeping or are necessary for a non-source action authorized under `Scoped Action Authorization`. Use direct inspectable file tools or external tools within that scope. Potentially mutating shell/Git commands and opaque execution wrappers require execute; do not label them non-source to bypass the boundary. An allowed external class still requires checking actual effects, including possible source changes through remote APIs.
+Avoid commands or tools with side effects unless they maintain tracker housekeeping or are necessary for a non-source action authorized under `Scoped Action Authorization`. Use direct inspectable file tools or external tools within that scope. For shell/Git commands and opaque execution wrappers, inspect actual effects: source implementation belongs to execute, while authorized non-source work and record housekeeping may stay in discuss. An uncertain tool classification is a reminder to inspect, not a blanket prohibition. An allowed external class still requires checking actual effects, including possible source changes through remote APIs.
 
 ## Combining With Other Skills
 

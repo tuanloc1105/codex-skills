@@ -2,36 +2,45 @@
 
 Dormant lifecycle hooks for the standalone `discuss`, `plan`, and `execute` skills. The repository is the source of truth. These hooks do not activate a mode merely because a skill or record is mentioned.
 
-## Lifecycle
+## Mode reminders and required records
 
-- Discuss can exit/pause/cancel, hand off to a separate plan, or make its own bundle execute-ready.
-- Discuss never mutates source code. An explicit implementation request uses the direct execute handoff; selecting a behavior option or approving a recommendation is not an implementation request. Authorized non-source actions remain available in discuss.
-- Approval keeps plan active. Only an execution request records `Execution authorization: Granted` and permits plan-to-execute transition.
-- Execute retains the exact adopted bundle. It supports completion, genuine blockers, and explicit pause/exit with unfinished work preserved.
-- Execute delegates the accepted task and its necessary steps to the agent. Missing actions, stale record/rules revisions, additional files or effect classes, and pending transactions are advisory for file tools, shell/Git commands, external tools, and wrappers alike. Repeated identical mutation reminders are suppressed until the next prompt. Stop bookkeeping reminders do not block or auto-suspend execute. Failed bookkeeping controls return `WORKFLOW_EXECUTE_CONTROL_NOT_APPLIED`, never a success acknowledgment or a permission denial; rejected state changes remain unapplied.
-- Open record transactions and actions must be reconciled before rebinding or transitioning. Valid no-op record transactions may close without fabricated changes.
-- `suspend --record <root> --reason <persistence-failed|user-stop>` retains pending state and permits a blocker/stop response. Execute persistence failures allow independent delegated work while the record is repaired; user-stop still denies non-record mutation. Discuss/plan retain their existing suspension boundaries and suspend after a repeated identical Stop failure.
-- Repair with the existing write transaction or cached manifest/revision, reconcile actual terminal action evidence, sync record/rules, then `recover --record <root>`. Snapshot output includes the acknowledged revision for recovery.
-- `plan-cancel --record <discussion-root>` abandons only pending bootstrap metadata, preserving partial target files for inspection. It does not delete user work.
+Normal workflow bookkeeping is advisory. The sole tool-denial exception is a pending post-compact context read gate; the hook never emits `allow`/`ask` decisions or Stop blocks. It supplies context; actual user instructions and runtime permissions still govern actions.
 
-Run each control request alone with the installed bundle's Python script and `--marker workflow-modes-v1` last. A successful control script process only prints a request; model-visible `WORKFLOW_*` hook context confirms lifecycle handling. `paused` and `cancelled` are valid terminal action results in addition to completed, failed, and blocked.
+- Discuss focuses on analysis and decisions, reminding the agent to avoid source changes without an implementation request. Authorized non-source work does not need a hook action grant.
+- Plan focuses on creating and updating the plan. Approval alone does not request implementation.
+- Execute carries out the delegated task, verification, and requested delivery. Additional files, tool classes, or stale action metadata do not require new permission.
+- All three standalone skills require complete tracker/plan content: material requirements, decisions and rationale, evidence, plan/progress changes, verification, unresolved work, and next steps. Save at meaningful checkpoints and reconcile before a final response or handoff. Optional hook acknowledgments never make record content optional or prove semantic completeness.
+- Failed persistence requires repair and an honest report of the last durable checkpoint and unsaved facts. Pending work stays pending. Independent in-scope work may continue while its prerequisites are known.
+- An actual user stop remains binding on the agent. `suspend --reason user-stop` preserves that instruction as a reminder, without denying tools; `persistence-failed` cannot replace an existing user stop. Resume task work only when the user resumes it.
 
-Read CLI help with `python3 /absolute/path/to/workflow_modes_control.py --help --marker workflow-modes-v1` or replace `--help` with `<subcommand> --help`. `-h` is also supported. Keep the marker last, and run help alone without other arguments or shell commands. These forms are permitted before activation, while active, and while suspended; they do not change workflow state or require an open action. The same script-content and interpreter checks apply as for lifecycle calls.
+## Events
 
-## Enforcement boundary
+- `UserPromptSubmit`: restore mode/record context and remind the agent to save all material turn changes. A mention alone never activates a mode.
+- `PreToolUse`: while post-compact restoration is pending, permit reads/questions/record repair and deny task mutations or worker dispatch. Otherwise remind on likely source/implementation drift or outstanding bookkeeping. Outside restoration, classifications focus reminders rather than access control. Suppress repeated identical reminders within a turn using a bounded cache, refreshed on the next prompt or compaction.
+- `PostCompact`: open a one-time read gate for the exact tracker/plan, active mode instructions, and applicable references. Do not activate excluded supporting skills.
+- `PostToolUse`: credit complete successful `restore-read` pages only after comparing returned content and file revision. Once every required current document is delivered and the bundle is valid, clear the read gate. `sync`/`rules-sync` cannot clear it.
+- `Stop`: remind about pending evidence, writes, actions, bootstrap, and context restoration. Do not block, auto-suspend, clear pending state, or mark work complete, even after repeated Stop events.
+- `SessionEnd`: discard the session's hook metadata; durable Markdown records remain on disk.
 
-This is a workflow guard, not a sandbox or authorization system. The model still owns semantic scope checks and user authority.
+See [post-compact restoration](references/post-compact-restore.md) for the bounded reader, output verification, permitted recovery tools, and integration limitations.
 
-- `tool_policy.py` handles known patch/file tool schemas, including raw patch input and move destinations. Exact canonical paths constrain discuss/plan actions and record-repair transactions; execute action paths are bookkeeping.
-- Discuss rejects `source-confirmed` actions, declared source-like paths, and `--unscoped shell`/`git`. The mutation gate also blocks source edits and potentially mutating shell/Git calls under legacy actions; those actions can still be reconciled and closed. Prefer direct file tools for authorized non-source edits. External effects and files without recognizable source suffixes still require semantic inspection by the model.
-- Known read-only shell forms remain available. Unrecognized commands, scripts, evaluation wrappers, and nonempty process input are classified as potentially mutating. Discuss/plan use this classification to enforce mode boundaries; execute uses it for evidence reminders, not per-tool permission grants.
-- [Read-only command coverage](references/read-only-commands.md) lists researched command families, supported options, exclusions, and primary sources. Quoted literals and newline-separated read commands are supported. Mixed-use utilities have argument-aware checks; discuss denials identify unrecognized commands/options or unsupported syntax without echoing their arguments.
-- In execute, `--unscoped shell`, `git`, and `external` do not restrict arbitrary programs to individual files, repositories, network resources, or read-only effects. Discuss permits only the external class for explicitly authorized non-source effects. Shell configuration, aliases, nested execution, unknown connector schemas, and subprocesses can have effects beyond what lexical inspection establishes.
-- Execute actions are optional tracking metadata, not user authorization. An action's missing `git`/`external` class or stale `non-source` label must not block necessary task steps. The agent derives authority from the actual user request: creating a PR/MR includes a normal push of the task branch to the intended remote when needed. An explicit user prohibition still applies, and an implementation-only task does not imply unrelated deployment or destructive history rewriting.
-- Opaque orchestration tools follow the same advisory execute policy as direct tools. Lifecycle controls are recognized only on direct shell payloads; a wrapper being permitted does not prove its inner control was observed. Check model-visible control confirmation and retain accurate evidence directly if integration is unavailable. Actual runtime routing/trust must be verified in a fresh installed task. Do not bypass an older installed hook's denial or reinstall during an active task.
-- Lifecycle calls cannot contain companion shell commands or use an unrelated control script. An identical control script in the marketplace source is accepted when the hook runs from a versioned cache. This prevents the control-call exemption from also exempting an adjacent mutation.
-- Control failures distinguish shell/request shape (`WORKFLOW_CONTROL_AMBIGUOUS`), relative paths (`WORKFLOW_CONTROL_PATH_REQUIRED`), missing/unreadable scripts (`WORKFLOW_CONTROL_UNAVAILABLE`), and content/version differences (`WORKFLOW_CONTROL_MISMATCH`). Path failures identify the verified control script beside the running hook when available. Resubmit the same authorized request using that path or an identical installed-source copy; do not repeat a stale cache path, reinstall mid-task, or bypass trust. A rejected request changes no lifecycle state and is never automatically rerouted.
-- Version 4 manifests, phase links, IDs, dependencies, cycles, earliest waves, and duplicate legacy table fields are validated. Phase files own scheduling metadata; new plan indexes should contain only ID and Phase file columns. Validation does not prove that tasks, acceptance criteria, or authority are semantically correct.
+## Lifecycle metadata
+
+The optional control CLI tracks activation, handoffs, revisions, transactions, actions, checkpoints, and recovery. The version 4 bundle remains the source of truth for recorded progress. Discuss-to-plan creates a separate linked bundle; direct discuss-to-execute and plan-to-execute retain the exact execution record. Handoffs require actual user execution intent, not a selected behavior option or a successful hook call.
+
+Run each control request alone with the installed bundle's Python script and `--marker workflow-modes-v1` last. Lifecycle CLI processes print requests; model-visible `WORKFLOW_*` context confirms the hook applied them. `restore-read` instead prints the requested document page, which is credited only after observation. `paused` and `cancelled` preserve unfinished actions. `plan-cancel` preserves partial target files instead of deleting them.
+
+Well-formed controls that fail lifecycle validation return `WORKFLOW_CONTROL_NOT_APPLIED`, without acknowledging the requested change or denying the tool. Ambiguous or unverifiable executable calls remain gated during restoration. Record identity, safe manifest paths, phase consistency, and lifecycle transitions still undergo validation. An invalid call cannot fabricate completion, discard pending actions, or replace the bound record. Continue maintaining the complete bundle directly when integration is unavailable; reconcile hook metadata when possible.
+
+Read help using `python3 /absolute/path/to/workflow_modes_control.py --help --marker workflow-modes-v1`, or `<subcommand> --help` before the marker. Help leaves state unchanged. Controls require supported interpreter/request shape and matching script contents. Ambiguous shell commands or stale/mismatched scripts are not acknowledged. During post-compact restoration they are denied because their effects cannot be verified; otherwise the advisory hook does not prevent their execution. It never supplies a tool permission exemption.
+
+## Classification and validation limits
+
+`tool_policy.py` inspects known file/patch schemas (including move destinations), read-only command forms, and opaque wrappers. Source suffixes and shell classifications are hints; the agent must inspect actual effects. A source-like file may be a document, and source can have an unrecognized suffix. See [read-only command coverage](references/read-only-commands.md) for the classifier's supported forms and limitations.
+
+Unknown commands/options are described without echoing their arguments. Outside post-compact restoration, files outside action paths, external effects, shell/Git operations, and wrapper calls are not blocked. The hook cannot prove arbitrary programs' scope or side effects, semantic user authority, or complete record content.
+
+Version 4 manifests, phase links, IDs, dependencies, cycles, earliest waves, and duplicate legacy table fields are validated for lifecycle acknowledgments. Phase files own scheduling metadata; new plan indexes use only ID and Phase file columns. Rejected validation does not grant permission to omit required record content or claim success.
 
 ## Validation and distribution
 
@@ -48,6 +57,8 @@ Bundle format remains version 4. New handoffs include execution authorization ex
 
 Source-only changes do not update the manifest cachebuster or installed hook cache. The three standalone skill mirrors may therefore describe commands absent from the currently installed plugin; check its help and do not rely on new behavior until the complete compatible plugin is installed. Installation is a separate explicit operation after closing tasks that use the old hook cache. Do not reinstall mid-task or bypass hook trust. See `../docs/agent/plugin-maintenance.md` for the repository distribution rules.
 
-## Compatibility with v2026.09.04
+## Compatibility
 
-This revision keeps the tag's end-to-end execution, exact-record continuity, dependency-ready work, incremental commits, and recovery before declaring a blocker. It intentionally does not restore that tag's mandatory per-action mutation gates or Stop blocks. Current version 4 validation, user-stop handling, and discuss/plan boundaries remain. The standalone execute instructions and this source plugin must be distributed together for the new advisory behavior; source edits alone do not replace hooks cached by active tasks.
+This revision keeps all three modes advisory except for mandatory context delivery after compaction. Existing state and version 4 bundles remain readable; pending actions, transactions, and suspension facts are preserved for reconciliation. Older installed hooks may still deny calls: do not bypass an actual denial or reinstall during an active task. Use supported recovery and report the compatibility limitation.
+
+Distribute the compatible plugin separately when explicitly requested. Source validation does not change an active task's cached hooks. Standalone skill mirrors keep mandatory record completeness even when the new hook is not installed.

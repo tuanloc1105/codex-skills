@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Emit a workflow-mode lifecycle control call for the plugin hook to observe."""
+"""Emit lifecycle requests or deliver bounded workflow context pages for the hook to observe."""
 
 from __future__ import annotations
 
 import argparse
+import json
+
+from restore_context import read_page
 
 
 MARKER = "workflow-modes-v1"
@@ -86,6 +89,15 @@ def build_parser() -> argparse.ArgumentParser:
     checkpoint.add_argument("--no-change", action="store_true")
     checkpoint.add_argument("--marker", required=True)
 
+    restore_status = subparsers.add_parser("restore-status")
+    restore_status.add_argument("--marker", required=True)
+    restore_read = subparsers.add_parser("restore-read")
+    restore_read.add_argument("--record", required=True)
+    restore_read.add_argument("--path", required=True)
+    restore_read.add_argument("--offset", type=int, default=0)
+    restore_read.add_argument("--epoch", required=True)
+    restore_read.add_argument("--marker", required=True)
+
     subparsers.add_parser("snapshot").add_argument("--marker", required=True)
     subparsers.add_parser("deactivate").add_argument("--marker", required=True)
     return parser
@@ -113,6 +125,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.action == "restore-read":
+        print(json.dumps(read_page(args.path, args.offset, args.epoch), ensure_ascii=False))
+        return 0
     print(
         f"Workflow mode control request sent: {args.action}. "
         "Verify that the lifecycle hook returned model-visible confirmation."

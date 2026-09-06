@@ -25,6 +25,14 @@ When local commits are authorized, the smallest-complete-verified-unit commit ca
 
 On entry, persist `Execute mode: Active`, current timestamp, and the resume instruction to read this exact bundle. Use the `Durable` profile by default, upgrading Lightweight and preserving Audited. Keep implementation status independent of mode status. Record the source and scope of execution authority; `Execution authorization: Granted` is an acknowledgment of user authority, not a grant produced by the hook.
 
+## Required Record Completeness
+
+Keep the adopted tracker/plan complete. Save material user corrections and scope changes, actual implementation progress and effects, amendments and deviations with reasons, verification results and limitations, authorized commit/delivery evidence, blockers, unfinished items, and the next safe action. Keep phase/checklist status, evidence, verification, and the resume checkpoint consistent.
+
+Persist related changes at meaningful checkpoints, before a dependent handoff, and reconcile the current turn against the bundle before the final response. Completeness means enough accurate information to resume without losing material facts, not a raw transcript or hidden reasoning. Do not defer all recording until task completion or treat a hook acknowledgment/no-change flag as proof that nothing was missed. Verify the affected files were actually saved and their cross-file state agrees.
+
+Hook acknowledgments are optional integration metadata; complete tracker/plan content is mandatory even when hooks are absent, quiet, stale, or failing. If persistence fails, retain unsaved facts in the current task context, repair from known evidence, and continue independent in-scope work only while its prerequisites remain known. Disclose the failed files, last durable checkpoint, and unsaved material facts in the final response if repair cannot finish. Never claim they were saved or mark unfinished work complete. Honor a user stop immediately; recording must not become a reason to continue implementation after it.
+
 ## Reference Routing
 
 Read each applicable reference completely:
@@ -58,9 +66,19 @@ Persist current evidence and verification, leave unfinished checklists accurate,
 
 If persistence cannot complete, suspend and report the last durable checkpoint and unsaved facts honestly. Reporting a stop or blocker does not require completed implementation, a worktree, commits, simplify, or successful final checks.
 
+## Mandatory Recovery After Compaction
+
+After compaction, restore the current tracker/plan, every manifest file, the active mode's `SKILL.md`, and only its applicable Required references before task mutations, worker dispatch, or conclusions that depend on lost context. Read mode instructions as recovery context; this does not activate other skills. Reassess Supporting skills and honor user exclusions instead of loading all recorded skill names.
+
+With the compatible hook, `PostCompact` opens a one-time read gate. Use `restore-status --marker workflow-modes-v1` on the exact installed control script to get the next required absolute path, character offset, and epoch. Run `restore-read --record <root> --path <path> --offset <offset> --epoch <epoch> --marker workflow-modes-v1` as a standalone shell call with `max_output_tokens` at least 6000. Read its returned content and repeat using the next status until `PostToolUse` reports `WORKFLOW_CONTEXT_RESTORED`. Large files are paged automatically. The observer checks actual complete successful output against the current file; a failed/truncated read, a pre-tool request, ordinary file reads, and `sync`/`rules-sync` alone do not clear this gate. If the file changed, reread from the offset requested by status.
+
+Read-only inspection, asking questions, interrupting owned work, direct Markdown repairs inside the bound record, and honest blocker/stop reporting remain available. Do not repair from guesses or resume stopped work. Missing documents or unsupported result routing require an accurate report; do not bypass the gate, claim restoration succeeded, or loop on the same failure. Do not present context-dependent conclusions until the necessary context is restored. Once restored, action/transaction/checkpoint bookkeeping returns to advisory behavior; complete record content remains mandatory.
+
+If only `functions.exec` is available, the hook recognizes exactly one `text(await tools.exec_command(<JSON object>));` call, or `text(await tools.apply_patch(<JSON string>));` for record repair. Use literal JSON arguments without extra JavaScript. Other opaque wrappers remain gated during recovery. Without a compatible optional hook, perform the same complete recovery manually and disclose the unavailable observation mechanism when relevant; do not pretend a read receipt exists.
+
 ## Workflow Modes Hook
 
-The hook is an optional execution companion. In execute mode, action paths, effect classes, evidence markers, revisions, rules-sync, and checkpoints are bookkeeping, not a second authorization system. Apply the same policy to direct file tools, shell/Git commands, external tools, and orchestration wrappers. Missing or stale metadata must not cause a permission question or prevent completing delegated work. Explicit user stops still take precedence.
+The hook is an optional execution companion. It emits reminders outside the one-time post-compact read gate and never blocks final reporting. Required record completeness remains mandatory regardless of hook state. In execute mode, action paths, effect classes, evidence markers, revisions, rules-sync, and checkpoints are bookkeeping, not a second authorization system. Apply the same policy to direct file tools, shell/Git commands, external tools, and orchestration wrappers. Missing or stale metadata must not cause a permission question or prevent completing delegated work. Explicit user stops still take precedence.
 
 When the installed plugin is available and trusted, use its exact `workflow_modes_control.py` path with the configured Python interpreter. Run lifecycle commands alone, end them with `--marker workflow-modes-v1`, and verify model-visible `WORKFLOW_*` confirmation. A control process exit code alone does not prove a state update.
 
@@ -70,13 +88,13 @@ When the installed plugin is available and trusted, use its exact `workflow_mode
 - Actions are optional work-unit tracking. When useful, persist a stable evidence ID and `<!-- workflow-action:<ID> status:open -->` in `evidence.md`, then `action-open` with the record, evidence ID, impact, paths, and effect classes. One action may cover implementation, verification, commits, and requested delivery for a coherent unit. Additional necessary files or effects do not require a new user approval or closing/reopening the action before continuing.
 - Reconcile any opened action with its actual terminal marker (`completed`, `failed`, `blocked`, `paused`, or `cancelled`) and matching `action-close --result`. Attempt `checkpoint --record <root>` before a final report; use `--no-change` when the record is still accurate. Progress commentary requires neither a checkpoint nor closing a work unit.
 
-A `WORKFLOW_EXECUTE_CONTROL_NOT_APPLIED` result means that bookkeeping did not change. Correct it when possible, preserve unresolved evidence honestly, and continue independent delegated work. Do not retry the same failed bookkeeping operation indefinitely, fabricate a successful checkpoint, or send a new permission question merely to satisfy it. The hook does not prove semantic authority or the side effects of arbitrary programs; the agent remains responsible for the user's task and constraints.
+A `WORKFLOW_CONTROL_NOT_APPLIED` result (or legacy `WORKFLOW_EXECUTE_CONTROL_NOT_APPLIED`) means the requested lifecycle update was not acknowledged. Correct it when possible, preserve unresolved evidence honestly, and continue independent delegated work. Do not retry the same failed bookkeeping operation indefinitely, fabricate a successful checkpoint, or send a new permission question merely to satisfy it. The hook does not prove semantic authority or the side effects of arbitrary programs; the agent remains responsible for the user's task and constraints.
 
 ## Recovery and Compatibility
 
 A record persistence failure does not revoke execution authority. Keep unsaved material evidence in the current task context, repair the exact bundle from known facts, and continue independent work whose scope and prerequisites remain known. Report any evidence that could not be saved; do not claim durable completion of the record. Stop dependent work only when lost context or conflicting evidence makes it impossible to proceed correctly.
 
-Use `suspend --record <root> --reason persistence-failed` to record persistence trouble when supported; execute treats this as a repair reminder. Use `--reason user-stop` only for an actual user stop that cannot yet be reconciled; it blocks new non-record mutation. Never substitute persistence-failed to bypass a user stop.
+Use `suspend --record <root> --reason persistence-failed` to record persistence trouble when supported; execute treats this as a repair reminder. Use `--reason user-stop` only for an actual user stop that cannot yet be reconciled; it reminds the agent to honor the stop without issuing a tool denial. Never substitute persistence-failed to bypass a user stop.
 
 Repair through an existing record transaction or the last acknowledged revision and cached manifest paths. Preserve unrelated changes and the actual action outcome, sync the repaired record/rules, and `recover --record <root>`. Resume stopped work only when the user resumes it. Recovery never marks unfinished work completed.
 

@@ -81,16 +81,17 @@ class ExecutePolicyTests(unittest.TestCase):
         for payload in (self.payload, {"tool_name": "functions.exec", "tool_input": {"code": "repair()"}}):
             self.assert_advisory(self.run_policy(state, payload))
 
-    def test_user_stop_still_blocks_work_and_permits_scoped_record_repair(self):
+    def test_user_stop_reminds_and_permits_scoped_record_repair(self):
         record_payload = {**self.payload, "tool_input": f"*** Update File: {self.record}\n"}
         state = {**self.state, "recovery": {"reason": "user-stop"}}
         for payload in (self.payload, record_payload,
                         {"tool_name": "functions.exec", "tool_input": {"code": "work()"}},
                         {"tool_name": "exec_command", "tool_input": {"cmd": "git push"}}):
-            self.assertEqual(self.run_policy(state, payload)["hookSpecificOutput"]["permissionDecision"], "deny")
+            self.assert_advisory(self.run_policy(state, payload))
+            self.assertIn("honor the user stop", self.run_policy(state, payload)["hookSpecificOutput"]["additionalContext"])
         state["write_transaction"] = {"paths": [self.record]}
         self.assertIsNone(self.run_policy(state, record_payload))
-        self.assertEqual(self.run_policy(state)["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assert_advisory(self.run_policy(state))
 
 
 if __name__ == "__main__":

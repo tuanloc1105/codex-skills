@@ -2,7 +2,7 @@
 
 Read this reference completely only when phases, dependencies, execution waves, or subagent eligibility materially improve the plan.
 
-While this structure is active, list both plan references in the Active Snapshot. Remove `references/phase-planning.md` when returning to a simple linear plan, acknowledge the write, and complete `rules-sync` before continuing.
+While this structure is active, list both plan references in the Active Snapshot. Remove `references/phase-planning.md` when returning to a simple linear plan, save the updated reference set, and attempt `rules-sync` when supported; acknowledgment does not gate further planning.
 
 ## Dependency-Aware Phase Planning
 

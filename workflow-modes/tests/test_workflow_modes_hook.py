@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -46,7 +47,47 @@ class WorkflowModesHookTests(unittest.TestCase):
             capture_output=True, env=self.env, check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        return json.loads(result.stdout) if result.stdout.strip() else None
+        output = json.loads(result.stdout) if result.stdout.strip() else None
+        if output and output.get("hookSpecificOutput", {}).get("permissionDecision"):
+            self.assert_restore_gate(output)
+        else:
+            self.assert_nonblocking(output)
+        return output
+
+    def assert_nonblocking(self, output):
+        if output is not None:
+            self.assertNotIn("decision", output)
+            self.assertNotIn("permissionDecision", output.get("hookSpecificOutput", {}))
+            self.assertNotIn("continue", output)
+
+
+    def assert_restore_gate(self, output):
+        self.assertEqual(output["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("WORKFLOW_CONTEXT_RESTORE_REQUIRED", output["hookSpecificOutput"]["permissionDecisionReason"])
+
+    def restore_all(self):
+        sys.path.insert(0, str(PLUGIN_ROOT / "scripts"))
+        import workflow_modes_hook as engine
+        from restore_context import missing_reads
+        for _ in range(200):
+            state = self.stored_state()
+            if not state.get("restore"):
+                return
+            paths, valid = engine.restoration_scope(state)
+            self.assertTrue(valid)
+            pending = missing_reads(state["restore"], paths)
+            self.assertTrue(pending)
+            page = pending[0]
+            args = [sys.executable, str(CONTROL), "restore-read", "--record", state["record"],
+                    "--path", page["path"], "--offset", str(page["offset"]),
+                    "--epoch", state["restore"]["epoch"], "--marker", MARKER]
+            payload = {"tool_name": "exec_command", "tool_input": {"cmd": shlex.join(args)}}
+            self.assertIn("WORKFLOW_RESTORE_READ_PENDING", json.dumps(self.run_hook("PreToolUse", **payload)))
+            result = subprocess.run(args, text=True, capture_output=True, env=self.env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            output = self.run_hook("PostToolUse", **payload, tool_response={"exit_code": 0, "output": result.stdout})
+            self.assertNotIn("WORKFLOW_RESTORE_READ_NOT_OBSERVED", json.dumps(output))
+        self.fail("Restoration did not converge")
 
     def control(self, *args: str) -> dict[str, object] | None:
         command = " ".join([sys.executable, f'"{CONTROL}"', *args, "--marker", MARKER])
@@ -163,9 +204,9 @@ class WorkflowModesHookTests(unittest.TestCase):
                         self.assertEqual(result.returncode, 0, result.stderr)
                         self.assertIn("usage:", result.stdout)
                         self.assertEqual(state(), before)
-        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assert_nonblocking(self.patch("app.py"))
 
-    def test_help_does_not_exempt_unsafe_commands(self) -> None:
+    def test_help_with_companions_does_not_acknowledge_control(self) -> None:
         fake = self.cwd / "workflow_modes_control.py"
         fake.write_text("print('untrusted')")
         for command in (
@@ -223,7 +264,9 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("sync_status=record", json.dumps(output))
         denied = self.control("sync", "--record", str(self.record), "--scope", "snapshot")
         self.assertIn("currently required record scope", json.dumps(denied))
-        self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assert_restore_gate(self.patch("app.py"))
+        self.restore_all()
+        self.assert_nonblocking(self.patch("app.py"))
 
     def test_post_compact_resume_to_checkpoint_in_all_modes(self) -> None:
         def accepted(expected: str, *args: str) -> None:
@@ -274,7 +317,7 @@ class WorkflowModesHookTests(unittest.TestCase):
                 for value in (f"mode={mode}", str(self.record), "sync_status=record", "SKILL.md",
                               *MODE_REFERENCES[mode]):
                     self.assertIn(value, message)
-                self.assertIn("WORKFLOW_EXECUTE_ADVISORY" if mode == "execute" else "WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
+                self.assert_restore_gate(self.patch(str(target)))
                 self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.run_hook("Stop")))
                 self.assertIn("WORKFLOW_RECORD_SYNC_REQUIRED", json.dumps(
                     self.control("sync", "--record", str(self.record), "--scope", "snapshot")))
@@ -286,21 +329,22 @@ class WorkflowModesHookTests(unittest.TestCase):
                 for path in sorted(self.record.rglob("*.md")):
                     read_file(path)
                 accepted("WORKFLOW_RECORD_SYNCED", "sync", "--record", str(self.record))
+                self.assert_restore_gate(self.patch(str(target)))
+                self.restore_all()
                 output = self.patch(str(target))
                 if mode == "execute":
                     # Same remaining rules reminder was already emitted this turn.
                     self.assertNotIn("permissionDecision", json.dumps(output))
                 else:
-                    self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(output))
+                    self.assert_nonblocking(output)
                 references = tuple(item for ref in MODE_REFERENCES[mode] for item in ("--reference", ref))
                 accepted("WORKFLOW_RULES_SYNCED", "rules-sync", "--record", str(self.record), *references)
                 if mode == "plan":
-                    self.assertIn("WORKFLOW_PLAN_READ_ONLY", json.dumps(self.patch(str(target))))
+                    self.assert_nonblocking(self.patch(str(target)))
                 else:
                     # No reactivation or second action-open: the original scope survived.
                     self.assertIsNone(self.patch(str(target)))
-                    self.assertIn("WORKFLOW_EXECUTE_ADVISORY" if mode == "execute" else "WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(
-                        self.patch("other.md" if mode == "discuss" else "other.py")))
+                    self.assert_nonblocking(self.patch("other.md" if mode == "discuss" else "other.py"))
                     target.write_text("# resumed action\n", encoding="utf-8")
                 self.write_open()
                 self.assertIsNone(self.patch(str(evidence)))
@@ -333,10 +377,10 @@ class WorkflowModesHookTests(unittest.TestCase):
         prompt = self.run_hook("UserPromptSubmit", prompt="Continue")
         self.assertIn("sync_status=record", json.dumps(prompt))
 
-    def test_record_write_requires_transaction(self) -> None:
+    def test_record_write_needs_no_transaction(self) -> None:
         self.activate("discuss")
         denied = self.patch(str(self.record / "context.md"))
-        self.assertIn("WORKFLOW_WRITE_OPEN_REQUIRED", json.dumps(denied))
+        self.assertIsNone(denied)
 
     def test_multi_file_write_transaction_acknowledges_bundle(self) -> None:
         self.activate("discuss")
@@ -407,9 +451,9 @@ class WorkflowModesHookTests(unittest.TestCase):
         denied = self.control("activate", "plan", "--record", str(self.record))
         self.assertIn("WORKFLOW_RECORD_UNREADABLE", json.dumps(denied))
 
-    def test_write_transaction_blocks_outside_mutation_and_stop(self) -> None:
+    def test_write_transaction_advises_on_outside_mutation_and_stop(self) -> None:
         self.activate("discuss"); self.write_open()
-        self.assertIn("WORKFLOW_WRITE_SCOPE_DENIED", json.dumps(self.patch("app.py")))
+        self.assert_nonblocking(self.patch("app.py"))
         self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", json.dumps(self.run_hook("Stop")))
 
     def test_invalid_partial_bundle_can_be_repaired(self) -> None:
@@ -427,16 +471,16 @@ class WorkflowModesHookTests(unittest.TestCase):
             json.dumps(self.control("write-close", "--record", str(self.record))),
         )
 
-    def test_discuss_mutation_requires_scoped_action(self) -> None:
+    def test_discuss_non_source_mutation_needs_no_action(self) -> None:
         self.activate("discuss")
-        self.assertIn("WORKFLOW_DISCUSS_ACTION_REQUIRED", json.dumps(self.patch("notes.md")))
+        self.assert_nonblocking(self.patch("notes.md"))
         opened = self.control(
             "action-open", "--record", str(self.record), "--impact", "non-source",
             "--path", str(self.cwd / "notes.md"),
         )
         self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(opened))
         self.assertIsNone(self.patch(str(self.cwd / "notes.md")))
-        self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(self.cwd / "other.md"))))
+        self.assert_nonblocking(self.patch(str(self.cwd / "other.md")))
 
     def test_read_shell_forms_need_no_action_in_discuss_or_plan(self) -> None:
         for mode in ("discuss", "plan"):
@@ -462,9 +506,9 @@ class WorkflowModesHookTests(unittest.TestCase):
             ):
                 with self.subTest(mode=mode, command=command):
                     denied = json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command}))
-                    self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED" if mode == "discuss" else "WORKFLOW_PLAN_READ_ONLY", denied)
+                    self.assertIn(f"WORKFLOW_{mode.upper()}_ADVISORY", denied)
 
-    def test_discuss_denial_identifies_unrecognized_command(self) -> None:
+    def test_discuss_reminder_identifies_unrecognized_command(self) -> None:
         self.activate("discuss")
         denied = json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": "rg --files | mystery private-argument"}))
         self.assertIn("Commands/options not recognized as read-only: mystery", denied)
@@ -483,9 +527,9 @@ class WorkflowModesHookTests(unittest.TestCase):
             with self.subTest(args=args):
                 denied = self.control("action-open", "--record", str(self.record), *args)
                 self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(denied))
-        self.assertIn("WORKFLOW_DISCUSS_ACTION_REQUIRED", json.dumps(self.patch("notes.md")))
+        self.assert_nonblocking(self.patch("notes.md"))
 
-    def test_discuss_external_action_does_not_unlock_source_or_wrappers(self) -> None:
+    def test_discuss_source_and_wrappers_remind_with_external_action(self) -> None:
         self.activate("discuss")
         self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(self.control(
             "action-open", "--record", str(self.record), "--impact", "non-source",
@@ -502,12 +546,11 @@ class WorkflowModesHookTests(unittest.TestCase):
             {"tool_name": "apply_patch", "tool_input": "*** Update File: notes.md\n*** Move to: app.py\n"},
         ):
             with self.subTest(payload=payload):
-                self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(
-                    self.run_hook("PreToolUse", **payload)))
+                self.assert_nonblocking(self.run_hook("PreToolUse", **payload))
         self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command",
                                       tool_input={"cmd": "git diff"}))
 
-    def test_legacy_discuss_source_action_can_close_but_cannot_mutate(self) -> None:
+    def test_legacy_discuss_source_action_can_close_without_tool_denials(self) -> None:
         self.activate("discuss")
         database = self.cwd / "workflow-modes.sqlite3"
         with closing(sqlite3.connect(database)) as connection, connection:
@@ -517,7 +560,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             state["action"] = {"status": "authorized", "impact": "source-confirmed",
                                "paths": [str(self.cwd / "app.py")], "unscoped": ["shell", "git"]}
             connection.execute("UPDATE sessions SET state_json = ? WHERE session_key = ?", (json.dumps(state), key))
-        self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assert_nonblocking(self.patch("app.py"))
         self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
         self.assertIsNone(self.patch(str(self.record / "actions.md")))
         self.control("write-close", "--record", str(self.record))
@@ -531,9 +574,9 @@ class WorkflowModesHookTests(unittest.TestCase):
         alias.symlink_to(target)
         self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.control(
             "action-open", "--record", str(self.record), "--impact", "non-source", "--path", str(alias))))
-        self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.patch(str(alias))))
+        self.assert_nonblocking(self.patch(str(alias)))
 
-    def test_behavior_answer_does_not_unlock_source_or_execute_transition(self) -> None:
+    def test_behavior_answer_does_not_fabricate_execute_handoff(self) -> None:
         self.activate("discuss")
         self.write_open()
         (self.record / "decisions.md").write_text(
@@ -541,7 +584,7 @@ class WorkflowModesHookTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.control("write-close", "--record", str(self.record))
-        self.assertIn("WORKFLOW_DISCUSS_EXECUTE_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assert_nonblocking(self.patch("app.py"))
         self.assertIn("WORKFLOW_HANDOFF_NOT_DURABLE", json.dumps(
             self.control("transition", "execute", "--record", str(self.record))))
 
@@ -587,20 +630,14 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("WORKFLOW_MODE_ACTIVE", json.dumps(transitioned))
         target = self.cwd / "plans" / "test-plan"
         denied = self.patch(str(target / "index.md"))
-        self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(denied))
+        self.assertIn("WORKFLOW_PLAN_ADVISORY", json.dumps(denied))
         initialized = self.control(
             "plan-init", "--record", str(self.record), "--target", str(target),
         )
         self.assertIn("WORKFLOW_PLAN_INIT_OPEN", json.dumps(initialized))
-        self.assertIsNone(self.patch(str(target / "index.md"), str(target / "context.md")))
-        self.assertIn(
-            "WORKFLOW_PLAN_BOOTSTRAP_SCOPE_DENIED",
-            json.dumps(self.patch(str(self.cwd / "outside.md"))),
-        )
-        self.assertIn(
-            "WORKFLOW_PLAN_BOOTSTRAP_SCOPE_DENIED",
-            json.dumps(self.patch(str(target / "assets" / "config.json"))),
-        )
+        self.assert_nonblocking(self.patch(str(target / "index.md"), str(target / "context.md")))
+        self.assert_nonblocking(self.patch(str(self.cwd / "outside.md")))
+        self.assert_nonblocking(self.patch(str(target / "assets" / "config.json")))
         self.assertIn(
             "WORKFLOW_PLAN_ACTIVATION_REQUIRED",
             json.dumps(self.run_hook("Stop")),
@@ -744,15 +781,16 @@ class WorkflowModesHookTests(unittest.TestCase):
         denied = self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed", "--path", "app.py")
         self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", json.dumps(denied))
 
-    def test_repeat_stop_suspends_without_unlocking_mutation(self) -> None:
+    def test_repeat_stop_preserves_pending_state_without_suspending(self) -> None:
         self.activate("discuss")
         self.write_open()
-        self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", json.dumps(self.run_hook("Stop")))
-        self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.run_hook("Stop", stop_hook_active=True)))
-        self.assertIn("deny", json.dumps(self.patch("outside.py")))
-        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
+        before = self.control("snapshot")
+        for _ in range(3):
+            self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", json.dumps(self.run_hook("Stop", stop_hook_active=True)))
+            self.assertEqual(before, self.control("snapshot"))
+        self.assertIn("suspended=False", json.dumps(before))
+        self.assert_nonblocking(self.patch("outside.py"))
         self.control("write-close", "--record", str(self.record))
-        self.assertIn("WORKFLOW_RECOVERED", json.dumps(self.control("recover", "--record", str(self.record))))
         self.assertIsNone(self.run_hook("Stop"))
 
     def test_unreadable_record_repairs_from_cached_manifest(self) -> None:
@@ -761,19 +799,19 @@ class WorkflowModesHookTests(unittest.TestCase):
         context = self.record / "context.md"
         context.unlink()
         self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.control("suspend", "--record", str(self.record), "--reason", "persistence-failed")))
-        self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.run_hook("Stop")))
-        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assertIn("WORKFLOW_DISCUSS_ADVISORY", json.dumps(self.run_hook("Stop")))
+        self.assert_nonblocking(self.patch("app.py"))
         self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.control("write-open", "--record", str(self.record), "--previous-revision", baseline)))
         self.assertIsNone(self.patch(str(context)))
         context.write_text("# Context repaired from evidence\n", encoding="utf-8")
         self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
         self.assertIn("WORKFLOW_RECOVERED", json.dumps(self.control("recover", "--record", str(self.record))))
 
-    def test_suspension_does_not_allow_nonrecord_writes_or_new_actions(self) -> None:
+    def test_user_stop_reminds_without_losing_pending_action(self) -> None:
         self.activate("discuss")
         self.control("action-open", "--record", str(self.record), "--impact", "non-source", "--path", str(self.cwd / "notes.md"))
         self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
-        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch(str(self.cwd / "app.py"))))
+        self.assert_nonblocking(self.patch(str(self.cwd / "app.py")))
         self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.control("recover", "--record", str(self.record))))
         self.assertIn("WORKFLOW_ACTION_CLOSED", json.dumps(self.control("action-close", "--result", "paused")))
         self.assertIn("WORKFLOW_RECOVERED", json.dumps(self.control("recover", "--record", str(self.record))))
@@ -797,7 +835,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("WORKFLOW_MODE_INACTIVE", json.dumps(self.control("deactivate")))
         self.assertIn("[ ] Unfinished work", plan.read_text())
 
-    def test_scripts_and_new_file_adapters_respect_plan_boundary(self) -> None:
+    def test_scripts_and_file_adapters_receive_plan_reminders(self) -> None:
         self.activate("plan")
         for payload in (
             {"tool_name": "exec_command", "tool_input": {"cmd": "python3 change.py"}},
@@ -806,9 +844,9 @@ class WorkflowModesHookTests(unittest.TestCase):
             {"tool_name": "functions.exec", "tool_input": {"code": "anything"}},
         ):
             with self.subTest(payload=payload):
-                self.assertIn("WORKFLOW_PLAN_READ_ONLY", json.dumps(self.run_hook("PreToolUse", **payload)))
+                self.assert_nonblocking(self.run_hook("PreToolUse", **payload))
 
-    def test_compound_control_never_exempts_other_commands(self) -> None:
+    def test_compound_control_is_not_acknowledged(self) -> None:
         self.activate("plan")
         control = f'{sys.executable} "{CONTROL}" snapshot --marker {MARKER}'
         for command in (control + "; touch outside.py", "touch outside.py; " + control, control + "\ntouch outside.py", "echo " + control):
@@ -825,7 +863,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         denied = self.control("transition", "plan", "--record", str(other))
         self.assertIn("WORKFLOW_RECORD_MISMATCH", json.dumps(denied))
 
-    def test_file_scope_resolves_symlink_target(self) -> None:
+    def test_non_source_symlink_is_not_an_action_permission_gate(self) -> None:
         self.activate("discuss")
         target = self.cwd / "inside.md"
         outside = self.cwd / "outside.md"
@@ -834,7 +872,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.control("action-open", "--record", str(self.record), "--impact", "non-source", "--path", str(target))
         alias = self.cwd / "alias.md"
         alias.symlink_to(outside)
-        self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(alias))))
+        self.assert_nonblocking(self.patch(str(alias)))
 
     def test_bootstrap_can_be_cancelled_without_deleting_target(self) -> None:
         self.activate("discuss")
@@ -902,12 +940,14 @@ class WorkflowModesHookTests(unittest.TestCase):
             self.assertNotIn("decision", stopped)
         self.assertIn("suspended=False", json.dumps(self.control("snapshot")))
         self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
-        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch("app.py")))
+        self.assert_nonblocking(self.patch("app.py"))
 
     def test_execute_pr_delivery_continues_without_action_or_class_grants(self) -> None:
         self.activate("execute")
         self.run_hook("UserPromptSubmit")
         self.run_hook("PostCompact")
+        self.assert_restore_gate(self.patch("app.py"))
+        self.restore_all()
         for command in ("git push -u origin feature/task", "gh pr create --title change --body result"):
             output = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
             self.assertNotIn("permissionDecision", json.dumps(output))
@@ -917,7 +957,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.activate("execute")
         before = self.control("snapshot")
         output = self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed")
-        self.assertIn("WORKFLOW_EXECUTE_CONTROL_NOT_APPLIED", json.dumps(output))
+        self.assertIn("WORKFLOW_CONTROL_NOT_APPLIED", json.dumps(output))
         self.assertNotIn("permissionDecision", json.dumps(output))
         self.assertEqual(before, self.control("snapshot"))
         output = self.run_hook("PreToolUse", tool_name="functions.exec", tool_input={"code": 'text(await tools.exec_command({cmd: "git status"}));'})
@@ -941,7 +981,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         output = self.control("suspend", "--record", str(self.record), "--reason", "persistence-failed")
         self.assertIn("WORKFLOW_USER_STOP_RETAINED", json.dumps(output))
         for _ in range(2):
-            self.assertIn("permissionDecision", json.dumps(self.patch("app.py")))
+            self.assert_nonblocking(self.patch("app.py"))
 
     def test_execute_legacy_abort_preserves_user_stop(self) -> None:
         self.activate("execute")
@@ -954,7 +994,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
         (self.record / "context.md").unlink()
         self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.control("action-abort", "--reason", "record-unreadable")))
-        self.assertIn("permissionDecision", json.dumps(self.patch("app.py")))
+        self.assert_nonblocking(self.patch("app.py"))
 
     def test_execute_repeated_advisory_is_quiet_until_next_prompt(self) -> None:
         self.activate("execute")
@@ -1006,7 +1046,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         ):
             command = f'{sys.executable} "{stale}" {arguments} --marker {MARKER}'
             output = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
-            reason = output["hookSpecificOutput"]["permissionDecisionReason"]
+            reason = output["hookSpecificOutput"]["additionalContext"]
             self.assertIn("WORKFLOW_CONTROL_UNAVAILABLE", reason)
             self.assertIn(str(CONTROL.resolve()), reason)
             self.assertNotIn("WORKFLOW_CONTROL_AMBIGUOUS", reason)
@@ -1014,7 +1054,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         # The suggested current script actually supports recovery; no reactivation.
         self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(self.control("sync", "--record", str(self.record))))
 
-    def test_control_path_validation_never_exempts_companion_commands(self) -> None:
+    def test_control_path_validation_rejects_ambiguous_state_updates(self) -> None:
         stale = self.cwd / "missing" / "workflow_modes_control.py"
         command = f'{sys.executable} "{stale}" snapshot --marker {MARKER}; touch outside.py'
         self.assertIn("WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})))
@@ -1038,7 +1078,143 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.activate("discuss")
         self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
         self.assertIsNone(self.run_hook("PreToolUse", tool_name="write_stdin", tool_input={"session_id": 42, "chars": "\x03"}))
-        self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.run_hook("PreToolUse", tool_name="write_stdin", tool_input={"session_id": 42, "chars": "python3 change.py\n"})))
+        self.assert_nonblocking(self.run_hook("PreToolUse", tool_name="write_stdin", tool_input={"session_id": 42, "chars": "python3 change.py\n"}))
+
+    def stored_state(self):
+        database = self.cwd / "workflow-modes.sqlite3"
+        key = hashlib.sha256(self.session_id.encode("utf-8")).hexdigest()
+        with closing(sqlite3.connect(database)) as connection:
+            row = connection.execute("SELECT state_json FROM sessions WHERE session_key = ?", (key,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def test_all_modes_remind_and_preserve_pending_records_through_repeated_stops(self):
+        for mode in MODE_REFERENCES:
+            with self.subTest(mode=mode):
+                self.session_id = "advisory-matrix-" + mode
+                self.record = self.cwd / mode / "advisory-record"
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                before_files = {str(p): p.read_bytes() for p in self.record.rglob("*.md")}
+                prompt = json.dumps(self.run_hook("UserPromptSubmit"))
+                self.assertIn(f"mode={mode}", prompt)
+                self.assertIn("Record completeness is mandatory", prompt)
+                self.assertIn("decisions and rationale", prompt)
+                self.write_open()
+                self.run_hook("PostCompact")
+                before_state = self.stored_state()
+                for _ in range(3):
+                    output = self.run_hook("Stop", stop_hook_active=True)
+                    self.assertIn("Tracker/plan completeness remains mandatory", output["systemMessage"])
+                    self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", output["systemMessage"])
+                    self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", output["systemMessage"])
+                    self.assertIn("WORKFLOW_TURN_CHECKPOINT_REQUIRED", output["systemMessage"])
+                    self.assertEqual(before_state, self.stored_state())
+                self.assertNotIn("recovery", self.stored_state())
+                self.assertEqual(before_files, {str(p): p.read_bytes() for p in self.record.rglob("*.md")})
+                # Source, external, and opaque operations still return no permission decision.
+                for payload in (
+                    {"tool_name": "apply_patch", "tool_input": "*** Update File: app.py\n"},
+                    {"tool_name": "functions.exec", "tool_input": {"code": "opaque()"}},
+                    {"tool_name": "tickets.update_issue", "tool_input": {}},
+                ):
+                    self.assert_restore_gate(self.run_hook("PreToolUse", **payload))
+                self.restore_all()
+                self.assertEqual(before_state["write_transaction"], self.stored_state()["write_transaction"])
+                self.assertTrue(self.stored_state()["checkpoint_required"])
+
+    def test_discuss_and_plan_focus_reminders_are_deduplicated_without_gating(self):
+        for mode, focus in (("discuss", "focus on discussion"), ("plan", "focus on the plan")):
+            with self.subTest(mode=mode):
+                self.session_id = "focus-" + mode
+                self.record = self.cwd / mode / "focus-record"
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                message = self.patch("app.py")["hookSpecificOutput"]["additionalContext"]
+                self.assertIn(f"WORKFLOW_{mode.upper()}_ADVISORY", message)
+                self.assertIn(focus, message)
+                self.assertIn("Save all material decisions", message)
+                shell = {"tool_name": "exec_command", "tool_input": {"cmd": "python3 build.py"}}
+                self.assertIn("classification is uncertain", json.dumps(self.run_hook("PreToolUse", **shell)))
+                self.assertIsNone(self.patch("app.py"))
+                self.assertIsNone(self.run_hook("PreToolUse", **shell))
+                self.run_hook("UserPromptSubmit")
+                self.assertIn(focus, json.dumps(self.patch("app.py")))
+                self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": "git diff"}))
+                self.assertIsNone(self.patch(str(self.record / "context.md")))
+                if mode == "discuss":
+                    self.assertIsNone(self.patch("requested-document.md"))
+                    self.assertIsNone(self.run_hook("PreToolUse", tool_name="tickets.update_issue", tool_input={}))
+
+    def test_invalid_controls_preserve_binding_without_acknowledging_or_blocking(self):
+        for mode in MODE_REFERENCES:
+            with self.subTest(mode=mode):
+                self.session_id = "invalid-control-" + mode
+                self.record = self.cwd / mode / "control-record"
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                before = self.stored_state()
+                for args in (
+                    ("sync", "--record", str(self.cwd / "unrelated")),
+                    ("write-open", "--record", str(self.record), "--previous-revision", "stale"),
+                    ("deactivate",),
+                ):
+                    output = json.dumps(self.control(*args))
+                    self.assertIn("WORKFLOW_CONTROL_NOT_APPLIED", output)
+                    self.assertNotIn("WORKFLOW_RECORD_SYNCED", output)
+                    self.assertNotIn("WORKFLOW_WRITE_OPEN:", output)
+                    self.assertNotIn("WORKFLOW_MODE_INACTIVE:", output)
+                    self.assertEqual(before, self.stored_state())
+                self.assert_nonblocking(self.patch("app.py"))
+
+    def test_user_stop_is_preserved_as_instruction_in_every_mode(self):
+        for mode in MODE_REFERENCES:
+            with self.subTest(mode=mode):
+                self.session_id = "user-stop-" + mode
+                self.record = self.cwd / mode / "stop-record"
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
+                before = self.stored_state()["recovery"]
+                self.assertIn("honor the user stop", json.dumps(self.patch("app.py")))
+                rejected = self.control("suspend", "--record", str(self.record), "--reason", "persistence-failed")
+                self.assertIn("WORKFLOW_USER_STOP_RETAINED", json.dumps(rejected))
+                self.assertEqual(before, self.stored_state()["recovery"])
+                self.assertIn("honor the user stop", json.dumps(self.run_hook("Stop")))
+                self.assertEqual(before, self.stored_state()["recovery"])
+
+    def test_unreadable_record_and_compaction_allow_direct_repair_without_transaction(self):
+        for mode in MODE_REFERENCES:
+            with self.subTest(mode=mode):
+                self.session_id = "repair-" + mode
+                self.record = self.cwd / mode / "repair-record"
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                context = self.record / "context.md"
+                content = context.read_text()
+                context.unlink()
+                output = self.run_hook("PostCompact")["systemMessage"]
+                self.assertIn("Honor user exclusions on skill activation", output)
+                self.assertNotIn("activate the current skill", output)
+                self.assert_nonblocking(self.patch(str(context)))
+                context.write_text(content)
+                self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(self.control("sync", "--record", str(self.record))))
+                refs = tuple(item for ref in MODE_REFERENCES[mode] for item in ("--reference", ref))
+                self.control("rules-sync", "--record", str(self.record), *refs)
+                self.assertIn("WORKFLOW_TURN_CHECKPOINTED", json.dumps(self.control("checkpoint", "--record", str(self.record), "--no-change")))
+                self.assert_restore_gate(self.patch("app.py"))
+                self.restore_all()
+                self.assertIsNone(self.run_hook("Stop"))
+
+    def test_hook_runtime_errors_do_not_become_tool_blocks(self):
+        for data in ("{", json.dumps({"session_id": "broken", "hook_event_name": "PreToolUse"})):
+            unusable_data = self.cwd / "not-a-directory"
+            unusable_data.write_text("preserve")
+            result = subprocess.run([sys.executable, str(HOOK)], input=data, text=True,
+                                    capture_output=True, env={**self.env, "PLUGIN_DATA": str(unusable_data)})
+            self.assertEqual(result.returncode, 0)
+            self.assertEqual(result.stdout, "")
+            self.assertIn("Workflow Modes hook failed", result.stderr)
+            self.assertEqual(unusable_data.read_text(), "preserve")
 
     def test_control_script_and_hook_schema(self) -> None:
         result = subprocess.run(

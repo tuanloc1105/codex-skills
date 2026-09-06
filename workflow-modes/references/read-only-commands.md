@@ -3,10 +3,14 @@
 Researched 2026-09-06. This is an explicit, tested subset for direct POSIX-shell
 tool calls on macOS/BSD and GNU systems, not an exhaustive list of every read-only
 program or a guarantee of zero side effects. Unknown executables, options in
-argument-aware handlers, scripts, and opaque evaluation wrappers still require
-scope. Shell aliases/functions, user configuration, pagers, filesystem access
+argument-aware handlers, scripts, and opaque evaluation wrappers produce uncertain
+effect classifications. These select reminders during normal operation; while
+post-compact restoration is pending, only recognized reads and scoped record repair
+pass the temporary gate. See [post-compact restoration](post-compact-restore.md). Shell aliases/functions, user configuration, pagers, filesystem access
 times, temporary sorting files, and implicit Git maintenance/fetching are outside
-the lexical guard. Do not describe this as an OS sandbox.
+the lexical classifier. Do not describe this as an OS sandbox.
+
+Here, “rejected” means excluded from the read-only classification. This selects reminders normally and may deny an operation only while the post-compact context gate is pending.
 
 ## Supported families
 
@@ -40,10 +44,11 @@ search patterns. Backslash-newline continuation is normalized. Unsupported
 expansions, redirection, shell grouping, comments, and malformed quoting remain
 opaque. Read-only compound calls must contain only recognized read segments.
 
-Discuss shell denials identify the executable whose command/options were not
+Shell reminders identify the executable whose command/options were not
 recognized, or state that shell syntax is unsupported. Arguments are not copied
-into the diagnostic. A denial means the classifier cannot allow the form; it
-does not prove the command modifies source.
+into the diagnostic. An uncertain classification means the form is not recognized as read-only; it
+does not prove the command modifies source. It does not block execution after the
+post-compact read gate is cleared.
 
 Do not blanket-allow `awk`, `perl`, Python, Node, `xargs`, `env` command execution,
 shell wrappers, pagers, archive tools, `tee`, or package managers based on their

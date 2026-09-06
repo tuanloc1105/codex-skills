@@ -13,6 +13,14 @@ Keep the same bundle through draft, approval, revisions, and execution handoff. 
 
 Honor an explicit exit, pause, or cancellation without requiring execute. Persist current decisions and unfinished work, set `Plan mode: Paused` or `Exited`, close transactions, checkpoint, and deactivate. Do not mark unfinished planning complete or ask for confirmation of a clear stop. A review of this skill or a supplied plan is not by itself an instruction to activate a persistent mode.
 
+## Required Record Completeness
+
+Keep the plan bundle complete. Save the goal, scope and constraints, baseline evidence, accepted decisions and rationale, assumptions and open questions, implementation steps and dependencies, acceptance and verification criteria, risks/recovery, revisions, and the exact approval and execution-authorization status. Update all affected phase files and cross-links.
+
+Persist related changes at meaningful checkpoints, before a dependent handoff, and reconcile the current turn against the bundle before the final response. Completeness means enough accurate information to resume without losing material facts, not a raw transcript or hidden reasoning. Do not defer all recording until task completion or treat a hook acknowledgment/no-change flag as proof that nothing was missed. Verify the affected files were actually saved and their cross-file state agrees.
+
+Hook acknowledgments are optional integration metadata; complete tracker/plan content is mandatory even when hooks are absent, quiet, stale, or failing. If persistence fails, retain unsaved facts in the current task context, repair from known evidence, and continue independent in-scope work only while its prerequisites remain known. Disclose the failed files, last durable checkpoint, and unsaved material facts in the final response if repair cannot finish. Never claim they were saved or mark unfinished work complete. Honor a user stop immediately; recording must not become a reason to continue implementation after it.
+
 ## Reference Routing
 
 Read the relevant reference completely:
@@ -20,7 +28,7 @@ Read the relevant reference completely:
 - [references/plan-record.md](references/plan-record.md): creating, updating, approving, exiting, or handing off a bundle. Always required while planning.
 - [references/phase-planning.md](references/phase-planning.md): only when phases, dependencies, waves, or delegation materially improve the plan.
 
-Keep Required references minimal and acknowledge changes before the next substantive step. For an ambiguous request, clarify within this same draft bundle; do not activate discuss or create a second tracker. Direct discuss-to-execute handoffs remain valid and do not require a plan bundle.
+Keep Required references minimal, read applicable context, and reconcile acknowledgments at a meaningful checkpoint; a missing acknowledgment does not gate work. For an ambiguous request, clarify within this same draft bundle; do not activate discuss or create a second tracker. Direct discuss-to-execute handoffs remain valid and do not require a plan bundle.
 
 ## Planning Sequence
 
@@ -70,17 +78,31 @@ Record which question blocks dependent planning, approval, or execution, and nam
 
 For metric scope, first establish whether the value represents the visible page, all filtered results, or the whole portfolio. Explain observed data coverage and each option's meaning. Recommend the scope best supported by the intended use, stating any assumption explicitly; do not select backend aggregation before scope is settled. A reply choosing the visible page settles that requirement only. Then plan calculation and data retrieval within that scope. See [references/decision-scenarios.md](references/decision-scenarios.md) when checking question behavior or rehearsing these boundaries.
 
+## Mandatory Recovery After Compaction
+
+After compaction, restore the current tracker/plan, every manifest file, the active mode's `SKILL.md`, and only its applicable Required references before task mutations, worker dispatch, or conclusions that depend on lost context. Read mode instructions as recovery context; this does not activate other skills. Reassess Supporting skills and honor user exclusions instead of loading all recorded skill names.
+
+With the compatible hook, `PostCompact` opens a one-time read gate. Use `restore-status --marker workflow-modes-v1` on the exact installed control script to get the next required absolute path, character offset, and epoch. Run `restore-read --record <root> --path <path> --offset <offset> --epoch <epoch> --marker workflow-modes-v1` as a standalone shell call with `max_output_tokens` at least 6000. Read its returned content and repeat using the next status until `PostToolUse` reports `WORKFLOW_CONTEXT_RESTORED`. Large files are paged automatically. The observer checks actual complete successful output against the current file; a failed/truncated read, a pre-tool request, ordinary file reads, and `sync`/`rules-sync` alone do not clear this gate. If the file changed, reread from the offset requested by status.
+
+Read-only inspection, asking questions, interrupting owned work, direct Markdown repairs inside the bound record, and honest blocker/stop reporting remain available. Do not repair from guesses or resume stopped work. Missing documents or unsupported result routing require an accurate report; do not bypass the gate, claim restoration succeeded, or loop on the same failure. Do not present context-dependent conclusions until the necessary context is restored. Once restored, action/transaction/checkpoint bookkeeping returns to advisory behavior; complete record content remains mandatory.
+
+If only `functions.exec` is available, the hook recognizes exactly one `text(await tools.exec_command(<JSON object>));` call, or `text(await tools.apply_patch(<JSON string>));` for record repair. Use literal JSON arguments without extra JavaScript. Other opaque wrappers remain gated during recovery. Without a compatible optional hook, perform the same complete recovery manually and disclose the unavailable observation mechanism when relevant; do not pretend a read receipt exists.
+
 ## Workflow Modes Hook
 
-Use the installed, trusted plugin's exact control script with the configured Python interpreter. Run one lifecycle command per call, ending with `--marker workflow-modes-v1`, and verify `WORKFLOW_*` context.
+The optional hook reminds the agent of the current mode and required record completeness. Outside the post-compact recovery gate, it never grants or denies tool permissions. It never blocks a final response. Discuss focuses on discussion and avoiding premature source changes; plan focuses on planning; execute carries out delegated work. Actual user instructions control authority, stops, and skill activation.
 
-- Fresh entry: initialize the bundle, `activate plan --record <root>`, read/sync the complete bundle, then `rules-sync --record <root> --reference <relative-reference>...`.
-- From discuss: require its successful `transition plan`, then `plan-init --record <discussion-root> --target <plan-root>`. Initialize only the declared target using file patches, then `activate plan --record <plan-root>`. If the user cancels during bootstrap, `plan-cancel --record <discussion-root>` preserves partial target files; reconcile the source and deactivate. Never delete partial work automatically.
-- Activation and compaction require a complete manifest read and record sync. After a prompt, `current` needs no reread, `snapshot` needs only the Active Snapshot and snapshot sync, and `record` needs the full bundle.
-- Before edits, `write-open --record <root> --previous-revision <acknowledged revision>` and declare new Markdown paths with `--path`; update affected files and `write-close --record <root>`. Valid no-op writes may close. Read newly required references and run rules-sync after changing that set.
-- Before a final response, `checkpoint --record <root>`; use `--no-change` only when nothing material changed. Progress commentary does not require a checkpoint or interrupt an open work unit.
-- On execution request, checkpoint planning deltas before replacing Required references with the execute minimum, close the handoff write, then `transition execute --record <root>`. The destination acknowledges its own rules. Approval alone must never invoke this transition.
+When the plugin is installed and trusted, use its exact `workflow_modes_control.py` path with the configured Python interpreter. Run each lifecycle request alone with `--marker workflow-modes-v1` last. Verify model-visible `WORKFLOW_*` confirmation; a successful CLI process alone does not prove a state update.
 
-If record persistence fails, `suspend --record <root> --reason persistence-failed` allows a blocker response while keeping all non-record mutations denied. Use `--reason user-stop` when a requested stop cannot be reconciled immediately. Repair the bundle through a write transaction, cancel an abandoned bootstrap if necessary, sync record/rules, then `recover --record <root>` before resuming or deactivating. A repeated unresolved Stop block suspends instead of looping.
+- On fresh entry, save the bundle and attempt `activate plan --record <root>`. On adoption/compaction, read the full bundle and applicable references; on later prompts use `sync_status` to focus rereads. Use `sync` and `rules-sync` when supported, without activating excluded skills.
+- Save affected record files consistently. Optional `write-open --record <root> --previous-revision <revision>` and `write-close --record <root>` track these edits; declare new Markdown paths with `--path` when using them. An absent or failed transaction acknowledgment does not prevent direct record maintenance.
+- Actions are optional tracking metadata, not mutation permissions. Record an authorized action's scope and actual result in the bundle whether or not `action-open`/`action-close` is used. Inspect actual effects of shell, Git, wrappers, and external tools; tool classification alone does not establish source impact or authority.
+- Reconcile every material turn delta before the final response or handoff, and attempt `checkpoint --record <root>` when supported. Use `--no-change` only after checking that the bundle remains complete and accurate. Progress commentary needs no checkpoint.
 
-Check local `--help` for these commands before depending on them. Report incompatible installed hooks without bypassing denials or reinstalling mid-task. Planning may continue without an installed hook because its mutations are limited to housekeeping; disclose the missing enforcement. The hook recognizes supported schemas and treats opaque execution conservatively; it is not proof that arbitrary tools or shell programs are read-only. Do not run opaque baseline checks in plan merely to evade that boundary.
+From discuss, save the source handoff and initialize a separate plan bundle. When supported, use `transition plan`, `plan-init --record <discussion-root> --target <plan-root>`, then `activate plan --record <plan-root>`. These commands track the handoff, not permission to write the plan. `plan-cancel` preserves partial files; never delete partial work automatically. On an execution request, save the approved scope and execute handoff in this exact bundle, then attempt `transition execute --record <root>`. Approval alone does not request execution. A failed acknowledgment does not invalidate a saved handoff authorized by the user.
+
+`WORKFLOW_CONTROL_NOT_APPLIED` means the requested lifecycle update was not acknowledged. Correct it when possible without fabricating success or repeatedly asking for already granted authority. Maintain the complete bundle directly if integration is unavailable. A bookkeeping control failure adds no tool or reporting gate; the independent post-compact read gate remains until actual context delivery is verified.
+
+For persistence trouble, optionally record `suspend --record <root> --reason persistence-failed`, repair the exact bundle from known facts, reconcile metadata, and attempt `recover`. For an actual user stop, `--reason user-stop` preserves that instruction: resume task work only when the user resumes it. Both states produce reminders, not tool denials; repeated Stop events do not auto-suspend. Follow Required Record Completeness for unsaved facts.
+
+Check installed `--help` before relying on new commands. An older installed hook may still deny calls; do not bypass an actual denial, alter trust, or reinstall during an active task. Use supported recovery and report the exact compatibility limitation if necessary. An absent optional hook does not block in-scope work or direct tracker/plan maintenance.

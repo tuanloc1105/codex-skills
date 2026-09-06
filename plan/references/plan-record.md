@@ -133,13 +133,19 @@ Do not duplicate phase metadata in new plan tables. Existing version 4 tables ma
 
 ## Persistence Contract
 
-- Snapshot sync reads only the Active Snapshot in `index.md`; record sync reads the complete manifest.
-- Before post-activation edits, run `write-open --record <root> --previous-revision <revision>`, declaring each new phase or optional file with `--path`.
-- Update all affected files and cross-links, then run `write-close --record <root>`. A failed close leaves the transaction open for repair.
-- Do not transition, checkpoint, stop, or mutate outside the bundle while the transaction is open.
-- After close, checkpoint the turn. A no-change checkpoint is valid only when the bundle remains accurate.
+Complete record content is mandatory; lifecycle acknowledgments are optional integration metadata. Follow the entrypoint's Required Record Completeness checklist at meaningful checkpoints and before final reporting or handoff.
+
+- Snapshot sync reads only the Active Snapshot; record sync reads `index.md` and every manifest file completely. Read the actual required context even if acknowledgment is unavailable.
+- When supported, use `write-open --record <root> --previous-revision <acknowledged revision>` and declare new Markdown paths with `--path`. Otherwise maintain the bundle directly.
+- Update every affected file, manifest entry, cross-link, status, and evidence locator consistently. Verify the actual saved content before claiming it is durable.
+- Attempt `write-close` for an opened transaction and reconcile failed validation. An open or failed transaction does not restrict other tools or final reporting; it never excuses omitted record content.
+- Attempt a checkpoint after reconciliation. Use `--no-change` only after comparing the turn's material facts with the saved bundle. A successful acknowledgment does not prove semantic completeness.
+
+If persistence fails, retain unsaved facts, repair from known evidence, and disclose the failed files, last durable checkpoint, and unsaved material facts if repair cannot finish. Continue independent in-scope work while its prerequisites remain known; stop dependent work only when missing or conflicting context prevents correct progress. Never claim unsaved conclusions are durable.
 
 ## Approval and Execute Handoff
+
+Lifecycle commands below apply when the optional hook supports them. Persist the complete handoff and actual authority regardless; an unapplied hook request does not invalidate a saved, user-authorized handoff. Reconcile integration metadata without requesting the same permission again.
 
 Approval requires a decision-complete bundle: concrete goal and scope, verified baseline, preservation criteria, accepted decisions, no blocking questions, complete phase dependencies and ownership, implementation logic, verification, integration gates, and rollback.
 

@@ -25,7 +25,7 @@ Create these files initially:
 
 `index.md` is the control plane. Its manifest lists every bundle-owned Markdown path, beginning with `index.md`. `context.md` holds goal, scope, current state, source-of-truth evidence, baseline, preservation requirements, risks, and constraints. `decisions.md` holds assumptions, decisions, requirements, and open questions. `actions.md` holds scoped-action authorization and results. `evidence.md` holds the log, handoff evidence, amendments, commit records, and execute action markers.
 
-A Direct Execute Handoff may add `plan.md`, `verification.md`, and `phases/P<NN>-<slug>.md`. Declare new paths with `write-open --path` and add them to the manifest in the same transaction.
+A Direct Execute Handoff may add `plan.md`, `verification.md`, and `phases/P<NN>-<slug>.md`. Add new paths to the manifest with the related content; declare them with `write-open --path` when using hook transactions.
 
 ## Index Contract
 
@@ -88,15 +88,15 @@ Keep `Supporting skills` in the Active Snapshot limited to skills needed for the
 
 ## Persistence and Sync
 
-- Snapshot sync requires reading only the delimited Active Snapshot in `index.md`.
-- Record sync requires reading `index.md` and every manifest file completely.
-- Before any post-activation bundle edit, run `write-open --record <root> --previous-revision <acknowledged revision>`. Add one `--path <absolute path>` for each new Markdown file.
-- While the transaction is open, mutate only allowed bundle paths. Update every affected cross-file reference before closing.
-- Run `write-close --record <root>` only after the manifest, tracker identity, state, phase links, and evidence markers are consistent. A failed close leaves the transaction open for repair.
-- Never transition, checkpoint, stop, or perform non-record mutation while a write transaction is open.
-- After a successful close, complete the normal checkpoint. Use `checkpoint --no-change` only for a genuinely unchanged turn.
+Complete record content is mandatory; lifecycle acknowledgments are optional integration metadata. Follow the entrypoint's Required Record Completeness checklist at meaningful checkpoints and before final reporting or handoff.
 
-If persistence fails, do not present unsaved conclusions as durable state. Report the failed files and stop before further substantive work.
+- Snapshot sync reads only the Active Snapshot; record sync reads `index.md` and every manifest file completely. Read the actual required context even if acknowledgment is unavailable.
+- When supported, use `write-open --record <root> --previous-revision <acknowledged revision>` and declare new Markdown paths with `--path`. Otherwise maintain the bundle directly.
+- Update every affected file, manifest entry, cross-link, status, and evidence locator consistently. Verify the actual saved content before claiming it is durable.
+- Attempt `write-close` for an opened transaction and reconcile failed validation. An open or failed transaction does not restrict other tools or final reporting; it never excuses omitted record content.
+- Attempt a checkpoint after reconciliation. Use `--no-change` only after comparing the turn's material facts with the saved bundle. A successful acknowledgment does not prove semantic completeness.
+
+If persistence fails, retain unsaved facts, repair from known evidence, and disclose the failed files, last durable checkpoint, and unsaved material facts if repair cannot finish. Continue independent in-scope work while its prerequisites remain known; stop dependent work only when missing or conflicting context prevents correct progress. Never claim unsaved conclusions are durable.
 
 ## Cross-Session Handoff
 
@@ -105,6 +105,8 @@ On resume, canonicalize the supplied directory or `index.md`, read the complete 
 If two bundles claim the same tracker ID or the lineage is ambiguous, preserve both, record the conflict, and apply the Decision Gate.
 
 ## Transition Gate
+
+Lifecycle commands below apply when the optional hook supports them. Persist the complete handoff and actual authority regardless; an unapplied hook request does not invalidate a saved, user-authorized handoff. Reconcile integration metadata without requesting the same permission again.
 
 When discussion is settled, persist the outcome. Offer these handoffs when further work is wanted; stopping after discussion is also valid:
 
