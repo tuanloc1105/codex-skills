@@ -92,4 +92,4 @@ If persistence fails, follow the entrypoint repair protocol and keep the exact r
 3. Inspect context, choose dependency-ready work, and amend the record for material new information.
 4. Execute the smallest complete work units, verify and reconcile their evidence, and, when commits are authorized, commit each accepted unit immediately before beginning the next separable unit. Do not wait for the phase or plan to finish.
 5. Accept phase outputs and integration checks before starting dependents. Continue until the authorized task is complete, genuinely blocked, or explicitly stopped.
-6. Apply the outcome-specific completion reference, persist the actual result, checkpoint, and report it.
+6. Run the completion reference's required `$simplify` pass for each completed code-changing batch, including a single phase, step, or follow-up; verify and commit resulting fixes when authorized. Apply the outcome-specific gate, persist the actual result and simplify evidence, checkpoint, and report it. Honor user exclusions and stops; an honest blocker report does not require cleanup.

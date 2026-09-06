@@ -48,6 +48,8 @@ Keep `Supporting skills` in the Active Snapshot limited to skills needed for the
 
 Execute all authorized in-scope work, including dependency-ready phases and accepted amendments. Treat failed attempts, test failures, unavailable delegation, and context pressure as intermediate states; recover proportionately and continue independent safe work.
 
+After each execution batch that changes code, run `$simplify` before reporting that batch complete, including a single phase, step, or follow-up amendment. This is required even for small changes unless the user explicitly excludes it; follow the completion reference for scope, evidence, and unavailable-skill handling. A read-only turn or a user stop does not trigger cleanup.
+
 A genuine blocker requires a material user choice, unavailable authority/credential/system, a higher-priority prohibition, or an irreconcilable conflict with pre-existing changes. Do not wait for optional tools, reviews, or a preferred number of subagents. Do not retry indefinitely when the same failure requires external intervention.
 
 Use the outcome-specific gate in the completion reference:
