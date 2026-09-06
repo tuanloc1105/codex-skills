@@ -1,24 +1,21 @@
 #!/usr/bin/env python3
-"""Emit lifecycle requests or deliver bounded workflow context pages for the hook to observe."""
+"""Emit a workflow-mode lifecycle control call for the plugin hook to observe."""
 
 from __future__ import annotations
 
 import argparse
-import json
-
-from restore_context import read_page
 
 
 MARKER = "workflow-modes-v1"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="action", required=True)
 
     activate = subparsers.add_parser("activate")
     activate.add_argument("mode", choices=("discuss", "plan", "execute"))
-    activate.add_argument("--record", required=True)
+    activate.add_argument("--record")
     activate.add_argument("--marker", required=True)
 
     transition = subparsers.add_parser("transition")
@@ -30,19 +27,6 @@ def build_parser() -> argparse.ArgumentParser:
     plan_init.add_argument("--record", required=True)
     plan_init.add_argument("--target", required=True)
     plan_init.add_argument("--marker", required=True)
-
-    plan_cancel = subparsers.add_parser("plan-cancel")
-    plan_cancel.add_argument("--record", required=True)
-    plan_cancel.add_argument("--marker", required=True)
-
-    suspend = subparsers.add_parser("suspend")
-    suspend.add_argument("--record", required=True)
-    suspend.add_argument("--reason", choices=("persistence-failed", "user-stop"), required=True)
-    suspend.add_argument("--marker", required=True)
-
-    recover = subparsers.add_parser("recover")
-    recover.add_argument("--record", required=True)
-    recover.add_argument("--marker", required=True)
 
     action_open = subparsers.add_parser("action-open")
     action_open.add_argument("--record", required=True)
@@ -57,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     action_open.add_argument("--marker", required=True)
 
     action_close = subparsers.add_parser("action-close")
-    action_close.add_argument("--result", choices=("completed", "failed", "blocked", "paused", "cancelled"), required=True)
+    action_close.add_argument("--result", choices=("completed", "failed", "blocked"), required=True)
     action_close.add_argument("--marker", required=True)
 
     action_abort = subparsers.add_parser("action-abort")
@@ -89,39 +73,8 @@ def build_parser() -> argparse.ArgumentParser:
     checkpoint.add_argument("--no-change", action="store_true")
     checkpoint.add_argument("--marker", required=True)
 
-    restore_status = subparsers.add_parser("restore-status")
-    restore_status.add_argument("--marker", required=True)
-    restore_confirm = subparsers.add_parser("restore-confirm")
-    restore_confirm.add_argument("--record", required=True)
-    restore_confirm.add_argument("--epoch", required=True)
-    restore_confirm.add_argument("--summary", required=True)
-    restore_confirm.add_argument("--marker", required=True)
-    restore_read = subparsers.add_parser("restore-read")
-    restore_read.add_argument("--record", required=True)
-    restore_read.add_argument("--path", required=True)
-    restore_read.add_argument("--offset", type=int, default=0)
-    restore_read.add_argument("--epoch", required=True)
-    restore_read.add_argument("--marker", required=True)
-
     subparsers.add_parser("snapshot").add_argument("--marker", required=True)
     subparsers.add_parser("deactivate").add_argument("--marker", required=True)
-    return parser
-
-
-def help_request(args: list[str]) -> bool:
-    """Accept only standalone root or known subcommand help."""
-    if args in (["--help"], ["-h"]):
-        return True
-    parser = build_parser()
-    commands = next(
-        action.choices for action in parser._actions
-        if isinstance(action, argparse._SubParsersAction)
-    )
-    return len(args) == 2 and args[0] in commands and args[1] in {"--help", "-h"}
-
-
-def parse_args() -> argparse.Namespace:
-    parser = build_parser()
     args = parser.parse_args()
     if args.marker != MARKER:
         parser.error("invalid workflow-modes marker")
@@ -130,9 +83,6 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    if args.action == "restore-read":
-        print(json.dumps(read_page(args.path, args.offset, args.epoch), ensure_ascii=False))
-        return 0
     print(
         f"Workflow mode control request sent: {args.action}. "
         "Verify that the lifecycle hook returned model-visible confirmation."

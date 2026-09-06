@@ -25,10 +25,6 @@ REQUIRED_PATHS = (
     Path("hooks/hooks.json"),
     Path("scripts/workflow_modes_control.py"),
     Path("scripts/workflow_modes_hook.py"),
-    Path("scripts/tool_policy.py"),
-    Path("scripts/bundle_schema.py"),
-    Path("scripts/restore_context.py"),
-    Path("scripts/readonly_commands.py"),
 )
 EXCLUDED_DIRECTORIES = {".git", ".serena", "__pycache__"}
 EXCLUDED_FILES = {".DS_Store"}

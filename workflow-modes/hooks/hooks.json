@@ -1,5 +1,5 @@
 {
-  "description": "Dormant mode reminders, mandatory post-compact context restoration, and nonblocking final reporting.",
+  "description": "Dormant tracker-backed guardrails for discuss, plan, and execute modes.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -59,19 +59,6 @@
             "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
             "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
             "timeout": 3
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
-            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
-            "timeout": 3,
-            "additionalContextLimit": 900
           }
         ]
       }
