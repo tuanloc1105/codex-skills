@@ -176,7 +176,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         ):
             with self.subTest(command=command):
                 output = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
-                self.assertIn("WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(output))
+                self.assertIn("WORKFLOW_CONTROL_MISMATCH" if str(fake) in command else "WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(output))
         for args in (("nonexistent", "--help"), ("--help", "activate")):
             self.assertIn("WORKFLOW_CONTROL_INVALID", json.dumps(self.control(*args)))
 
@@ -925,7 +925,37 @@ class WorkflowModesHookTests(unittest.TestCase):
         command = f'{sys.executable} "{source}" snapshot --marker {MARKER}'
         self.assertIn("WORKFLOW_MODE_SNAPSHOT", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})))
         source.write_text("print('unrelated program')\n", encoding="utf-8")
+        self.assertIn("WORKFLOW_CONTROL_MISMATCH", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})))
+
+    def test_stale_control_path_reports_recovery_without_changing_state(self) -> None:
+        self.activate("discuss")
+        stale = self.cwd / "removed-cache" / "scripts" / "workflow_modes_control.py"
+        database = self.cwd / "workflow-modes.sqlite3"
+        def state_rows():
+            with closing(sqlite3.connect(database)) as connection:
+                return connection.execute("SELECT * FROM sessions").fetchall()
+        before = state_rows()
+        for arguments in (
+            f'sync --record "{self.record}" --scope record',
+            f'checkpoint --record "{self.record}" --no-change',
+            '--help',
+        ):
+            command = f'{sys.executable} "{stale}" {arguments} --marker {MARKER}'
+            output = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
+            reason = output["hookSpecificOutput"]["permissionDecisionReason"]
+            self.assertIn("WORKFLOW_CONTROL_UNAVAILABLE", reason)
+            self.assertIn(str(CONTROL.resolve()), reason)
+            self.assertNotIn("WORKFLOW_CONTROL_AMBIGUOUS", reason)
+            self.assertEqual(before, state_rows())
+        # The suggested current script actually supports recovery; no reactivation.
+        self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(self.control("sync", "--record", str(self.record))))
+
+    def test_control_path_validation_never_exempts_companion_commands(self) -> None:
+        stale = self.cwd / "missing" / "workflow_modes_control.py"
+        command = f'{sys.executable} "{stale}" snapshot --marker {MARKER}; touch outside.py'
         self.assertIn("WORKFLOW_CONTROL_AMBIGUOUS", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})))
+        command = f'{sys.executable} workflow_modes_control.py snapshot --marker {MARKER}'
+        self.assertIn("WORKFLOW_CONTROL_PATH_REQUIRED", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})))
 
     def test_cached_recovery_scope_cannot_follow_replaced_symlink(self) -> None:
         self.activate("discuss")

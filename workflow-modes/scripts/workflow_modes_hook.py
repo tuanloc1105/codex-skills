@@ -430,9 +430,21 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
         bool(re.fullmatch(r"python(?:\d+(?:\.\d+)*)?(?:\.exe)?", interpreter)) and len(prefix) == 1
     ) or (interpreter in {"py", "py.exe"} and prefix[1:] == ["-3"])
     if (len(segments) != 1 or not valid_prefix or marker_index + 2 != len(segment)
-            or any(character in tool_command(payload) for character in ("\n", "\r", "`", "$", ">", "<"))
-            or not matching_control_script(segment[script_index])):
+            or any(character in tool_command(payload) for character in ("\n", "\r", "`", "$", ">", "<"))):
         return {"action": "ambiguous"}
+    script = segment[script_index]
+    if not matching_control_script(script):
+        candidate = Path(script)
+        if not candidate.is_absolute():
+            return {"action": "control-path-required"}
+        try:
+            if not candidate.is_file():
+                return {"action": "control-unavailable"}
+            # Different bytes and unreadable files are distinct recovery cases.
+            candidate.read_bytes()
+        except OSError:
+            return {"action": "control-unavailable"}
+        return {"action": "control-mismatch"}
     args = segment[script_index + 1:marker_index]
     if not args:
         return None
@@ -517,8 +529,25 @@ def handle_control(
     if action == "ambiguous":
         return deny_tool(
             "WORKFLOW_CONTROL_AMBIGUOUS: run only one marker-backed lifecycle control "
-            "request per tool call."
+            "request per tool call, with a supported Python interpreter, no companion "
+            "shell syntax, and the marker last."
         )
+    control_errors = {
+        "control-path-required": "WORKFLOW_CONTROL_PATH_REQUIRED: the control script requires an absolute path.",
+        "control-unavailable": "WORKFLOW_CONTROL_UNAVAILABLE: the requested control script is missing, not a file, or unreadable. A versioned cache path may be stale after a plugin update.",
+        "control-mismatch": "WORKFLOW_CONTROL_MISMATCH: the requested control script does not match this running hook's control script; this may be a different plugin version or unrelated code.",
+    }
+    if action in control_errors:
+        expected = Path(__file__).with_name("workflow_modes_control.py").resolve()
+        hint = (
+            " Verified control script for this running hook: " + json.dumps(str(expected))
+            + ". Resubmit the same authorized request using that script (or an identical installed-source copy), "
+            "with --marker workflow-modes-v1 last."
+            if matching_control_script(str(expected)) else
+            " This running hook's own control script cannot be verified. Stop and report the installation problem."
+        )
+        return deny_tool(control_errors[action] + hint
+                         + " No lifecycle state was changed. Do not reinstall or alter hook trust to resolve this request.")
     if action == "help":
         return context_output("PreToolUse", "WORKFLOW_CONTROL_HELP: read-only CLI help permitted.")
     if action == "invalid-help":
