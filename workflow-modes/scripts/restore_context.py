@@ -56,8 +56,15 @@ def unwrap(payload: dict[str, Any]) -> dict[str, Any]:
     return {**payload, 'tool_name': match[1], 'tool_input': arguments}
 
 
+def completed_output_header(value: Any) -> bool:
+    """Only the orchestration completion header is ignorable, never arbitrary text."""
+    return isinstance(value, str) and re.fullmatch(
+        r'Script completed\nWall time [0-9]+(?:\.[0-9]+)? seconds\nOutput:\n', value
+    ) is not None
+
+
 def observed_page(response: Any, depth: int = 0) -> dict[str, Any] | None:
-    """Require a complete successful shell result, also inside MCP text wrappers."""
+    """Decode complete shell results, including native orchestration content blocks."""
     if depth > 5:
         return None
     if isinstance(response, str):
@@ -65,6 +72,17 @@ def observed_page(response: Any, depth: int = 0) -> dict[str, Any] | None:
             return observed_page(json.loads(response), depth + 1)
         except ValueError:
             return None
+    if isinstance(response, list):
+        if not 1 <= len(response) <= 2:
+            return None
+        for block in response:
+            if (not isinstance(block, dict) or block.get('type') not in {'text', 'input_text'}
+                    or not isinstance(block.get('text'), str)
+                    or any(block.get(key) for key in ('isError', 'truncated', 'is_truncated', 'output_truncated'))):
+                return None
+        if len(response) == 2 and not completed_output_header(response[0]['text']):
+            return None
+        return observed_page(response[-1]['text'], depth + 1)
     if not isinstance(response, dict):
         return None
     if any(response.get(key) for key in ('isError', 'truncated', 'is_truncated', 'output_truncated')):
@@ -79,8 +97,8 @@ def observed_page(response: Any, depth: int = 0) -> dict[str, Any] | None:
             return None
         return page if isinstance(page, dict) and page.get('type') == 'workflow-context-page-v1' else None
     content = response.get('content')
-    if isinstance(content, list) and len(content) == 1 and isinstance(content[0], dict) and content[0].get('type') == 'text':
-        return observed_page(content[0].get('text'), depth + 1)
+    if isinstance(content, list):
+        return observed_page(content, depth + 1)
     return None
 
 

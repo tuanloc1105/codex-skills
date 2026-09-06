@@ -464,7 +464,7 @@ def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
         if token in {
             "--record", "--path", "--result", "--impact", "--evidence-id",
             "--unscoped", "--reason", "--scope", "--previous-revision", "--reference",
-            "--target", "--offset", "--epoch",
+            "--target", "--offset", "--epoch", "--summary",
         } and index + 1 < len(args):
             key = token[2:].replace("-", "_")
             if key == "path":
@@ -1314,22 +1314,44 @@ def restoration_message(state: dict[str, Any]) -> str:
     paths, valid = restoration_scope(state)
     missing = missing_reads(state['restore'], paths)
     next_read = missing[0] if missing else None
-    return ('WORKFLOW_CONTEXT_RESTORE_REQUIRED: after compaction, load the exact tracker/plan, '
-            'mode SKILL.md, and applicable references before task mutations or worker dispatch. '
+    return ('WORKFLOW_CONTEXT_RESTORE_REQUIRED: restore the bound record checkpoint, scope, decisions, '
+            'user constraints/stops, next step, active mode SKILL.md and references relevant to that step. '
+            'Use any permitted reader; load further documents when their contents become relevant. '
             'Read-only inspection, questions, direct Markdown record repair, interruption, and '
             'honest blocker/stop reporting remain available. Do not activate excluded supporting skills. '
-            'Use restore-status, then restore-read with the next path/offset/epoch; only successful '
-            'PostToolUse content receipts count. sync/rules-sync do not unlock this gate. '
+            'After actually reading sufficient context, use restore-confirm --record <root> --epoch <epoch> '
+            '--summary "restored scope, constraints/stops, next step and relevant documents" '
+            '--marker workflow-modes-v1. This is agent attestation, not observed delivery or user approval. '
+            'Do not confirm while missing context affects the next action. sync/rules-sync do not unlock. '
             f'mode={state["mode"]}; sync_status=record; record={state["record"]}; epoch={state["restore"]["epoch"]}; '
-            f'pending={len(missing)}; bundle_valid={valid}; next={json.dumps(next_read)}. '
-            'Request max_output_tokens=6000 or more; report missing files or unsupported result routing. '
-            'After restoration, normal advisory mode resumes.')
+            f'mode_skill={state["restore"]["skill_root"]}/SKILL.md; '
+            f'optional_catalog_unobserved={len(missing)}; bundle_valid={valid}; next={json.dumps(next_read)}. '
+            'Optional restore-read pages use max_output_tokens=6000 or more. Observer failure does not '
+            'require repeated retries: read through another permitted reader, then confirm honestly. '
+            'Keep tracker/plan complete; after restoration normal advisory mode resumes.')
 
 
-def restore_control(state: dict[str, Any], control: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any] | None:
+def restore_control(store: StateStore, key: str, state: dict[str, Any], control: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any] | None:
     if control.get('action') == 'restore-status':
         return context_output('PreToolUse', restoration_message(state) if state.get('restore')
                               else 'WORKFLOW_CONTEXT_RESTORED: no pending post-compact restoration.')
+    if control.get('action') == 'restore-confirm':
+        summary = str(control.get('summary', '')).strip()
+        if (not state.get('restore') or control.get('epoch') != state['restore']['epoch']
+                or not record_matches(control.get('record'), state.get('record'), str(payload.get('cwd', '.')))
+                or not summary or len(summary) > 2000 or control.get('positionals')
+                or set(control) - {'action', 'record', 'epoch', 'summary', 'positionals'}):
+            return control_not_applied('WORKFLOW_RESTORE_CONFIRM_INVALID: use the active record and epoch, '
+                                       'with a nonempty summary of restored context (at most 2000 characters).')
+        # Agent attestation is intentionally independent of output routing and catalog completeness.
+        # Keep bounded provenance, never the summary or document contents; preserve task/stop state.
+        state['last_restoration'] = {'basis': 'agent-confirmed', 'epoch': state['restore']['epoch'],
+                                     'summary_sha256': hashlib.sha256(summary.encode('utf-8')).hexdigest()}
+        state.pop('restore')
+        store.mutate(key, lambda _old: state)
+        return context_output('PreToolUse', 'WORKFLOW_CONTEXT_RESTORED: agent confirmed sufficient context '
+                              'for the next step; this does not claim observed delivery, grant authority, '
+                              'resume user-stopped work, or replace complete tracker/plan updates.')
     if control.get('action') != 'restore-read':
         return None
     paths, _valid = restoration_scope(state) if state.get('restore') else ([], False)
@@ -1353,21 +1375,22 @@ def handle_post_tool(store: StateStore, key: str, payload: dict[str, Any]) -> di
     control = parse_control(payload)
     if not control or control.get('action') != 'restore-read':
         return None
-    check = restore_control(state, control, payload)
+    check = restore_control(store, key, state, control, payload)
     if 'WORKFLOW_RESTORE_READ_PENDING' not in json.dumps(check):
         return context_output('PostToolUse', 'WORKFLOW_RESTORE_READ_NOT_OBSERVED: request is stale or outside the required context.')
     path = control['paths'][0]
     offset = int(control.get('offset', '0'))
     if not accept_page(state['restore'], path, offset, payload.get('tool_response')):
-        return context_output('PostToolUse', 'WORKFLOW_RESTORE_READ_NOT_OBSERVED: failed, truncated, changed, out-of-order, or unsupported output. Retry the next page from restore-status; no read was credited.')
+        return context_output('PostToolUse', 'WORKFLOW_RESTORE_READ_NOT_OBSERVED: failed, truncated, changed, out-of-order, or unsupported output. No read was credited. Use another permitted reader and restore-confirm after actually restoring sufficient context; do not loop on an observer failure.')
     paths, valid = restoration_scope(state)
     # Keep receipts bounded to the current context set; do not retain document contents.
     state['restore']['reads'] = {path: receipt for path, receipt in state['restore']['reads'].items() if path in paths}
     complete = valid and not missing_reads(state['restore'], paths)
     if complete:
+        state['last_restoration'] = {'basis': 'observed', 'epoch': state['restore']['epoch']}
         state.pop('restore')
     store.mutate(key, lambda _old: state)
-    return context_output('PostToolUse', 'WORKFLOW_CONTEXT_RESTORED: all required current document contents were delivered; normal advisory mode resumes. This does not grant task authority or prove understanding.'
+    return context_output('PostToolUse', 'WORKFLOW_CONTEXT_RESTORED: all current catalog document contents were delivered; normal advisory mode resumes. This does not grant task authority or prove understanding.'
                           if complete else restoration_message(state))
 
 
@@ -1386,7 +1409,7 @@ def handle_pre_tool(
     control = parse_control(payload)
     if control:
         if state:
-            result = restore_control(state, control, payload)
+            result = restore_control(store, key, state, control, payload)
             if result is not None:
                 return result
         if state and state.get('restore'):
@@ -1434,7 +1457,7 @@ def mode_message(state: dict[str, Any]) -> str:
         "evidence, plan/progress changes, verification, unresolved items, and next steps in the exact "
         "tracker/plan at meaningful checkpoints and reconcile before final reporting or handoff. "
         "Report unsaved facts honestly if persistence fails. Hook sync, transactions, actions, and "
-        "checkpoints do not gate tools or reporting. A pending post-compact read gate is the sole exception for task mutations. Honor explicit user stops and skill exclusions; "
+        "checkpoints do not gate tools or reporting. A pending post-compact context confirmation gate is the sole exception for task mutations. Honor explicit user stops and skill exclusions; "
         "a recorded mode or reference does not activate a skill. </workflow-anchor>"
     )
 

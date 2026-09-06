@@ -4,7 +4,7 @@ Dormant lifecycle hooks for the standalone `discuss`, `plan`, and `execute` skil
 
 ## Mode reminders and required records
 
-Normal workflow bookkeeping is advisory. The sole tool-denial exception is a pending post-compact context read gate; the hook never emits `allow`/`ask` decisions or Stop blocks. It supplies context; actual user instructions and runtime permissions still govern actions.
+Normal workflow bookkeeping is advisory. The sole tool-denial exception is a pending post-compact context confirmation gate; the hook never emits `allow`/`ask` decisions or Stop blocks. It supplies context; actual user instructions and runtime permissions still govern actions.
 
 - Discuss focuses on analysis and decisions, reminding the agent to avoid source changes without an implementation request. Authorized non-source work does not need a hook action grant.
 - Plan focuses on creating and updating the plan. Approval alone does not request implementation.
@@ -17,8 +17,8 @@ Normal workflow bookkeeping is advisory. The sole tool-denial exception is a pen
 
 - `UserPromptSubmit`: restore mode/record context and remind the agent to save all material turn changes. A mention alone never activates a mode.
 - `PreToolUse`: while post-compact restoration is pending, permit reads/questions/record repair and deny task mutations or worker dispatch. Otherwise remind on likely source/implementation drift or outstanding bookkeeping. Outside restoration, classifications focus reminders rather than access control. Suppress repeated identical reminders within a turn using a bounded cache, refreshed on the next prompt or compaction.
-- `PostCompact`: open a one-time read gate for the exact tracker/plan, active mode instructions, and applicable references. Do not activate excluded supporting skills.
-- `PostToolUse`: credit complete successful `restore-read` pages only after comparing returned content and file revision. Once every required current document is delivered and the bundle is valid, clear the read gate. `sync`/`rules-sync` cannot clear it.
+- `PostCompact`: open a one-time context confirmation gate. Restore the checkpoint, scope, decisions/stops, next step, active mode instructions and relevant linked context using any permitted reader; load other history as needed. Do not activate excluded supporting skills.
+- `PostToolUse`: credit complete successful `restore-read` pages only after comparing returned content and file revision. Complete valid catalog delivery can clear the gate automatically. Alternatively, `restore-confirm --record <root> --epoch <epoch> --summary "restored context and next step" --marker workflow-modes-v1` accepts agent attestation after scoped reading, without requiring output receipts or every historical file. `sync`/`rules-sync` cannot clear it.
 - `Stop`: remind about pending evidence, writes, actions, bootstrap, and context restoration. Do not block, auto-suspend, clear pending state, or mark work complete, even after repeated Stop events.
 - `SessionEnd`: discard the session's hook metadata; durable Markdown records remain on disk.
 
@@ -59,6 +59,6 @@ Source-only changes do not update the manifest cachebuster or installed hook cac
 
 ## Compatibility
 
-This revision keeps all three modes advisory except for mandatory context delivery after compaction. Existing state and version 4 bundles remain readable; pending actions, transactions, and suspension facts are preserved for reconciliation. Older installed hooks may still deny calls: do not bypass an actual denial or reinstall during an active task. Use supported recovery and report the compatibility limitation.
+This revision keeps all three modes advisory except for mandatory scoped context restoration after compaction. Existing state and version 4 bundles remain readable; pending actions, transactions, and suspension facts are preserved for reconciliation. Older installed hooks may still deny calls: do not bypass an actual denial or reinstall during an active task. Use supported recovery and report the compatibility limitation.
 
 Distribute the compatible plugin separately when explicitly requested. Source validation does not change an active task's cached hooks. Standalone skill mirrors keep mandatory record completeness even when the new hook is not installed.

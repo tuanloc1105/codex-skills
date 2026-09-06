@@ -91,6 +91,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     restore_status = subparsers.add_parser("restore-status")
     restore_status.add_argument("--marker", required=True)
+    restore_confirm = subparsers.add_parser("restore-confirm")
+    restore_confirm.add_argument("--record", required=True)
+    restore_confirm.add_argument("--epoch", required=True)
+    restore_confirm.add_argument("--summary", required=True)
+    restore_confirm.add_argument("--marker", required=True)
     restore_read = subparsers.add_parser("restore-read")
     restore_read.add_argument("--record", required=True)
     restore_read.add_argument("--path", required=True)

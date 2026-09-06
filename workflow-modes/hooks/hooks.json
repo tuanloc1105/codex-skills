@@ -1,5 +1,5 @@
 {
-  "description": "Dormant mode reminders, mandatory post-compact context reads, and nonblocking final reporting.",
+  "description": "Dormant mode reminders, mandatory post-compact context restoration, and nonblocking final reporting.",
   "hooks": {
     "UserPromptSubmit": [
       {

@@ -68,6 +68,38 @@ class ContextReadTests(unittest.TestCase):
         self.assertTrue(restore.accept_page(self.state, str(self.path), 0, response))
         self.assertEqual(restore.missing_reads(self.state, [str(self.path)]), [])
 
+    def test_native_orchestration_blocks_preserve_complete_shell_results(self):
+        # Shape observed in the failing session; no private record contents retained.
+        result = {**self.response(), 'chunk_id': 'test', 'wall_time_seconds': 0.002,
+                  'original_token_count': 1000}
+        blocks = [{'type': 'input_text', 'text': 'Script completed\nWall time 0.2 seconds\nOutput:\n'},
+                  {'type': 'input_text', 'text': json.dumps(result)}]
+        for response in (blocks, json.dumps(blocks), {'content': blocks}, blocks[1:]):
+            with self.subTest(envelope=type(response).__name__):
+                state = {'epoch': 'E1', 'reads': {}}
+                self.assertTrue(restore.accept_page(state, str(self.path), 0, response))
+                self.assertEqual(state['reads'][str(self.path)]['offset'], restore.PAGE_CHARS)
+
+    def test_orchestration_headers_do_not_hide_failure_truncation_or_multiple_results(self):
+        header = {'type': 'input_text', 'text': 'Script completed\nWall time 0.2 seconds\nOutput:\n'}
+        result = {'type': 'input_text', 'text': json.dumps(self.response())}
+        cases = (
+            [{**header, 'text': 'Script running with cell ID 1'}, result],
+            [{**header, 'text': 'Script failed\n'}, result],
+            [{**header, 'text': header['text'] + 'Warning: truncated output'}, result],
+            [header, {**result, 'truncated': True}],
+            [header, {**result, 'text': result['text'][:-1]}],
+            [header, {**result, 'text': json.dumps({**self.response(), 'exit_code': 1})}],
+            [header, {**result, 'text': json.dumps({**self.response(), 'session_id': 42})}],
+            [header, {**result, 'text': self.response()['output']}],
+            [result, result], [header, result, result],
+            {'content': [header, result], 'isError': True},
+        )
+        for response in cases:
+            with self.subTest(response=response):
+                self.assertFalse(restore.accept_page(self.state, str(self.path), 0, response))
+                self.assertEqual(self.state['reads'], {})
+
     def test_literal_wrapper_only_and_record_repairs_have_bounded_paths(self):
         read = {'cmd': 'cat notes.md'}
         wrapped = {'tool_name': 'functions.exec', 'tool_input': 'text(await tools.exec_command(' + json.dumps(read) + '));'}
@@ -131,7 +163,8 @@ class RestoreGateTests(unittest.TestCase):
         result = {'exit_code': 0, 'output': json.dumps(restore.read_page(str(path), 0, epoch))}
         if wrapper:
             payload = {**payload, 'tool_name': 'functions.exec', 'tool_input': 'text(await tools.exec_command(' + json.dumps(payload['tool_input']) + '));'}
-            result = {'content': [{'type': 'text', 'text': json.dumps(result)}]}
+            result = [{'type': 'input_text', 'text': 'Script completed\nWall time 0.2 seconds\nOutput:\n'},
+                      {'type': 'input_text', 'text': json.dumps(result)}]
         return hook.handle_post_tool(self.store, self.key, {**payload, 'tool_response': result})
 
     def denied(self, output):
@@ -220,6 +253,86 @@ class RestoreGateTests(unittest.TestCase):
         self.assertIn('new.md', json.dumps(self.control('restore-status')))
         self.deliver(new)
         self.assertNotIn('restore', self.store.get(self.key))
+
+    def confirm(self, **overrides):
+        values = {'record': str(self.record), 'epoch': 'E1',
+                  'summary': 'Read checkpoint and mode rules: scoped fix, user stop retained, next step inspect tests.'}
+        values.update(overrides)
+        args = ['restore-confirm']
+        for key, value in values.items():
+            args.extend(['--' + key, value])
+        return self.control(*args)
+
+    def test_confirmation_accepts_ordinary_reads_and_preserves_task_record_and_stop(self):
+        state = self.store.get(self.key)
+        state.update(recovery={'reason': 'user-stop'}, action={'id': 'pending'},
+                     checkpoint_required=True, rules_sync_required=True)
+        self.store.mutate(self.key, lambda _old: state)
+        before = {p.name: p.read_bytes() for p in self.record.iterdir()}
+        self.pre('read_file', {'path': str(self.index)})
+        self.assertEqual(self.store.get(self.key)['restore']['reads'], {})
+        self.assertIn('WORKFLOW_CONTEXT_RESTORED', json.dumps(self.confirm()))
+        after = self.store.get(self.key)
+        for key in ('recovery', 'action', 'checkpoint_required', 'rules_sync_required', 'record'):
+            self.assertEqual(after[key], state[key])
+        self.assertEqual(after['last_restoration']['basis'], 'agent-confirmed')
+        self.assertNotIn('summary', after['last_restoration'])
+        self.assertNotIn('restore', after)
+        self.assertEqual(before, {p.name: p.read_bytes() for p in self.record.iterdir()})
+        self.assertNotIn('permissionDecision', self.pre()['hookSpecificOutput'])
+
+    def test_literal_wrapper_confirmation_works_in_every_mode_without_post_tool(self):
+        for mode in ('discuss', 'plan', 'execute'):
+            with self.subTest(mode=mode):
+                state = self.store.get(self.key)
+                state['mode'] = mode
+                state['restore'] = {'epoch': 'E1', 'reads': {}, 'skill_root': str(self.skill)}
+                self.store.mutate(self.key, lambda _old: state)
+                args = [sys.executable, str(CONTROL), 'restore-confirm', '--record', str(self.record),
+                        '--epoch', 'E1', '--summary', 'Read scope, stops and checkpoint for next scoped step.',
+                        '--marker', hook.MARKER]
+                literal = 'text(await tools.exec_command(' + json.dumps({'cmd': shlex.join(args)}) + '));'
+                output = self.pre('functions.exec', literal)
+                self.assertIn('WORKFLOW_CONTEXT_RESTORED', json.dumps(output))
+                self.assertNotIn('restore', self.store.get(self.key))
+
+    def test_invalid_confirmations_leave_gate_pending(self):
+        for changes in ({'record': str(self.root)}, {'epoch': 'old'}, {'summary': ''},
+                        {'summary': '   '}, {'summary': 'x' * 2001}, {'unknown': 'value'}):
+            with self.subTest(changes=changes):
+                self.assertIn('WORKFLOW_RESTORE_CONFIRM_INVALID', json.dumps(self.confirm(**changes)))
+                self.denied(self.pre())
+        self.assertIn('WORKFLOW_CONTEXT_RESTORED', json.dumps(self.confirm()))
+        self.assertIn('WORKFLOW_RESTORE_CONFIRM_INVALID', json.dumps(self.confirm()))
+
+    def test_unobserved_output_does_not_deadlock_honest_confirmation(self):
+        args = [sys.executable, str(CONTROL), 'restore-read', '--record', str(self.record),
+                '--path', str(self.index), '--epoch', 'E1', '--marker', hook.MARKER]
+        payload = {'tool_name': 'exec_command', 'tool_input': {'cmd': shlex.join(args)},
+                   'cwd': str(self.root), 'tool_response': {'unsupported': 'envelope'}}
+        output = hook.handle_post_tool(self.store, self.key, payload)
+        self.assertIn('WORKFLOW_RESTORE_READ_NOT_OBSERVED', json.dumps(output))
+        self.assertIn('restore-confirm', json.dumps(output))
+        self.assertEqual(self.store.get(self.key)['restore']['reads'], {})
+        self.pre('read_file', {'path': str(self.index)})
+        self.assertIn('WORKFLOW_CONTEXT_RESTORED', json.dumps(self.confirm()))
+        self.assertEqual(self.store.get(self.key)['last_restoration']['basis'], 'agent-confirmed')
+
+    def test_catalog_gap_does_not_veto_scoped_confirmation(self):
+        self.index.write_text(self.index.read_text().replace('evidence.md\n<!-- workflow-manifest:end',
+                                                            'evidence.md\narchive.md\n<!-- workflow-manifest:end'))
+        self.assertFalse(hook.restoration_scope(self.store.get(self.key))[1])
+        self.assertIn('WORKFLOW_CONTEXT_RESTORED', json.dumps(self.confirm(
+            summary='Read checkpoint, scope and mode rules for current tests; unrelated archive missing, repair deferred.')))
+
+    def test_new_compaction_requires_fresh_confirmation(self):
+        self.confirm()
+        state = self.store.get(self.key)
+        hook.begin_restoration(state)
+        self.store.mutate(self.key, lambda _old: state)
+        self.assertIn('WORKFLOW_RESTORE_CONFIRM_INVALID', json.dumps(self.confirm()))
+        self.denied(self.pre())
+        self.assertIn('WORKFLOW_CONTEXT_RESTORED', json.dumps(self.confirm(epoch=state['restore']['epoch'])))
 
     def test_compound_control_and_wrapper_do_not_exempt_companion_mutations(self):
         command = shlex.join([sys.executable, str(CONTROL), 'restore-status', '--marker', hook.MARKER])
