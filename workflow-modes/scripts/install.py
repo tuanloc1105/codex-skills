@@ -25,6 +25,11 @@ REQUIRED_PATHS = (
     Path("hooks/hooks.json"),
     Path("scripts/workflow_modes_control.py"),
     Path("scripts/workflow_modes_hook.py"),
+    Path("scripts/workflow_modes_record.py"),
+    Path("scripts/workflow_modes_diagnostics.py"),
+    Path("scripts/workflow_modes_supervisor.py"),
+    Path("scripts/workflow_modes_launch.sh"),
+    Path("scripts/workflow_modes_launch.cmd"),
 )
 EXCLUDED_DIRECTORIES = {".git", ".serena", "__pycache__"}
 EXCLUDED_FILES = {".DS_Store"}

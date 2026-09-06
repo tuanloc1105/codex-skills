@@ -6,9 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
-            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
-            "timeout": 3,
+            "command": "if [ -f \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" ]; then /bin/sh \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" UserPromptSubmit; else printf '%s\\n' 'WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.' >&2; printf '%s\\n' '{\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"}'; exit 0; fi",
+            "commandWindows": "if exist \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" (call \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" UserPromptSubmit) else (echo WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying. 1>&2 & echo {\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"} & exit /b 0)",
+            "timeout": 5,
             "additionalContextLimit": 900
           }
         ]
@@ -19,9 +19,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
-            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
-            "timeout": 3,
+            "command": "if [ -f \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" ]; then /bin/sh \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" PreToolUse; else printf '%s\\n' 'WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.' >&2; exit 2; fi",
+            "commandWindows": "if exist \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" (call \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" PreToolUse) else (echo WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying. 1>&2 & exit /b 2)",
+            "timeout": 5,
             "additionalContextLimit": 900
           }
         ]
@@ -32,9 +32,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
-            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
-            "timeout": 3
+            "command": "if [ -f \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" ]; then /bin/sh \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" PostCompact; else printf '%s\\n' 'WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.' >&2; printf '%s\\n' '{\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"}'; exit 0; fi",
+            "commandWindows": "if exist \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" (call \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" PostCompact) else (echo WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying. 1>&2 & echo {\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"} & exit /b 0)",
+            "timeout": 5
           }
         ]
       }
@@ -44,9 +44,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
-            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
-            "timeout": 3
+            "command": "if [ -f \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" ]; then /bin/sh \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" Stop; else printf '%s\\n' 'WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.' >&2; printf '%s\\n' '{\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"}'; exit 0; fi",
+            "commandWindows": "if exist \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" (call \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" Stop) else (echo WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying. 1>&2 & echo {\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"} & exit /b 0)",
+            "timeout": 5
           }
         ]
       }
@@ -56,8 +56,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$PLUGIN_ROOT/scripts/workflow_modes_hook.py\"",
-            "commandWindows": "py -3 \"%PLUGIN_ROOT%\\scripts\\workflow_modes_hook.py\"",
+            "command": "if [ -f \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" ]; then /bin/sh \"$PLUGIN_ROOT/scripts/workflow_modes_launch.sh\" SessionEnd; else printf '%s\\n' 'WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.' >&2; printf '%s\\n' '{\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"}'; exit 0; fi",
+            "commandWindows": "if exist \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" (call \"%PLUGIN_ROOT%\\scripts\\workflow_modes_launch.cmd\" SessionEnd) else (echo WORKFLOW_HOOK_LAUNCHER_MISSING: Next: report this blocker to the user. From an external terminal restore the installed Workflow Modes bundle; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying. 1>&2 & echo {\"systemMessage\":\"WORKFLOW_HOOK_LAUNCHER_MISSING: Report this blocker to the user. Restore the installed bundle from an external terminal; close old-cache tasks before any requested reinstall. Do not edit hook scripts or reset state. Run snapshot after recovery before retrying.\"} & exit /b 0)",
             "timeout": 3
           }
         ]

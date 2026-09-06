@@ -3,34 +3,28 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
-import shlex
+import shutil
 import sqlite3
 import sys
 import tempfile
 import time
 from typing import Any, Callable
+from workflow_modes_diagnostics import control_command, enrich_reason, infrastructure_failure
 
-
-MARKER = "workflow-modes-v1"
-SNAPSHOT_START_PATTERN = re.compile(
-    r"<!-- workflow-active-snapshot:start version:(?P<version>[12]) -->"
+from workflow_modes_record import (
+    MODES, BundleError, diagnose_bundle, load_bundle, manifest_paths,
+    record_files, read_index, record_revision, record_revisions, record_profile,
+    record_tracker_id, observation_revision, required_reference_spec, required_references,
+    refresh_required_references, files_revision, observed_files, safe_member,
 )
-SNAPSHOT_END = "<!-- workflow-active-snapshot:end -->"
-MANIFEST_START = "<!-- workflow-manifest:start -->"
-MANIFEST_END = "<!-- workflow-manifest:end -->"
-MAX_RECORD_BYTES = 2 * 1024 * 1024
-PROFILES = {"lightweight", "durable", "audited"}
-MODES = {"discuss", "plan", "execute"}
-MODE_REFERENCES = {
-    "discuss": ("references/tracker.md", "references/actions.md"),
-    "plan": ("references/plan-record.md", "references/phase-planning.md"),
-    "execute": ("references/implementation.md", "references/completion.md"),
-}
+from workflow_modes_control import parse_args, shell_arguments, ControlError, ControlHelp
+
 GIT_MUTATION_COMMANDS = "add|commit|push|merge|rebase|reset|clean|checkout|switch|restore"
 GIT_MUTATION_PATTERN = rf"\bgit\s+(?:{GIT_MUTATION_COMMANDS})(?=$|[\s;&|])"
 EXTERNAL_MUTATION_PATTERN = (
@@ -201,254 +195,6 @@ def record_matches(path: object, active: object, cwd: str) -> bool:
     return isinstance(path, str) and isinstance(active, str) and canonical_record(path, cwd) == active
 
 
-def read_index(path: str | None) -> str | None:
-    if not isinstance(path, str):
-        return None
-    try:
-        index = Path(path) / "index.md"
-        if not index.is_file() or index.is_symlink() or index.stat().st_size > MAX_RECORD_BYTES:
-            return None
-        return index.read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return None
-
-
-def manifest_paths(path: str | None, text: str | None = None) -> tuple[str, ...] | None:
-    if not isinstance(path, str):
-        return None
-    text = read_index(path) if text is None else text
-    if text is None:
-        return None
-    if text.count(MANIFEST_START) != 1 or text.count(MANIFEST_END) != 1:
-        return None
-    start = text.index(MANIFEST_START) + len(MANIFEST_START)
-    end = text.index(MANIFEST_END, start)
-    entries = tuple(line.strip() for line in text[start:end].splitlines() if line.strip())
-    if not entries or entries[0] != "index.md" or len(entries) != len(set(entries)):
-        return None
-    root = Path(path)
-    validated: list[str] = []
-    total = 0
-    for entry in entries:
-        relative = Path(entry)
-        if relative.is_absolute() or relative.suffix.lower() != ".md" or ".." in relative.parts:
-            return None
-        candidate = root / relative
-        try:
-            if not candidate.is_file() or candidate.is_symlink():
-                return None
-            candidate.resolve().relative_to(root.resolve())
-            total += candidate.stat().st_size
-        except (OSError, ValueError):
-            return None
-        if total > MAX_RECORD_BYTES:
-            return None
-        validated.append(relative.as_posix())
-    return tuple(validated)
-
-
-def record_files(path: str | None) -> dict[str, str] | None:
-    text = read_index(path)
-    entries = manifest_paths(path, text)
-    if text is None or entries is None:
-        return None
-    root = Path(str(path))
-    try:
-        actual = {
-            candidate.relative_to(root).as_posix()
-            for candidate in root.rglob("*.md")
-            if candidate.is_file()
-        }
-    except OSError:
-        return None
-    if actual != set(entries):
-        return None
-    files: dict[str, str] = {}
-    try:
-        for entry in entries:
-            files[entry] = (Path(str(path)) / entry).read_text(encoding="utf-8")
-    except (OSError, UnicodeError):
-        return None
-    return files if validate_bundle(files) else None
-
-
-def validate_bundle(files: dict[str, str]) -> bool:
-    index = files.get("index.md", "")
-    header = re.search(r"workflow-record[^\n>]*version:4[^\n>]*kind:(discuss|plan)[^\n>]*tracker-id:([^\s>]+)", index)
-    if not header:
-        return False
-    kind = header.group(1)
-    required = {"index.md", "context.md", "decisions.md", "evidence.md"}
-    required.add("actions.md" if kind == "discuss" else "plan.md")
-    if kind == "plan":
-        required.add("verification.md")
-    if not required.issubset(files):
-        return False
-    phase_files = sorted(name for name in files if name.startswith("phases/") and name.endswith(".md"))
-    phase_ids: dict[str, str] = {}
-    dependencies: dict[str, set[str]] = {}
-    plan_text = files.get("plan.md", "")
-    for name in phase_files:
-        filename = Path(name).name
-        file_id = filename.split("-", 1)[0]
-        match = re.search(r"^#\s+(P\d{2}):\s+.+$", files[name], re.MULTILINE)
-        depends = re.search(r"^Depends on:\s*(.*?)\s*$", files[name], re.MULTILINE)
-        required_metadata = ("Status:", "Wave:", "Subagent:", "Owned scope:", "Produces:")
-        if (
-            not match
-            or not depends
-            or match.group(1) != file_id
-            or file_id in phase_ids
-            or name not in plan_text
-            or missing_markers(files[name], required_metadata)
-        ):
-            return False
-        phase_ids[file_id] = name
-        values = set()
-        if depends and depends.group(1) != "None":
-            values = {item.strip() for item in depends.group(1).split(",") if item.strip()}
-        dependencies[file_id] = values
-    if any(not values.issubset(phase_ids) for values in dependencies.values()):
-        return False
-    visiting: set[str] = set()
-    visited: set[str] = set()
-
-    def visit(phase_id: str) -> bool:
-        if phase_id in visiting:
-            return False
-        if phase_id in visited:
-            return True
-        visiting.add(phase_id)
-        if any(not visit(dependency) for dependency in dependencies.get(phase_id, set())):
-            return False
-        visiting.remove(phase_id)
-        visited.add(phase_id)
-        return True
-
-    if any(not visit(phase_id) for phase_id in phase_ids):
-        return False
-    open_markers = re.findall(r"<!-- workflow-action:([A-Z][A-Z0-9_-]{2,63}) status:open -->", files["evidence.md"])
-    active = re.search(r"^Active action:\s*([^\s]+)", index, re.MULTILINE)
-    if len(open_markers) > 1 or (open_markers and (not active or active.group(1) != open_markers[0])):
-        return False
-    if not open_markers and active and active.group(1) != "None":
-        return False
-    return True
-
-
-def record_revision(path: str | None) -> str | None:
-    files = record_files(path)
-    if files is None:
-        return None
-    return files_revision(files)
-
-
-def files_revision(files: dict[str, str]) -> str:
-    digest = hashlib.sha256()
-    for name in sorted(files):
-        digest.update(name.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(hashlib.sha256(files[name].encode("utf-8")).digest())
-    return "sha256:" + digest.hexdigest()
-
-
-def content_revision(text: str) -> str:
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def record_snapshot(text: str | None) -> str | None:
-    if text is None or len(SNAPSHOT_START_PATTERN.findall(text)) != 1 or text.count(SNAPSHOT_END) != 1:
-        return None
-    marker = SNAPSHOT_START_PATTERN.search(text)
-    assert marker is not None
-    start = marker.end()
-    end = text.index(SNAPSHOT_END, start)
-    snapshot = text[start:end]
-    if len(snapshot.encode("utf-8")) > 64 * 1024:
-        return None
-    return snapshot
-
-
-def record_revisions(path: str | None) -> tuple[str | None, str | None, str | None]:
-    files = record_files(path)
-    if files is None:
-        return None, None, None
-    text = files["index.md"]
-    revision = files_revision(files)
-    snapshot = record_snapshot(text)
-    if snapshot is None:
-        return revision, None, None
-    marker = SNAPSHOT_START_PATTERN.search(text)
-    assert marker is not None
-    index_outside = text[:marker.start()] + text[text.index(SNAPSHOT_END, marker.end()) + len(SNAPSHOT_END):]
-    outside_digest = hashlib.sha256(index_outside.encode("utf-8") + b"\0")
-    for name in sorted(files):
-        if name != "index.md":
-            outside_digest.update(name.encode("utf-8"))
-            outside_digest.update(b"\0")
-            outside_digest.update(hashlib.sha256(files[name].encode("utf-8")).digest())
-    return revision, content_revision(snapshot), "sha256:" + outside_digest.hexdigest()
-
-
-def record_profile(path: str | None) -> str:
-    if not isinstance(path, str):
-        return "audited"
-    snapshot = record_snapshot(read_index(path))
-    if snapshot is None:
-        return "audited"
-    match = re.search(r"^Profile:\s*(\S+)\s*$", snapshot, flags=re.MULTILINE)
-    profile = match.group(1).lower() if match else "audited"
-    return profile if profile in PROFILES else "audited"
-
-
-def required_reference_spec(mode: str, text: str | None) -> tuple[tuple[str, ...], bool]:
-    """Return the snapshot allowlist, using the full-mode safe legacy fallback."""
-    allowed = MODE_REFERENCES[mode]
-    snapshot = record_snapshot(text)
-    marker = SNAPSHOT_START_PATTERN.search(text or "")
-    if snapshot is None or marker is None or marker.group("version") == "1":
-        return allowed, True
-    match = re.search(r"^Required references:\s*(.*?)\s*$", snapshot, re.MULTILINE)
-    if not match:
-        return allowed, True
-    value = match.group(1)
-    if value == "None":
-        return (), True
-    references = tuple(part.strip() for part in value.split(",") if part.strip())
-    if len(references) != len(set(references)) or not set(references).issubset(allowed):
-        return allowed, False
-    return tuple(reference for reference in allowed if reference in references), True
-
-
-def required_references(mode: str, text: str | None) -> tuple[str, ...]:
-    return required_reference_spec(mode, text)[0]
-
-
-def refresh_required_references(state: dict[str, Any]) -> bool:
-    references, valid = required_reference_spec(
-        str(state["mode"]), read_index(str(state.get("record")))
-    )
-    changed = list(references) != state.get("required_references")
-    state["required_references"] = list(references)
-    state["required_references_valid"] = valid
-    if changed:
-        state["rules_sync_required"] = True
-    return changed
-
-
-def record_tracker_id(path: str | None) -> str | None:
-    if not isinstance(path, str):
-        return None
-    text = read_index(path)
-    if text is None:
-        return None
-    header = re.search(r"workflow-record[^\n>]*tracker-id:([^\s>]+)", text)
-    if header:
-        return header.group(1)
-    metadata = re.search(r"^Tracker ID:\s*(\S+)\s*$", text, flags=re.MULTILINE)
-    return metadata.group(1) if metadata else None
-
-
 def contains_evidence_id(text: str, evidence_id: str) -> bool:
     return bool(
         re.search(
@@ -491,78 +237,46 @@ def paths_for_tool(payload: dict[str, Any]) -> set[str]:
 def parse_control(payload: dict[str, Any]) -> dict[str, Any] | None:
     if not is_shell_tool(payload):
         return None
+    command = tool_command(payload)
+    if "workflow_modes_control.py" not in command:
+        return None
     try:
-        lexer = shlex.shlex(
-            tool_command(payload), posix=True, punctuation_chars=";&|"
-        )
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
-    except ValueError:
+        tokens = shell_arguments(command, windows=os.name == "nt")
+    except ControlError as error:
+        if "--marker" not in command:
+            return None
+        return {"action": "ambiguous", "error": str(error)}
+    positions = [i for i, t in enumerate(tokens) if Path(t).name == "workflow_modes_control.py"]
+    if not positions:
         return None
-
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token and set(token) <= {";", "&", "|"}:
-            segments.append([])
-        else:
-            segments[-1].append(token)
-
-    candidates: list[tuple[list[str], int, int]] = []
-    for segment in segments:
-        first_script_index = next(
-            (
-                index for index, token in enumerate(segment)
-                if Path(token).name == "workflow_modes_control.py"
-            ),
-            None,
-        )
-        script_indexes = [] if first_script_index is None else [first_script_index]
-        for script_index in script_indexes:
-            try:
-                marker_index = segment.index("--marker", script_index + 1)
-            except ValueError:
-                continue
-            if marker_index + 1 < len(segment) and segment[marker_index + 1] == MARKER:
-                candidates.append((segment, script_index, marker_index))
-
-    if not candidates:
-        return None
-    if len(candidates) > 1:
-        return {"action": "ambiguous"}
-
-    segment, script_index, marker_index = candidates[0]
-    args = segment[script_index + 1:marker_index]
-    if not args:
-        return None
-    result: dict[str, Any] = {"action": args[0]}
-    positionals: list[str] = []
-    index = 1
-    while index < len(args):
-        token = args[index]
-        if token in {
-            "--record", "--path", "--result", "--impact", "--evidence-id",
-            "--unscoped", "--reason", "--scope", "--previous-revision", "--reference",
-            "--target",
-        } and index + 1 < len(args):
-            key = token[2:].replace("-", "_")
-            if key == "path":
-                result.setdefault("paths", []).append(args[index + 1])
-            elif key == "unscoped":
-                result.setdefault("unscoped", []).append(args[index + 1])
-            elif key == "reference":
-                result.setdefault("references", []).append(args[index + 1])
-            else:
-                result[key] = args[index + 1]
-            index += 2
-        elif token == "--no-change":
-            result["no_change"] = True
-            index += 1
-        else:
-            positionals.append(token)
-            index += 1
-    result["positionals"] = positionals
-    return result
+    script_index = positions[0]
+    prefix = tokens[:script_index]
+    # Reading a script is not a lifecycle call. A lifecycle invocation must have
+    # an interpreter prefix, or execute the script directly, and no shell syntax.
+    if prefix and not re.fullmatch(r"(?:python(?:3(?:\.\d+)?)?|py)(?:\.exe)?", Path(prefix[0]).name.lower()):
+        if "--marker" not in tokens:
+            return None
+        return {"action": "invalid", "error": "Use Python to run the control script directly, without shell wrappers."}
+    if len(prefix) > 2 or (len(prefix) == 2 and (Path(prefix[0]).stem.lower() != "py" or prefix[1] != "-3")):
+        return {"action": "invalid", "error": "Use Python without interpreter switches (except py -3 on Windows)."}
+    script = Path(normalized(tokens[script_index], str(payload.get("cwd", os.getcwd()))))
+    if script.resolve() != Path(__file__).with_name("workflow_modes_control.py").resolve() or not script.is_file():
+        return {"action": "invalid", "error": "Use the control script from this installed hook bundle."}
+    if prefix and shutil.which(prefix[0]) is None:
+        return {"action": "invalid", "error": "The requested Python interpreter is unavailable; use the interpreter shown in the diagnostic command."}
+    if not prefix and not os.access(script, os.X_OK):
+        return {"action": "invalid", "error": "The control script is not executable; invoke it through Python."}
+    try:
+        parsed = vars(parse_args(tokens[script_index + 1:]))
+    except ControlHelp:
+        return {"action": "help"}
+    except ControlError as error:
+        return {"action": "invalid", "error": str(error)}
+    parsed["positionals"] = [parsed["mode"]] if "mode" in parsed else []
+    for singular, plural in (("path", "paths"), ("reference", "references")):
+        if singular in parsed:
+            parsed[plural] = parsed.pop(singular)
+    return parsed
 
 
 def state_summary(state: dict[str, Any]) -> str:
@@ -604,10 +318,75 @@ def record_is_synced(state: dict[str, Any]) -> bool:
     )
 
 
+def remember_baseline(state: dict[str, Any], revision: str) -> None:
+    files = load_bundle(str(state["record"]))
+    if files_revision(files) != revision:
+        raise BundleError("WORKFLOW_RECORD_CHANGED", str(state["record"]), "Bundle changed while acknowledging it.", "Read the latest record and retry sync; no new baseline was saved.")
+    state["baseline_metadata"] = {
+        "revision": revision,
+        "root": str(Path(str(state["record"])).resolve()),
+        "tracker_id": state.get("tracker_id"),
+        "manifest": list(files),
+        "files": {name: hashlib.sha256(text.encode("utf-8")).hexdigest() for name, text in files.items()},
+    }
+
+
+def recovery_observation(state: dict[str, Any], control: dict[str, Any]) -> tuple[Path, dict[str, bytes]]:
+    root = Path(str(state["record"]))
+    baseline = state.get("baseline_metadata")
+    def reject(detail: str) -> None:
+        raise BundleError("WORKFLOW_RECOVERY_DENIED", str(root), detail, "Run snapshot and diagnose. Ask the owner to restore the original bundle if the trusted baseline or identity is unavailable; do not reset session state.")
+    if not isinstance(baseline, dict) or not baseline.get("files") or not baseline.get("manifest"):
+        reject("No trusted baseline metadata; a valid full sync is required before automatic recovery is available.")
+    if (control.get("previous_revision") != state.get("acknowledged_revision")
+            or baseline.get("revision") != state.get("acknowledged_revision")):
+        reject("Acknowledged baseline changed; take a fresh snapshot before requesting recovery.")
+    if (str(root.resolve()) != baseline.get("root") or not state.get("tracker_id")
+            or record_tracker_id(str(root)) != state.get("tracker_id")
+            or baseline.get("tracker_id") != state.get("tracker_id")):
+        reject("Bundle root or tracker identity is missing or changed.")
+    observed = observed_files(root)
+    extra = sorted(set(observed) - set(baseline["files"]))
+    if extra:
+        reject("Unacknowledged Markdown exists: " + ", ".join(extra) + ". Ask its owner to reconcile it; recovery cannot add or delete these files.")
+    for name in baseline["files"]:
+        safe_member(root, name)
+    if observation_revision(observed) != control.get("observed_revision"):
+        reject("Observed bundle changed; run diagnose again before requesting recovery.")
+    try:
+        load_bundle(str(root), str(state["mode"]))
+    except BundleError:
+        return root, observed
+    reject("Bundle is valid; use ordinary read/sync/write-open instead of recovery.")
+
+
+def open_recovery(store: StateStore, key: str, current: dict[str, Any], control: dict[str, Any]) -> dict[str, Any]:
+    def begin(latest):
+        if not latest or latest.get("record") != current.get("record") or latest.get("write_transaction"):
+            raise BundleError("WORKFLOW_RECOVERY_DENIED", str(current.get("record")), "Session changed or another transaction opened.", "Take a fresh snapshot; finish the existing transaction before retrying.")
+        root, _ = recovery_observation(latest, control)
+        latest["write_transaction"] = {
+            "baseline": latest["acknowledged_revision"], "opened_at": utc_now(),
+            "recovery": True, "observed_revision": control["observed_revision"],
+            "paths": sorted(normalized(str(root / name), str(root)) for name in latest["baseline_metadata"]["files"]),
+        }
+        latest["updated_at"] = utc_now()
+        return latest
+    try:
+        store.mutate(key, begin)
+    except BundleError as error:
+        return deny_tool("WORKFLOW_RECOVERY_DENIED: " + str(error))
+    return context_output("PreToolUse", "WORKFLOW_RECOVERY_OPEN: repair only acknowledged Markdown files using apply_patch; keep the original manifest and tracker ID. Then run write-close. Existing actions still require reconciliation.")
+
+
 def handle_control(
     store: StateStore, key: str, payload: dict[str, Any], control: dict[str, Any]
 ) -> dict[str, Any] | None:
     action = control.get("action")
+    if action == "invalid":
+        return deny_tool("WORKFLOW_CONTROL_ARGUMENT_INVALID: " + str(control.get("error")))
+    if action in {"help", "diagnose"}:
+        return None
     if action == "ambiguous":
         return deny_tool(
             "WORKFLOW_CONTROL_AMBIGUOUS: run only one marker-backed lifecycle control "
@@ -615,7 +394,14 @@ def handle_control(
         )
     cwd = str(payload.get("cwd", os.getcwd()))
     current = store.get(key)
+    if (current and (current.get("write_transaction") or {}).get("recovery")
+            and action not in {"snapshot", "write-close"}):
+        return deny_tool("WORKFLOW_WRITE_CLOSE_REQUIRED: finish the recovery transaction before another lifecycle change.")
     if action in {"activate", "transition"}:
+        if current and current.get("write_transaction"):
+            return deny_tool("WORKFLOW_WRITE_CLOSE_REQUIRED: close the current record write before activation or transition.")
+        if current and current.get("action"):
+            return deny_tool("WORKFLOW_ACTION_CLOSE_REQUIRED: close the current action before activation or transition.")
         positionals = control.get("positionals", [])
         mode = positionals[0] if positionals else None
         record = control.get("record")
@@ -826,7 +612,9 @@ def handle_control(
             str(current.get("mode")), read_index(str(current.get("record")))
         )
         supplied = control.get("references", [])
-        if not valid or len(supplied) != len(set(supplied)) or set(supplied) != set(expected):
+        if not valid:
+            return deny_tool("WORKFLOW_RULES_RECORD_INVALID: repair index.md Required references; changing CLI arguments alone cannot fix the snapshot.")
+        if len(supplied) != len(set(supplied)) or set(supplied) != set(expected):
             return deny_tool(
                 "WORKFLOW_RULES_SYNC_INVALID: --reference values must exactly match the "
                 f"required {current.get('mode')} reference set: {', '.join(expected) or 'None'}."
@@ -846,6 +634,8 @@ def handle_control(
             "then run rules-sync before this control call."
         )
     if action == "sync":
+        if current.get("write_transaction"):
+            return deny_tool("WORKFLOW_WRITE_CLOSE_REQUIRED: close the record write before sync.")
         record = control.get("record")
         if not record_matches(record, current.get("record"), cwd):
             return deny_tool("WORKFLOW_RECORD_MISMATCH: sync record differs from active tracker.")
@@ -885,6 +675,7 @@ def handle_control(
         current["acknowledged_revision"] = revision
         current["acknowledged_snapshot_revision"] = snapshot_revision
         current["acknowledged_outside_revision"] = outside_revision
+        remember_baseline(current, revision)
         current["sync_required"] = False
         current["sync_scope"] = None
         current["profile"] = record_profile(str(current.get("record")))
@@ -902,6 +693,8 @@ def handle_control(
             return deny_tool("WORKFLOW_RECORD_MISMATCH: write-open record differs from active bundle.")
         if current.get("write_transaction"):
             return deny_tool("WORKFLOW_WRITE_ALREADY_OPEN: close the current write transaction first.")
+        if control.get("recover"):
+            return open_recovery(store, key, current, control)
         previous = control.get("previous_revision")
         if previous != current.get("acknowledged_revision") or not record_is_synced(current):
             return deny_tool(
@@ -934,6 +727,7 @@ def handle_control(
             "Markdown files may change until write-close.",
         )
     if action == "write-close":
+        before_close = copy.deepcopy(current)
         record = control.get("record")
         if not record_matches(record, current.get("record"), cwd):
             return deny_tool("WORKFLOW_RECORD_MISMATCH: write-close record differs from active bundle.")
@@ -941,12 +735,20 @@ def handle_control(
         if not isinstance(transaction, dict):
             return deny_tool("WORKFLOW_WRITE_MISSING: no record write transaction is open.")
         previous = transaction.get("baseline")
+        try:
+            files = load_bundle(str(current.get("record")), str(current.get("mode")))
+        except BundleError as error:
+            return deny_tool("WORKFLOW_WRITE_CLOSE_INVALID: " + str(error))
+        if transaction.get("recovery"):
+            baseline = current.get("baseline_metadata", {})
+            if list(files) != baseline.get("manifest") or str(Path(str(current["record"])).resolve()) != baseline.get("root"):
+                return deny_tool("WORKFLOW_RECOVERY_SCOPE_DENIED: restore the exact acknowledged manifest and original bundle root before closing recovery.")
         revision, snapshot_revision, outside_revision = record_revisions(
             str(current.get("record"))
         )
-        if revision is None or revision == previous:
+        if revision is None or revision != files_revision(files):
             return deny_tool(
-                "WORKFLOW_WRITE_CLOSE_INVALID: the bundle must be valid and have a new revision."
+                "WORKFLOW_WRITE_CLOSE_INVALID: repair the invalid bundle before closing this transaction."
             )
         tracker_id = record_tracker_id(str(current.get("record")))
         if current.get("tracker_id") and tracker_id != current.get("tracker_id"):
@@ -959,17 +761,28 @@ def handle_control(
         current["acknowledged_revision"] = revision
         current["acknowledged_snapshot_revision"] = snapshot_revision
         current["acknowledged_outside_revision"] = outside_revision
+        remember_baseline(current, revision)
         current["sync_required"] = False
         current["sync_scope"] = None
         current["write_transaction"] = None
         current["profile"] = record_profile(str(current.get("record")))
         refresh_required_references(current)
         current["updated_at"] = utc_now()
-        store.mutate(key, lambda _old: current)
+        def close_if_current(latest):
+            if latest != before_close:
+                raise BundleError("WORKFLOW_STATE_CHANGED", str(record), "Session changed during write-close.", "Take a fresh snapshot before retrying write-close.")
+            final_files = load_bundle(str(current["record"]), str(current["mode"]))
+            if files_revision(final_files) != revision:
+                raise BundleError("WORKFLOW_RECORD_CHANGED", str(record), "Bundle changed during write-close.", "Read and repair the current bundle before retrying write-close.")
+            return current
+        try:
+            store.mutate(key, close_if_current)
+        except BundleError as error:
+            return deny_tool(str(error))
         return context_output(
             "PreToolUse",
             f"WORKFLOW_WRITE_CLOSED: mode={current.get('mode')}, "
-            f"record={current.get('record')}, revision={revision}.",
+            f"record={current.get('record')}, revision={revision}, changed={str(revision != previous).lower()}.",
         )
     if action == "checkpoint":
         record = control.get("record")
@@ -1016,7 +829,13 @@ def handle_control(
             f"record={current.get('record')}, changed={str(changed).lower()}.",
         )
     if action == "snapshot":
-        return context_output("PreToolUse", f"WORKFLOW_MODE_SNAPSHOT: {state_summary(current)}.")
+        fields = ("mode", "record", "tracker_id", "acknowledged_revision", "record_revision",
+                  "sync_scope", "rules_sync_required", "required_references", "write_transaction",
+                  "action", "checkpoint_required", "baseline_metadata")
+        snapshot = {field: current.get(field) for field in fields}
+        snapshot["current_revision"] = record_revision(current.get("record"))
+        snapshot["diagnosis"] = diagnose_bundle(str(current["record"])) if current.get("record") else None
+        return context_output("PreToolUse", f"WORKFLOW_MODE_SNAPSHOT: {state_summary(current)}.\n" + json.dumps(snapshot, sort_keys=True))
     if action == "action-open":
         if current.get("mode") not in {"discuss", "execute"}:
             return deny_tool("WORKFLOW_ACTION_DENIED: scoped actions require discuss or execute mode.")
@@ -1148,7 +967,7 @@ def record_or_housekeeping_path(path: str, state: dict[str, Any], cwd: str) -> b
     absolute = normalized(path, cwd)
     record = state.get("record")
     if isinstance(record, str):
-        entries = manifest_paths(record) or ()
+        entries = manifest_paths(record) or tuple(state.get("baseline_metadata", {}).get("files", {}))
         owned = {normalized(str(Path(record) / entry), cwd) for entry in entries}
         if absolute in owned:
             return True
@@ -1174,6 +993,17 @@ def handle_pre_tool(
             requested = {normalized(path, cwd) for path in paths}
             allowed = set(state["write_transaction"].get("paths", []))
             if requested.issubset(allowed):
+                if state["write_transaction"].get("recovery"):
+                    if re.search(r"^\*\*\* (?:Delete File:|Move to:)", tool_command(payload), re.MULTILINE):
+                        return deny_tool("WORKFLOW_RECOVERY_SCOPE_DENIED: recovery only updates or restores acknowledged files; deletion and renames are forbidden.")
+                    try:
+                        root = Path(str(state["record"]))
+                        if str(root.resolve()) != state.get("baseline_metadata", {}).get("root"):
+                            raise ValueError("bundle root changed")
+                        for path in requested:
+                            safe_member(root, Path(path).relative_to(root).as_posix())
+                    except (BundleError, ValueError):
+                        return deny_tool("WORKFLOW_RECOVERY_SCOPE_DENIED: restore the original regular bundle paths; symlinks and changed roots cannot be repaired automatically.")
                 return None
         return deny_tool(
             "WORKFLOW_WRITE_SCOPE_DENIED: while a record write is open, only manifest-owned "
@@ -1198,7 +1028,7 @@ def handle_pre_tool(
         record = str(state.get("record"))
         owned = {
             normalized(str(Path(record) / entry), cwd)
-            for entry in (manifest_paths(record) or ())
+            for entry in (manifest_paths(record) or tuple(state.get("baseline_metadata", {}).get("files", {})))
         }
         if requested & owned:
             return deny_tool(
@@ -1358,7 +1188,11 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
     key = session_key(session_id)
     store = StateStore()
     if event == "PreToolUse":
-        return handle_pre_tool(store, key, payload)
+        output = handle_pre_tool(store, key, payload)
+        if output and output.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+            field = output["hookSpecificOutput"]
+            field["permissionDecisionReason"] = enrich_reason(field["permissionDecisionReason"], payload, store.get(key), parse_control(payload))
+        return output
     if event == "UserPromptSubmit":
         state = store.get(key)
         if not state:
@@ -1383,26 +1217,43 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
             "substantive work or a final response."
         )}
     if event == "Stop":
-        return handle_stop(store, key, payload)
+        output = handle_stop(store, key, payload)
+        if output and output.get("decision") == "block":
+            output["reason"] = enrich_reason(output["reason"], payload, store.get(key))
+        return output
     if event == "SessionEnd":
         store.mutate(key, lambda _old: None)
     return None
 
 
 def main() -> int:
+    event = sys.argv[1] if len(sys.argv) > 1 else "PreToolUse"
     try:
-        raw = sys.stdin.read()
-        if not raw.strip():
-            return 0
-        payload = json.loads(raw)
-        if isinstance(payload, dict):
-            output = run(payload)
-            if output is not None:
-                print(json.dumps(output, separators=(",", ":")))
+        payload = json.loads(sys.stdin.read())
+        if not isinstance(payload, dict) or not isinstance(payload.get("session_id"), str) or not payload["session_id"]:
+            raise ValueError("Expected an object with a nonempty session_id")
+        if len(sys.argv) > 1 and payload.get("hook_event_name") != event:
+            raise ValueError("Hook event does not match its registration")
+        event = str(payload.get("hook_event_name", event))
+        if event not in {"PreToolUse", "Stop", "UserPromptSubmit", "PostCompact", "SessionEnd"}:
+            event = "PreToolUse"
+            raise ValueError("Unsupported hook event")
+        output = run(payload)
+        if output is not None:
+            print(json.dumps(output, separators=(",", ":")))
+        return 0
+    except BundleError as error:
+        reason = f"{error}\nNext: {error.next_step}\nInspect: {control_command('snapshot')}"
+        if event == "PreToolUse":
+            output = deny_tool(reason)
+        elif event == "Stop":
+            output = {"decision": "block", "reason": reason}
+        else:
+            output = {"systemMessage": reason}
+        print(json.dumps(output, separators=(",", ":")))
         return 0
     except Exception as error:
-        print(f"Workflow Modes hook failed: {error}", file=sys.stderr)
-        return 1
+        return infrastructure_failure(event, error)
 
 
 if __name__ == "__main__":
