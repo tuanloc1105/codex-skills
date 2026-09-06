@@ -732,9 +732,16 @@ def handle_control(
         reason = control.get("reason")
         if reason not in {"persistence-failed", "user-stop"}:
             return deny_tool("WORKFLOW_SUSPEND_INVALID: specify persistence-failed or user-stop.")
+        if (current.get("mode") == "execute"
+                and (current.get("recovery") or {}).get("reason") == "user-stop"
+                and reason != "user-stop"):
+            return deny_tool("WORKFLOW_USER_STOP_RETAINED: persistence trouble cannot replace a user stop; reconcile the stop and resume only on the user's instruction.")
         current["recovery"] = {"reason": reason, "since": utc_now()}
         store.mutate(key, lambda _old: current)
-        return context_output("PreToolUse", "WORKFLOW_SUSPENDED: blocker/stop response allowed; all non-record mutations remain denied. No work was marked completed.")
+        boundary = ("record repair and delegated work may continue; report unsaved evidence"
+                    if current.get("mode") == "execute" and reason == "persistence-failed"
+                    else "all non-record mutations remain denied")
+        return context_output("PreToolUse", "WORKFLOW_SUSPENDED: blocker/stop response allowed; " + boundary + ". No work was marked completed.")
     if action == "recover":
         if not record_matches(control.get("record"), current.get("record"), cwd):
             return deny_tool("WORKFLOW_RECORD_MISMATCH: recover must retain the active record.")
@@ -1157,11 +1164,11 @@ def handle_control(
             return deny_tool(
                 "WORKFLOW_ACTION_ABORT_DENIED: the active execution record is still readable."
             )
-        current["recovery"] = {"reason": "persistence-failed", "since": utc_now()}
+        current["recovery"] = current.get("recovery") or {"reason": "persistence-failed", "since": utc_now()}
         store.mutate(key, lambda _old: current)
         return context_output(
             "PreToolUse",
-            "WORKFLOW_SUSPENDED: unreadable-record recovery retained the action; "
+            "WORKFLOW_SUSPENDED: unreadable-record recovery retained the action and any user stop; "
             "repair the record, persist the actual terminal result, close the action, then recover.",
         )
     return deny_tool("WORKFLOW_CONTROL_INVALID: unsupported lifecycle action.")
@@ -1183,7 +1190,7 @@ def record_or_housekeeping_path(path: str, state: dict[str, Any], cwd: str) -> b
 
 
 def execute_mutation(state: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any] | None:
-    """Execution bookkeeping advises; user stops and effect scope still gate."""
+    """The user delegates execution; bookkeeping advises and explicit stops gate."""
     cwd = str(payload.get("cwd", os.getcwd()))
     paths = paths_for_tool(payload)
     requested = {normalized(path, cwd) for path in paths}
@@ -1191,32 +1198,30 @@ def execute_mutation(state: dict[str, Any], payload: dict[str, Any]) -> dict[str
     record_write = bool(paths) and all(record_or_housekeeping_path(path, state, cwd) for path in paths)
     transaction_write = bool(requested) and bool(transaction) and requested.issubset(set(transaction.get("paths", [])))
     recovery = state.get("recovery")
-    if recovery:
-        # Preserve the existing record-repair route, including cached paths.
+    if recovery and recovery.get("reason") == "user-stop":
         if transaction_write:
             return None
-        if recovery.get("reason") == "user-stop" or not record_write:
-            return deny_tool("WORKFLOW_RECOVERY_REQUIRED: execution is suspended; only record repair is permitted. A user stop must be reconciled before resuming work.")
+        return deny_tool("WORKFLOW_RECOVERY_REQUIRED: the user stopped execution; only record repair inside a write transaction is permitted until the stop is reconciled and the user resumes.")
     if transaction_write:
         return None
     action = state.get("action")
+    reminders = []
+    if recovery:
+        reminders.append("repair the execution record and report unsaved evidence; persistence failure does not revoke the delegated task")
     if action and action.get("impact") == "non-source" and not record_write and (
         any(Path(path).suffix.lower() in SOURCE_EXTENSIONS for path in requested)
         or not paths and mutation_classes(payload) & {"git", "shell"}
     ):
-        return deny_tool("WORKFLOW_SOURCE_CONFIRMATION_REQUIRED: the action is explicitly non-source; reconcile actual user authority before source or opaque shell work.")
-    if not paths:
+        reminders.append("update the action impact to reflect the delegated task; an agent-written label is not a user prohibition")
+    if not paths and action:
         classes = mutation_classes(payload)
-        allowed = set(action.get("unscoped", [])) if action else set()
-        # An implementation action already covers its shell tooling. It does
-        # not grant Git/external effects, nor make arbitrary no-action scripts safe.
-        if action and action.get("impact") == "source-confirmed":
-            allowed.add("shell")
-        if classes - allowed:
-            return deny_tool("WORKFLOW_ACTION_UNSCOPED_TOOL: establish scope for Git/external effects or opaque execution before proceeding; missing classes: " + ", ".join(sorted(classes - allowed)))
-    reminders = []
+        recorded = set(action.get("unscoped", []))
+        if action.get("impact") == "source-confirmed":
+            recorded.add("shell")
+        if classes - recorded:
+            reminders.append("record additional effect classes at the next checkpoint: " + ", ".join(sorted(classes - recorded)))
     if not action and not record_write and not transaction_write:
-        reminders.append("record an evidence action for the authorized work")
+        reminders.append("record work-unit evidence at the next meaningful checkpoint")
     if paths and action and not record_write and not transaction_write and not requested.issubset(set(action.get("paths", []))):
         reminders.append("reconcile additional files with the user's task scope")
     if transaction and not transaction_write:
@@ -1229,7 +1234,7 @@ def execute_mutation(state: dict[str, Any], payload: dict[str, Any]) -> dict[str
         reminders.append("read and sync the changed execution record")
     if reminders:
         return context_output("PreToolUse", "WORKFLOW_EXECUTE_ADVISORY: " + "; ".join(reminders)
-                              + ". Continue only within existing user authority; this advisory grants no new permissions.")
+                              + ". Continue the delegated task and its necessary steps without requesting permission for bookkeeping; honor explicit user restrictions.")
     return None
 
 
@@ -1238,13 +1243,37 @@ def handle_pre_tool(
 ) -> dict[str, Any] | None:
     control = parse_control(payload)
     if control:
-        return handle_control(store, key, payload, control)
+        current = store.get(key)
+        result = handle_control(store, key, payload, control)
+        # Reject invalid bookkeeping without treating it as a permission denial
+        # for the user's delegated task. Never claim the control succeeded.
+        bookkeeping = {"sync", "rules-sync", "write-open", "write-close",
+                       "action-open", "action-close", "checkpoint", "recover"}
+        specific = (result or {}).get("hookSpecificOutput", {})
+        if (current and current.get("mode") == "execute"
+                and control.get("action") in bookkeeping
+                and specific.get("permissionDecision") == "deny"):
+            return context_output("PreToolUse", "WORKFLOW_EXECUTE_CONTROL_NOT_APPLIED: "
+                                  + specific["permissionDecisionReason"]
+                                  + " Reconcile bookkeeping at the next safe checkpoint; do not ask the user to reauthorize the task. Explicit user stops still apply.")
+        return result
     state = store.get(key)
     if not state or not is_mutating_tool(payload):
         return None
     mode = state.get("mode")
     if mode == "execute":
-        return execute_mutation(state, payload)
+        result = execute_mutation(state, payload)
+        message = (result or {}).get("hookSpecificOutput", {}).get("additionalContext")
+        if message:
+            signature = hashlib.sha256(message.encode("utf-8")).hexdigest()
+            if state.get("last_execute_advisory") == signature:
+                return None
+            def remember(current: dict[str, Any] | None) -> dict[str, Any] | None:
+                if current is not None:
+                    current["last_execute_advisory"] = signature
+                return current
+            store.mutate(key, remember)
+        return result
     cwd = str(payload.get("cwd", os.getcwd()))
     paths = paths_for_tool(payload)
     if state.get("write_transaction"):
@@ -1360,10 +1389,14 @@ def mode_message(state: dict[str, Any]) -> str:
         f"required_references={','.join(state.get('required_references', [])) or 'None'}; "
         f"rules_sync_required={str(bool(state.get('rules_sync_required'))).lower()}; "
         f"suspended={str(bool(state.get('recovery'))).lower()}; "
-        "rule=when sync is required, read the requested record or active snapshot scope, "
-        "then run matching sync before substantive work; "
-        "rule=persist material turn changes and run checkpoint before final response. "
     )
+    if mode == "execute":
+        common += ("rule=restore the requested record context and persist material evidence at meaningful checkpoints; "
+                   "sync acknowledgments do not gate delegated work or reporting. ")
+    else:
+        common += ("rule=when sync is required, read the requested record or active snapshot scope, "
+                   "then run matching sync before substantive work; "
+                   "rule=persist material turn changes and run checkpoint before final response. ")
     if mode == "discuss":
         return common + (
             "boundary=no source mutation; behavior choices and review PASS are not execution "
@@ -1373,7 +1406,7 @@ def mode_message(state: dict[str, Any]) -> str:
         )
     if mode == "plan":
         return common + "boundary=read-only planning; approval alone does not transition; exit/pause/cancel allowed. </workflow-anchor>"
-    return common + "exit=explicit exit/pause/cancel or clear switch to a separate task. </workflow-anchor>"
+    return common + "authority=execute delegates the task and necessary steps; bookkeeping is advisory, not a permission gate; honor explicit user restrictions; exit=explicit exit/pause/cancel or clear switch to a separate task. </workflow-anchor>"
 
 
 def stop_requirement(store: StateStore, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -1426,7 +1459,10 @@ def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[st
     if not state:
         return None
     if state.get("recovery"):
-        return {"systemMessage": "WORKFLOW_SUSPENDED: report the blocker or user stop honestly; unfinished state is retained and non-record mutations remain denied."}
+        boundary = ("delegated work may continue while record persistence is repaired"
+                    if state.get("mode") == "execute" and state["recovery"].get("reason") == "persistence-failed"
+                    else "non-record mutations remain denied")
+        return {"systemMessage": "WORKFLOW_SUSPENDED: report the blocker or user stop honestly; unfinished state is retained; " + boundary + "."}
     result = stop_requirement(store, key, payload)
     if state.get("mode") == "execute" and result and result.get("decision") == "block":
         state.pop("last_stop_reason", None)
@@ -1460,6 +1496,7 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
         if not state:
             return None
         refresh_sync_requirement(state, force_record=state.get("profile") == "audited")
+        state.pop("last_execute_advisory", None)
         state["checkpoint_required"] = True
         state["turn_start_revision"] = state.get("record_revision")
         store.mutate(key, lambda _old: state)
@@ -1472,6 +1509,12 @@ def run(payload: dict[str, Any]) -> dict[str, Any] | None:
         state["rules_sync_required"] = True
         store.mutate(key, lambda _old: state)
         references = ", ".join(state.get("required_references", [])) or "None"
+        if state.get("mode") == "execute":
+            return {"systemMessage": (
+                mode_message(state) + " Restore the execution context from SKILL.md, applicable Required references: "
+                + references + ", and the active record. Honor user exclusions on skill activation. "
+                "Sync when available; missing bookkeeping acknowledgments do not revoke delegation or prevent reporting."
+            )}
         return {"systemMessage": (
             mode_message(state) + " Recovery order: (1) activate the current skill and read its "
             "complete SKILL.md; (2) read all Required references: " + references + "; (3) read "

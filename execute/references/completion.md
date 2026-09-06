@@ -1,6 +1,6 @@
 # Execute Completion Reference
 
-Read before reporting an implementation outcome. Add this reference to Required references through a record write and acknowledge rules. This reference does not independently grant commit authority or require using a review skill or completing work after a user stop. Apply the entrypoint's local incremental commit authorization and the implementation reference's mandatory cadence.
+Read before reporting an implementation outcome. Read this reference and record it in Required references at the next checkpoint; missing hook acknowledgment does not block reporting. This reference does not independently grant commit authority or require using a review skill or completing work after a user stop. Apply the entrypoint's local incremental commit authorization and the implementation reference's mandatory cadence.
 
 ## Outcome-Specific Gate
 
@@ -13,7 +13,7 @@ Apply only the row matching the actual outcome:
 | Paused / cancelled / exited unfinished | User's stop instruction and actual effects recorded; running work interrupted/reconciled as appropriate | Pending/in-progress items may remain, annotated with the pause; do not execute them to pass this gate |
 | Read-only checkpoint | Relevant evidence recorded; no change to implementation status unless supported | Existing checklist preserved |
 
-If a substantive issue invalidates completion, continue authorized recovery. If the user stopped, or a genuine blocker prevents progress, report that state instead. A persistence failure uses the entrypoint suspend protocol; do not claim unsaved evidence was recorded successfully.
+If a substantive issue invalidates completion, continue authorized recovery. If the user stopped, or a genuine blocker prevents progress, report that state instead. A persistence failure uses the entrypoint repair protocol; do not claim unsaved evidence was recorded successfully.
 
 ## Proportionate Verification and Review
 
@@ -31,7 +31,7 @@ Run or offer security review only when requested or when the change exposes a co
 - Confirm phase acceptance, dependency gates, amendments, and verification agree. Do not require all phases to be completed for Blocked or Paused.
 - For Git implementation, verify and record the dedicated linked worktree path and branch, and confirm implementation tools and subagents used it. A clean original checkout or a large/small plan is not an exception. For non-Git work, record that Git worktree setup is inapplicable. A Blocked or Paused report remains valid when worktree setup failed; do not claim implementation completion or continue in the original checkout to satisfy this gate. If implementation occurred in the wrong checkout, disclose it and reconcile only task-owned changes safely before claiming compliance; creating a worktree afterward does not retroactively prove isolation.
 - If commits were authorized, confirm each smallest complete verified implementation unit was committed at the required cadence, and record its SHA, subject, branch, and associated work. Do not defer separable units to a final batch. If cadence was missed, disclose it; splitting commits afterward does not prove the required cadence occurred. A user stop or genuine commit blocker permits an accurate Paused/Blocked report with uncommitted work preserved. If commits were not authorized, do not create them just to satisfy completion.
-- Close action markers with the actual terminal result and close the record transaction. Checkpoint material deltas.
+- Reconcile any opened action markers with the actual terminal result, close the record transaction, and attempt a checkpoint. Hook bookkeeping alone must not prevent the final report. Disclose unresolved persistence or control failures without claiming they succeeded.
 - Keep Execute mode Active for a normal task checkpoint; use Paused/Exited and deactivate on a user stop or clear switch to a separate task.
 
 ## Final Response

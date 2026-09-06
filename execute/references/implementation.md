@@ -1,6 +1,6 @@
 # Execute Implementation Reference
 
-Read before implementation, amendments, workspace setup, commits, scheduling, or recovery. Add this file to Required references through a record write, read it, then acknowledge rules before mutating work.
+Read before implementation, amendments, workspace setup, commits, scheduling, or recovery. Read this file and record it in Required references at a meaningful checkpoint; hook acknowledgment is not an implementation permission gate.
 
 ## Mandatory Dedicated Worktree
 
@@ -35,13 +35,13 @@ Mark dispatched phases in progress first. Inspect actual changes and checks befo
 
 ## Bounded Work Units
 
-Follow the approved goal and constraints; read relevant code and callers before editing. Use the repository's coding workflow, keep changes scoped, and verify preserved behavior. Open one evidence-backed action per coherent work unit as described in the entrypoint, including authorized setup, tests with side effects, Git operations, or external writes. An action can cover several related files and calls; do not create one per file.
+Follow the approved goal and constraints; read relevant code and callers before editing. Use the repository's coding workflow, keep changes scoped, and verify preserved behavior. Track coherent work units with concise evidence as described in the entrypoint. Optional hook actions may cover setup, implementation, verification, Git operations, and requested delivery together. Continue necessary steps within the delegated task when paths or effect classes change; update metadata at the next checkpoint rather than asking the user for permission again.
 
 A failed test/build is an intermediate result. Inspect the failure, recover proportionately, and rerun the relevant check after a fix. Do not retry endlessly when progress requires an external decision or system. Record useful failure evidence, not raw terminal logs.
 
 ## Amendments and Evidence
 
-Before related implementation, record material user corrections, added deliverables, changed decisions, and discovered constraints in `evidence.md`. Give an entry a stable ID (such as A001), timestamp, source locator, affected work, and actual status. Link to existing evidence instead of repeating it across files.
+Record material user corrections, added deliverables, changed decisions, and discovered constraints in `evidence.md` before related implementation when practical, otherwise at the next safe checkpoint. Persistence trouble alone does not stop work whose delegated scope is clear. Give an entry a stable ID (such as A001), timestamp, source locator, affected work, and actual status. Link to existing evidence instead of repeating it across files.
 
 - Add or revise executable checklist items, dependencies, ownership, and verification when the approved task changes. Record the source of authority; do not expand scope merely because a possible improvement was found.
 - Preserve completed history. Mark obsolete pending work superseded and create corrective work for already implemented behavior that must change.
@@ -71,7 +71,7 @@ When commits are authorized:
 1. Use the captured starting HEAD and diff boundaries to isolate this task's changes.
 2. Before coding, identify the smallest complete, independently verifiable units within the selected phase. A behavior slice, component, DTO, configuration change, or refactor prerequisite may be a unit only when it is coherent with its required tests and dependencies. Do not split mechanically by file or line count, or commit a scaffold that only works after omitted changes.
 3. As soon as a unit's focused checks pass and the coordinator accepts it, stage only its current-task files/hunks, review the staged diff, and commit immediately before starting the next separable unit. Preserve pre-existing and concurrent changes. Do not combine separately complete units merely because they share a phase, checklist step, feature, or layer. A phase normally produces multiple commits unless it is genuinely indivisible; this cadence is mandatory even when executing only one phase. Subagents return bounded unit results for coordinator verification and commit, without staging or committing another worker's changes.
-4. Follow repository message conventions. Do not push, deploy, squash, amend, or rewrite history without corresponding authority.
+4. Follow repository message conventions. Carry out push and delivery when included in the delegated outcome: creating a PR/MR includes the necessary normal task-branch push. Honor explicit restrictions; do not infer unrelated deployment or destructive history rewriting from implementation alone.
 5. Record SHA, subject, branch, and associated work in evidence. The producing commit cannot contain its own SHA; do not amend to chase a self-reference or create an unrequested metadata commit.
 6. Scope any later review to the whole task's committed changes plus in-scope working-tree changes, not just the latest commit. Reconcile a recorded baseline with branch/worktree drift before using it as a range.
 
@@ -83,7 +83,7 @@ Inspect partial effects before retrying. Use a safe alternative, serialize coupl
 
 A user stop ends new scheduling immediately. Interrupt owned work appropriately, record actual effects, leave unfinished items pending/in progress, and close actions with paused/cancelled results. Do not run optional cleanup, commits, reviews, or remaining phases to satisfy completion after a stop.
 
-If persistence fails, follow the entrypoint suspend/repair/recover protocol. Keep the exact record, cached manifest scope, and open action evidence; suspension permits reporting the blocker but never grants non-record mutation. Do not discard unrelated changes or erase an open action to escape a denied hook.
+If persistence fails, follow the entrypoint repair protocol and keep the exact record, cached manifest scope, and actual action evidence. Continue independent delegated work while preserving unsaved facts for reconciliation. A user-stop suspension still prohibits resuming work without the user resuming it. Never discard unrelated changes, fabricate completed evidence, or bypass an actual hook denial.
 
 ## Execution Sequence
 

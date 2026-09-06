@@ -286,7 +286,12 @@ class WorkflowModesHookTests(unittest.TestCase):
                 for path in sorted(self.record.rglob("*.md")):
                     read_file(path)
                 accepted("WORKFLOW_RECORD_SYNCED", "sync", "--record", str(self.record))
-                self.assertIn("WORKFLOW_EXECUTE_ADVISORY" if mode == "execute" else "WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(self.patch(str(target))))
+                output = self.patch(str(target))
+                if mode == "execute":
+                    # Same remaining rules reminder was already emitted this turn.
+                    self.assertNotIn("permissionDecision", json.dumps(output))
+                else:
+                    self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(output))
                 references = tuple(item for ref in MODE_REFERENCES[mode] for item in ("--reference", ref))
                 accepted("WORKFLOW_RULES_SYNCED", "rules-sync", "--record", str(self.record), *references)
                 if mode == "plan":
@@ -869,7 +874,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("existing state retained", json.dumps(self.control("activate", "discuss", "--record", str(self.record))))
         self.assertIn("WORKFLOW_TURN_CHECKPOINT_REQUIRED", json.dumps(self.run_hook("Stop")))
 
-    def test_scope_requires_all_compound_mutation_classes(self) -> None:
+    def test_execute_additional_effect_classes_are_advisory(self) -> None:
         self.activate("execute")
         self.write_open()
         (self.record / "evidence.md").write_text(
@@ -883,7 +888,7 @@ class WorkflowModesHookTests(unittest.TestCase):
         mixed = {"cmd": "git -C /repo commit -m change; python3 unrelated.py"}
         self.assertIsNone(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=mixed))
         external = {"cmd": "git status; gh pr create"}
-        self.assertIn("WORKFLOW_ACTION_UNSCOPED_TOOL", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=external)))
+        self.assertIn("WORKFLOW_EXECUTE_ADVISORY", json.dumps(self.run_hook("PreToolUse", tool_name="exec_command", tool_input=external)))
 
     def test_execute_bookkeeping_advises_without_auto_suspension(self) -> None:
         self.activate("execute")
@@ -898,6 +903,65 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("suspended=False", json.dumps(self.control("snapshot")))
         self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
         self.assertIn("WORKFLOW_RECOVERY_REQUIRED", json.dumps(self.patch("app.py")))
+
+    def test_execute_pr_delivery_continues_without_action_or_class_grants(self) -> None:
+        self.activate("execute")
+        self.run_hook("UserPromptSubmit")
+        self.run_hook("PostCompact")
+        for command in ("git push -u origin feature/task", "gh pr create --title change --body result"):
+            output = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
+            self.assertNotIn("permissionDecision", json.dumps(output))
+        self.assertNotIn("decision", self.run_hook("Stop"))
+
+    def test_execute_failed_bookkeeping_does_not_claim_success_or_block_work(self) -> None:
+        self.activate("execute")
+        before = self.control("snapshot")
+        output = self.control("action-open", "--record", str(self.record), "--impact", "source-confirmed")
+        self.assertIn("WORKFLOW_EXECUTE_CONTROL_NOT_APPLIED", json.dumps(output))
+        self.assertNotIn("permissionDecision", json.dumps(output))
+        self.assertEqual(before, self.control("snapshot"))
+        output = self.run_hook("PreToolUse", tool_name="functions.exec", tool_input={"code": 'text(await tools.exec_command({cmd: "git status"}));'})
+        self.assertNotIn("permissionDecision", json.dumps(output))
+
+    def test_execute_persistence_failure_keeps_evidence_and_allows_independent_work(self) -> None:
+        self.activate("execute")
+        self.write_open()
+        self.control("suspend", "--record", str(self.record), "--reason", "persistence-failed")
+        (self.record / "context.md").unlink()
+        for command in ("python3 verify.py", "git push -u origin feature/task"):
+            output = self.run_hook("PreToolUse", tool_name="exec_command", tool_input={"cmd": command})
+            self.assertNotIn("permissionDecision", json.dumps(output))
+        self.assertIn("suspended=True", json.dumps(self.control("snapshot")))
+        self.assertNotIn("decision", self.run_hook("Stop"))
+        self.assertIn("WORKFLOW_WRITE_ALREADY_OPEN", json.dumps(self.control("write-open", "--record", str(self.record), "--previous-revision", "stale")))
+
+    def test_execute_persistence_reason_cannot_replace_user_stop(self) -> None:
+        self.activate("execute")
+        self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
+        output = self.control("suspend", "--record", str(self.record), "--reason", "persistence-failed")
+        self.assertIn("WORKFLOW_USER_STOP_RETAINED", json.dumps(output))
+        for _ in range(2):
+            self.assertIn("permissionDecision", json.dumps(self.patch("app.py")))
+
+    def test_execute_legacy_abort_preserves_user_stop(self) -> None:
+        self.activate("execute")
+        self.write_open()
+        (self.record / "evidence.md").write_text(
+            "# Evidence\n<!-- workflow-action:A001 status:open -->\n", encoding="utf-8")
+        self.index.write_text(self.index.read_text().replace("Active action: None", "Active action: A001"), encoding="utf-8")
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(self.control("action-open", "--record", str(self.record), "--evidence-id", "A001", "--impact", "source-confirmed")))
+        self.control("suspend", "--record", str(self.record), "--reason", "user-stop")
+        (self.record / "context.md").unlink()
+        self.assertIn("WORKFLOW_SUSPENDED", json.dumps(self.control("action-abort", "--reason", "record-unreadable")))
+        self.assertIn("permissionDecision", json.dumps(self.patch("app.py")))
+
+    def test_execute_repeated_advisory_is_quiet_until_next_prompt(self) -> None:
+        self.activate("execute")
+        self.assertIn("WORKFLOW_EXECUTE_ADVISORY", json.dumps(self.patch("app.py")))
+        self.assertIsNone(self.patch("app.py"))
+        self.run_hook("UserPromptSubmit")
+        self.assertIn("WORKFLOW_EXECUTE_ADVISORY", json.dumps(self.patch("app.py")))
 
     def test_unready_discussion_cannot_activate_execute(self) -> None:
         self.create_bundle("discuss")

@@ -52,31 +52,45 @@ class ExecutePolicyTests(unittest.TestCase):
         ):
             self.assert_advisory(self.run_policy(payload={"tool_name": name, "tool_input": args}))
 
-    def test_shell_needs_action_but_not_separate_shell_class(self):
-        payload = {"tool_name": "exec_command", "tool_input": {"cmd": "python3 build.py"}}
-        self.assertEqual(self.run_policy(payload=payload)["hookSpecificOutput"]["permissionDecision"], "deny")
-        self.assertIsNone(self.run_policy({**self.state, "action": self.action}, payload))
-
-    def test_git_external_and_non_source_boundaries_remain(self):
+    def test_shell_wrappers_and_delivery_do_not_need_action_permission(self):
         for payload in (
+            {"tool_name": "exec_command", "tool_input": {"cmd": "python3 build.py"}},
+            {"tool_name": "exec_command", "tool_input": {"cmd": "git push -u origin feature/task"}},
+            {"tool_name": "exec_command", "tool_input": {"cmd": "gh pr create --title change --body result"}},
+            {"tool_name": "functions.exec", "tool_input": {"code": 'text(await tools.exec_command({cmd: "git status"}));'}},
+            {"tool_name": "tickets.update_issue", "tool_input": {}},
+        ):
+            with self.subTest(payload=payload):
+                self.assert_advisory(self.run_policy(payload=payload))
+        self.assertIsNone(self.run_policy({**self.state, "action": self.action},
+                                         {"tool_name": "exec_command", "tool_input": {"cmd": "python3 build.py"}}))
+
+    def test_agent_action_labels_do_not_revoke_delegation(self):
+        for payload in (
+            self.payload,
             {"tool_name": "exec_command", "tool_input": {"cmd": "git push"}},
             {"tool_name": "tickets.update_issue", "tool_input": {}},
         ):
-            self.assertEqual(self.run_policy({**self.state, "action": self.action}, payload)["hookSpecificOutput"]["permissionDecision"], "deny")
-        result = self.run_policy({**self.state, "action": {**self.action, "impact": "non-source"}})
-        self.assertIn("WORKFLOW_SOURCE_CONFIRMATION_REQUIRED", result["hookSpecificOutput"]["permissionDecisionReason"])
+            for impact in ("non-source", "source-confirmed"):
+                state = {**self.state, "action": {**self.action, "impact": impact, "paths": []}}
+                with self.subTest(payload=payload, impact=impact):
+                    self.assert_advisory(self.run_policy(state, payload))
 
-    def test_suspension_only_allows_record_repair(self):
+    def test_persistence_failure_does_not_revoke_delegation(self):
+        state = {**self.state, "recovery": {"reason": "persistence-failed"}}
+        for payload in (self.payload, {"tool_name": "functions.exec", "tool_input": {"code": "repair()"}}):
+            self.assert_advisory(self.run_policy(state, payload))
+
+    def test_user_stop_still_blocks_work_and_permits_scoped_record_repair(self):
         record_payload = {**self.payload, "tool_input": f"*** Update File: {self.record}\n"}
-        for reason in ("user-stop", "persistence-failed"):
-            state = {**self.state, "recovery": {"reason": reason}}
-            self.assertEqual(self.run_policy(state)["hookSpecificOutput"]["permissionDecision"], "deny")
-            if reason == "persistence-failed":
-                self.assert_advisory(self.run_policy(state, record_payload))
-            else:
-                self.assertEqual(self.run_policy(state, record_payload)["hookSpecificOutput"]["permissionDecision"], "deny")
-            state["write_transaction"] = {"paths": [self.record]}
-            self.assertIsNone(self.run_policy(state, record_payload))
+        state = {**self.state, "recovery": {"reason": "user-stop"}}
+        for payload in (self.payload, record_payload,
+                        {"tool_name": "functions.exec", "tool_input": {"code": "work()"}},
+                        {"tool_name": "exec_command", "tool_input": {"cmd": "git push"}}):
+            self.assertEqual(self.run_policy(state, payload)["hookSpecificOutput"]["permissionDecision"], "deny")
+        state["write_transaction"] = {"paths": [self.record]}
+        self.assertIsNone(self.run_policy(state, record_payload))
+        self.assertEqual(self.run_policy(state)["hookSpecificOutput"]["permissionDecision"], "deny")
 
 
 if __name__ == "__main__":
