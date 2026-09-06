@@ -52,7 +52,7 @@ Active action: <ID and status, or None>
 ## Active Snapshot
 
 Profile: <Lightweight | Durable | Audited>
-Required references: <references/plan-record.md[, references/phase-planning.md]>
+Required references: <references/plan-record.md[, references/planning-workflow.md][, references/phase-planning.md]>
 Goal: <current goal>
 Current state: <current state>
 Accepted decisions: <IDs or None>

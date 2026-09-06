@@ -53,7 +53,7 @@ Active action: <ID and status, or None>
 ## Active Snapshot
 
 Profile: <Lightweight | Durable | Audited>
-Required references: <references/tracker.md[, references/actions.md]>
+Required references: <references/tracker.md[, references/response-workflow.md][, references/actions.md]>
 Goal: <current goal>
 Current state: <current state>
 Accepted decisions: <IDs or None>

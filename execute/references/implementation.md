@@ -13,41 +13,13 @@ Before beginning or resuming implementation in a git repository, work from a ded
 - Inspect the repository's current worktrees first. Reuse one only when it is already dedicated to the same execution record and contains no unrelated work; otherwise create a new linked worktree on the intended task branch or on a new task-focused branch from the approved base.
 - Treat the recorded worktree path as resumable state, not a permanent dependency. The user may remove or clean `.worktrees/` between sessions. If the recorded worktree is missing or no longer registered, prune stale worktree metadata when safe, recreate a dedicated worktree under `.worktrees/` from the recorded branch or current execution commit, update `evidence.md` with the replacement path and branch, and continue. Do not declare a blocker merely because the previous worktree disappeared.
 - Run all implementation edits, checks, staging, commits, integration, and simplify-driven fixes inside that worktree. The adopted execution record remains at its exact bound path and is the only permitted execute-mode write outside the dedicated worktree when that path lives elsewhere.
-- Preserve the dedicated worktree after implementation, commits, pushes, PR/MR creation, and execute exit. Automatic cleanup is authorized only by an explicit user request to merge the associated PR/MR and only after that merge is confirmed successful; follow `Post-Merge Worktree Cleanup` in [completion.md](completion.md). A separate explicit cleanup request applies only to its stated scope.
+- Preserve the dedicated worktree after implementation, commits, pushes, PR/MR creation, and execute exit. Automatic cleanup is authorized only by an explicit user request to merge the associated PR/MR and only after that merge is confirmed successful; follow `Post-Merge Worktree Cleanup` in [post-merge-cleanup.md](post-merge-cleanup.md). A separate explicit cleanup request applies only to its stated scope.
 - Record the worktree path and branch in the handoff section of `evidence.md` before implementation so a later session can resume the same isolated workspace.
 - If a dedicated worktree cannot be created or safely reused, do not fall back to the existing checkout. Report the concrete blocker and wait for the permission or user decision required to proceed.
 
 ## Parallel Phase Scheduling
 
-Treat `Subagent: Eligible` as permission, not a mandate. Build a dependency-ready set from phases whose prerequisites are completed and accepted, then form the safest useful execution wave from that set.
-
-Delegate an eligible phase only when all of these are true:
-
-- The phase has a bounded task, stable inputs, a concrete output contract, and phase-local verification.
-- Its write ownership does not overlap another active phase or pre-existing user work that cannot be preserved safely.
-- It neither consumes another same-wave phase's output nor mutates a shared contract, migration, lockfile, generated artifact, external resource, persistent test data, stateful process, or similarly coupled resource without an explicit safe coordination strategy.
-- A separate subagent and runtime capacity are available, and delegation is likely to improve speed or quality enough to justify coordination.
-
-Use one subagent per eligible phase. The main agent may execute another dependency-ready, non-conflicting phase concurrently. Never hardcode a concurrency count; respect the active runtime's available capacity.
-
-If delegation is unavailable, unsafe, or not worthwhile, execute the eligible phase sequentially and add a concise plan note when the reason matters for handoff. Lack of subagent capacity is not a blocker.
-
-## Coordinator and Subagent Ownership
-
-The main agent is the sole writer of the execution bundle. Subagents never edit `index.md`, `plan.md`, `verification.md`, `evidence.md`, or phase status metadata.
-
-Assume subagents share the current workspace unless the runtime explicitly guarantees isolation. Enforce one writer per file or mutable touchpoint within a wave.
-
-Before dispatch, mark the phase in progress and give the subagent a bounded task containing:
-
-- The exact phase ID, goal, satisfied dependencies, and authoritative inputs
-- Allowed files, modules, services, or mutable resources, plus explicit exclusions
-- Required repository instructions and read-before-write context
-- The expected output or handoff contract and phase-local checks
-- A requirement not to edit the execution record, broaden scope, or run commits, pushes, deployments, destructive commands, broad formatters, or other operations outside its ownership unless separately authorized
-- A return contract covering summary, files or resources changed, checks and results, assumptions, risks, and blockers
-
-Require a subagent to stop and report before touching an unassigned or overlapping resource or materially changing the approved approach. Review its reported output and actual changes before accepting the phase; never treat a successful agent status as sufficient verification.
+Before evaluating delegation for eligible phases, dispatching subagents, or recovering their work, read and follow [parallel-execution.md](parallel-execution.md). When no delegation is being considered and no delegated work remains active, execute sequentially under the existing dependency and verification gates.
 
 ## Execution Rules
 
@@ -144,7 +116,7 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 1. Resolve, adopt, and read the complete execution-record path; activate or re-enter execute mode and persist its metadata.
 2. When the current directory is inside a Git repository, ensure `<repository-root>/.worktrees/` is ignored, create or safely reuse the dedicated worktree there, record its path and branch in the execution record, and perform the remaining implementation workflow there. Otherwise skip worktree setup and continue in the non-Git directory.
 3. Inspect enough repository context to execute safely.
-4. Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
+4. Before evaluating delegation for eligible phases, read [parallel-execution.md](parallel-execution.md). Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
 5. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating.
 6. Mark the selected phase items in progress and dispatch each eligible delegated phase with the required ownership and return contract.
 7. Execute any coordinator-owned phase that can run concurrently without conflicting with active subagents.
@@ -160,7 +132,7 @@ The final commit SHA cannot be embedded in the commit that produced it because c
 17. Re-run the narrowest meaningful checks after any agent-doc updates.
 18. Update the plan status, checklist, amendments and evidence, verification notes, execution decisions, `Last updated`, and residual risks.
 19. If the user adds follow-up work, changes an earlier decision, provides a material handoff or evidence item, or requests a commit, pass it through the amendment gate and resume the applicable workflow before treating the task as complete.
-20. If the user explicitly requested merging the associated PR/MR, complete the authorized merge, verify its merged state, then perform `Post-Merge Worktree Cleanup` in [completion.md](completion.md) as the final operational step. Without that merge request, preserve the worktree.
+20. If the user explicitly requested merging the associated PR/MR, complete the authorized merge, verify its merged state, then perform `Post-Merge Worktree Cleanup` in [post-merge-cleanup.md](post-merge-cleanup.md) as the final operational step. Without that merge request, preserve the worktree.
 21. Apply the final completion gate and continue working if any requirement fails.
 
 ## Recovery Before Blocking

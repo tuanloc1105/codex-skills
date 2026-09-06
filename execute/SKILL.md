@@ -38,12 +38,17 @@ Execute accepts only workflow-record version 4 bundles and defaults to `Durable`
 
 ## Reference Routing
 
+Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and acknowledge the set change and complete rules-sync under the normal lifecycle. After compaction, reread every reference still required.
+
 Load only the reference needed for the current stage, and read it completely before applying it.
 
 - Read [references/implementation.md](references/implementation.md) before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
 - Read [references/completion.md](references/completion.md) after implementation work is integrated and before claiming completion, simplifying, updating agent docs, offering security review, handling a user-requested PR/MR merge or post-merge worktree cleanup, or sending the final implementation response.
+- Read [references/intake.md](references/intake.md) before record validation or adoption.
+- Read [references/parallel-execution.md](references/parallel-execution.md) before evaluating delegation, dispatching subagents, or recovering delegated work.
+- Read [references/post-merge-cleanup.md](references/post-merge-cleanup.md) before a user-requested PR/MR merge or dedicated-worktree cleanup.
 - Read-only adoption and summary turns do not require either implementation reference unless their conditions arise.
-- Keep `Required references: None` for read-only adoption when neither routed reference applies. Add `references/implementation.md` before implementation, amendment, commit, or recovery; add `references/completion.md` before simplify, completion, or a user-requested PR/MR merge and its cleanup. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
+- Keep `references/intake.md` required through adoption or re-entry. For a later read-only summary with no intake or other routed work, `Required references: None` is permitted. Add `references/implementation.md` before implementation, amendment, commit, or recovery; add `references/completion.md` before simplify, completion, or a user-requested PR/MR merge and its cleanup. Add `references/parallel-execution.md` while evaluating delegation or while delegated work, integration, or recovery is active; add `references/post-merge-cleanup.md` while handling a requested merge or cleanup. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
 
 ## Persistent Mode Contract
 
@@ -128,26 +133,4 @@ Require a path to the execution bundle directory or its `index.md` unless an exa
 
 ## Plan and Tracker Intake
 
-Read `index.md` and every manifest file before substantive work, adopt the canonical root, and apply the metadata update transactionally. Never copy a direct discussion handoff into another bundle.
-
-Verify these basics:
-
-- The bundle is version 4 with a valid manifest and is either an approved plan or exited, execution-ready discussion record.
-- `context.md`, `plan.md`, `verification.md`, and `evidence.md` exist, and every declared phase has one valid phase file.
-- No unresolved item in `decisions.md` blocks execution.
-- The record status is approved or the user explicitly asked to execute it.
-- For a phased plan, read `## Execution Structure` and capture each phase's ID, dependencies, wave, subagent eligibility, owned scope, produced output, and verification or integration requirements.
-
-Reject an active or not-ready discussion tracker as an execution input. Do not silently finish its discussion, choose unresolved options, or manufacture a plan inside execute mode. In the same task, keep `$discuss` active and complete its `Direct Execute Handoff`; in a fresh task, tell the user to resume `$discuss` on that exact tracker before trying `$execute` again.
-
-For an accepted discussion tracker, preserve `Mode status: Exited`, set `Execute mode: Active`, apply the standard execute resume instruction, and use the tracker as the sole execution source of truth. Missing scheduling metadata remains subject to the sequential backward-compatibility rule below.
-
-Treat an explicit user request to execute the supplied record as execution approval even when its status is missing or still says `Draft`, `Ready`, or `Awaiting execution`. A request only to read, inspect, summarize, or adopt the record activates execute mode and its bookkeeping but does not authorize implementation.
-
-Ask for confirmation only when the record explicitly says not to implement, an unresolved choice materially changes the desired outcome, repository drift invalidates the approved goal or requires materially different scope, or two authoritative requirements cannot both be satisfied. Do not invent a materially different plan.
-
-Treat `Depends on` as authoritative and any declared wave as a scheduling hint that must agree with it. Revalidate phase independence against the current repository and runtime before dispatch. An eligibility note never overrides overlapping files, shared mutable state, unstable contracts, or newly discovered dependencies.
-
-Reject phased plans with missing dependency, wave, ownership, output, phase-file, or acceptance metadata. Simple plans without phases execute sequentially; do not infer parallel permission from numbered steps.
-
-When working in a git repository, capture the initial status and current diff boundaries before parallel dispatch so pre-existing user changes can be distinguished and preserved.
+Before validating or adopting a record, read and follow [references/intake.md](references/intake.md). Adopt the exact bundle only after its intake checks pass; reading or adopting it does not authorize implementation.

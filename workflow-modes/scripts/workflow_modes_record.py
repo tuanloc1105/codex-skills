@@ -17,9 +17,12 @@ MAX_RECORD_BYTES = 2 * 1024 * 1024
 PROFILES = {"lightweight", "durable", "audited"}
 MODES = {"discuss", "plan", "execute"}
 MODE_REFERENCES = {
-    "discuss": ("references/tracker.md", "references/actions.md"),
-    "plan": ("references/plan-record.md", "references/phase-planning.md"),
-    "execute": ("references/implementation.md", "references/completion.md"),
+    "discuss": ("references/tracker.md", "references/actions.md", "references/response-workflow.md"),
+    "plan": ("references/plan-record.md", "references/phase-planning.md", "references/planning-workflow.md"),
+    "execute": (
+        "references/implementation.md", "references/completion.md", "references/intake.md",
+        "references/parallel-execution.md", "references/post-merge-cleanup.md",
+    ),
 }
 
 

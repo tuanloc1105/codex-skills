@@ -50,13 +50,7 @@ If the user says yes, use `$security-review` with this scope constraint:
 
 ## Post-Merge Worktree Cleanup
 
-An explicit user request to merge the associated Pull Request or Merge Request also authorizes automatic removal of this execution's dedicated linked worktree after a successful merge. Perform cleanup as the final operational step without asking for redundant confirmation, unless the user asks to keep the worktree. Without a user merge request, preserve it even if implementation is complete or the PR/MR was merged by someone else. A separate explicit cleanup request remains limited to its stated scope.
-
-1. Record the merge request and cleanup follow-up through the amendment gate. Verify the exact repository, PR/MR, source branch, and recorded dedicated worktree match. Use the applicable Git-platform workflow to perform the authorized merge and read back the remote merged state. An accepted auto-merge request, queued merge, closed-but-unmerged request, failed merge, or unknown result does not permit cleanup; retain the worktree until merge success is confirmed.
-2. Inspect the worktree for staged, unstaged, untracked, and ignored files, unfinished work, and local commits not accounted for by the merged PR/MR. Account for squash/rebase merges using the merged PR/MR's source revision and content rather than ancestry alone. Preserve anything whose ownership or recoverability is uncertain; never force removal, reset, or clean files to make removal succeed.
-3. Keep the exact adopted execution bundle readable and writable after cleanup. If it lives inside the target worktree, retain the worktree and report that cleanup requires a user decision about preserving the bound record; do not relocate, duplicate, or delete the active record automatically. Likewise, record any data-preservation blocker without undoing a successful merge.
-4. Once safe, persist merge evidence and the intended cleanup path, open the required scoped cleanup action, and move the shell working directory outside the target worktree. Remove only the recorded dedicated linked worktree with `git worktree remove <exact-path>` without force. Do not remove the user's existing checkout, other worktrees, the `.worktrees/` parent, or local/remote branches as part of this step.
-5. Verify the path is absent and `git worktree list --porcelain` no longer registers it. Persist the cleanup result, retained branch and merge identifiers in `evidence.md`, update the checklist and handoff to mark the worktree removed or retained with its reason, then close the action and checkpoint. Cleanup does not exit execute mode. If removal fails, preserve the worktree, record the failure, and report the concrete blocker instead of claiming cleanup succeeded.
+Before handling a user-requested PR/MR merge or dedicated-worktree cleanup, read and follow [post-merge-cleanup.md](post-merge-cleanup.md). Without such a request, preserve the dedicated worktree.
 
 ## Final Completion Gate
 

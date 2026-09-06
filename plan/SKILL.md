@@ -28,11 +28,14 @@ Use this skill to turn an ambiguous or important request into an approved execut
 
 ## Reference Routing
 
+Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and acknowledge the set change and complete rules-sync under the normal lifecycle. After compaction, reread every reference still required.
+
 Load only the reference needed for the current stage, and read it completely before applying it.
 
 - Read [references/plan-record.md](references/plan-record.md) before creating, updating, approving, or handing off the Markdown plan.
 - Read [references/phase-planning.md](references/phase-planning.md) only when phases, dependencies, waves, or subagent eligibility materially improve the plan.
-- Keep `Required references` minimal: always `references/plan-record.md`; add `references/phase-planning.md` while phases, dependencies, waves, or subagent eligibility are in use. Persist and acknowledge each set change before reading the new reference and running `rules-sync`.
+- Read [references/planning-workflow.md](references/planning-workflow.md) before creating or revising a plan, baseline analysis, or requesting approval.
+- Keep `Required references` minimal: always `references/plan-record.md`; add `references/planning-workflow.md` while creating or revising a plan, analyzing its baseline, or obtaining approval; add `references/phase-planning.md` while phases, dependencies, waves, or subagent eligibility are in use. Persist and acknowledge each set change before reading the new reference and running `rules-sync`.
 
 ## Plan-First Boundary
 
@@ -67,29 +70,7 @@ While in this fallback, keep using the already established draft plan as the pla
 
 ## Conversation Workflow
 
-1. Resolve, reserve, initialize, activate, read, and sync the exact draft plan path under `Saving Rules`.
-2. Restate the user's goal in concrete terms and persist it to the draft.
-3. Gather only the missing information that materially changes the plan. Keep questions concise and follow the mandatory `Question and Open-Issue Contract`; do not ask for details that can be discovered safely from the workspace.
-4. Inspect enough context to remove guesswork:
-   - Relevant repository instructions and local conventions
-   - Existing files, exports, callers, routes, schemas, tests, configs, logs, or docs
-   - Current constraints from the user and active environment
-5. Establish an existing-behavior and regression-safety baseline before proposing changes to an existing mechanism:
-   - Record the current behavior and the evidence supporting it; distinguish verified facts, user-reported behavior, inferences, and unknowns
-   - Identify stable behaviors, invariants, interfaces, data contracts, UX expectations, error handling, and backward-compatibility requirements that must be preserved unless the user explicitly changes them
-   - Trace affected callers, consumers, integrations, data flows, and other downstream touchpoints
-   - Identify the existing tests, checks, logs, screenshots, or manual reproduction that demonstrate the baseline; run only safe read-only checks and record any checks that could not be run
-   - Separate intentional behavior changes from regressions and make material evidence gaps explicit before planning potentially breaking work
-6. Propose a plan with clear scope:
-   - What will change
-   - What will not change
-   - Main files, modules, services, UI surfaces, data flows, or external systems touched
-   - Phase dependencies, execution waves, and bounded subagent candidates when the work benefits from phases
-   - Risks, assumptions, and open questions
-   - Preservation acceptance criteria, regression checks, and verification strategy
-   - Rollback or recovery for material behavior changes
-7. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Approval is required before changing the existing draft record to its final execute-ready status.
-8. After approval, finalize the same exact bundle as the approved handoff. Do not create a replacement bundle or implement it in the same `$plan` flow unless the user explicitly requests execution after saving.
+Before creating or revising a plan, establishing its baseline, or requesting approval, read and follow [references/planning-workflow.md](references/planning-workflow.md). Keep the `Plan-First Boundary` and `Question and Open-Issue Contract` in force.
 
 ## Question and Open-Issue Contract
 

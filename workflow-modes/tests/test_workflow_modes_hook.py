@@ -132,6 +132,74 @@ class WorkflowModesHookTests(unittest.TestCase):
             args.extend(("--path", str(path)))
         return self.control(*args)
 
+    def test_conditional_references_require_exact_sync_and_survive_compaction(self) -> None:
+        cases = (
+            ("discuss", "references/response-workflow.md"),
+            ("plan", "references/planning-workflow.md"),
+            ("execute", "references/intake.md"),
+            ("execute", "references/parallel-execution.md"),
+            ("execute", "references/post-merge-cleanup.md"),
+        )
+        for number, (mode, reference) in enumerate(cases):
+            with self.subTest(mode=mode, reference=reference):
+                self.session_id = f"conditional-{number}"
+                self.record = self.cwd / self.session_id
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
+                previous = ", ".join(MODE_REFERENCES[mode])
+                self.index.write_text(
+                    self.index.read_text().replace(
+                        f"Required references: {previous}",
+                        f"Required references: {previous}, {reference}",
+                    ), encoding="utf-8",
+                )
+                self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(
+                    self.control("write-close", "--record", str(self.record))))
+                old_args = tuple(item for ref in MODE_REFERENCES[mode]
+                                 for item in ("--reference", ref))
+                self.assertIn("WORKFLOW_RULES_SYNC_INVALID", json.dumps(
+                    self.control("rules-sync", "--record", str(self.record), *old_args)))
+                self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(
+                    self.control("rules-sync", "--record", str(self.record),
+                                 *old_args, "--reference", reference)))
+                self.assertIn(reference, json.dumps(self.run_hook("PostCompact")))
+                self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(
+                    self.control("sync", "--record", str(self.record))))
+                self.assertIn("WORKFLOW_RULES_SYNC_REQUIRED", json.dumps(
+                    self.control("checkpoint", "--record", str(self.record))))
+                self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(
+                    self.control("rules-sync", "--record", str(self.record),
+                                 *old_args, "--reference", reference)))
+                # End the conditional stage through the same transaction protocol.
+                self.write_open()
+                self.index.write_text(self.index.read_text().replace(
+                    f"Required references: {previous}, {reference}",
+                    f"Required references: {previous}"), encoding="utf-8")
+                self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(
+                    self.control("write-close", "--record", str(self.record))))
+                self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(
+                    self.control("rules-sync", "--record", str(self.record), *old_args)))
+
+    def test_conditional_reference_allowlist_remains_closed(self) -> None:
+        for number, reference in enumerate((
+            "references/not-registered.md",
+            "references/parallel-execution.md",
+            "references/response-workflow.md, references/response-workflow.md",
+        )):
+            with self.subTest(reference=reference):
+                self.session_id = f"invalid-reference-{number}"
+                self.record = self.cwd / self.session_id
+                self.index = self.record / "index.md"
+                self.activate("discuss")
+                self.write_open()
+                previous = ", ".join(MODE_REFERENCES["discuss"])
+                self.index.write_text(self.index.read_text().replace(
+                    f"Required references: {previous}",
+                    f"Required references: {previous}, {reference}"), encoding="utf-8")
+                self.assertIn("WORKFLOW_WRITE_CLOSE_INVALID", json.dumps(
+                    self.control("write-close", "--record", str(self.record))))
+
     def test_dormant_until_activation(self) -> None:
         self.assertIsNone(self.patch("app.py"))
         self.assertIsNone(self.run_hook("PostCompact"))
