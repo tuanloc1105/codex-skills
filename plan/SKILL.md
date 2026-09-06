@@ -96,11 +96,29 @@ While in this fallback, keep using the already established draft plan as the pla
 Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan bundle.
 
 - Present each distinct issue as a separate question block. Do not combine unrelated decisions under one option list.
-- Provide 2-4 practical, mutually distinguishable options that answer that question.
+- Provide 2-4 total practical, mutually distinguishable options that answer that question, counting `Other — specify` toward the total.
+- In chat and saved Markdown, put each option on its own line with an explicit consecutive number: `1.`, `2.`, `3.`, `4.` as needed. Start at `1.`, leave a blank line between the question and its list, and never substitute bullets (`-`, `*`, `•`), checkboxes, letters, inline choices, or repeated `1.` markers. This is a required response format, not merely an example style.
+- Keep only one user-facing question awaiting an answer at a time so a bare number is unambiguous. A record may retain multiple open questions, each with its own numbered options and stable question ID; present only the next question in chat.
+- Accept a bare number such as `1` as selection of that option in the pending question, or a number plus detail such as `4. đánh giá lại phương án fix`. Apply any supplied qualification; do not require the user to repeat the option label. A bare selection of `Other` or an option needing a value does not supply the missing detail: ask a focused numbered follow-up. If the number is out of range or its question is ambiguous, clarify with numbered options instead of guessing.
+- Preserve the pending question's number-to-option mapping in the record so resumed sessions interpret short replies consistently. If choices must change, present the revised question before accepting a selection against it.
+- Use this numbered chat format when the interaction channel is optional. If higher-priority instructions require a structured question tool, follow its schema and selection behavior; do not add unsupported fields or duplicate its question in chat. Preserve the displayed option order when recording the question.
 - Mark one option as `Recommended` or `Default` when there is a reasonable choice.
 - Include `Other — specify` when the listed choices may not cover the user's intent.
 - When the user must supply a free-form value unrelated to plan-file storage, such as a URL or external resource name, offer useful defaults or actions first and include an option to provide a different value. Never invent the free-form value.
 - If a question is non-blocking, state which default the agent will use if the user does not answer.
 - Apply these rules to questions in chat and to every item in the proposed or saved plan's `Open Questions` section.
 - For each open question in a plan, record its options, recommendation/default when applicable, and whether it blocks execution.
-- Before sending a response or saving a plan, check that no user-facing question or open issue lacks its own option list.
+- Before sending a response or saving a plan, check that every user-facing question and open issue has its own consecutively numbered option list and that chat has only one pending question. Rewrite any bulleted choices before sending.
+
+Required chat format (wording and language may adapt to the user):
+
+```text
+Ban muon xu ly ban ke hoach nay the nao?
+
+1. Duyet ke hoach: chot ban hien tai, chua trien khai. Recommended.
+2. Sua cuc bo: ban neu phan can dieu chinh.
+3. Lap lai ke hoach: danh gia lai huong tiep can.
+4. Khac: ban mo ta huong ban muon.
+```
+
+The user can reply `1` or `4. đánh giá lại phương án fix`. A selection of `1` in this example approves the plan only; it does not request execution. The same choices written with `-` bullets do not satisfy this contract.

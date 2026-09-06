@@ -59,25 +59,31 @@ This gate applies only while full `discuss` mode is active. A `$plan` discuss fa
 Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, approval, or permission to exit this mode. Never ask a storage-choice question for the tracker.
 
 - For a material decision gate, present only the first unresolved issue as a single question block. Do not batch multiple decision questions; defer later issues to subsequent turns.
-- Provide 2-4 total practical, mutually distinguishable options that answer that question.
+- Provide 2-4 total practical, mutually distinguishable options that answer that question, counting `Other — specify` toward the total.
+- In chat and saved Markdown, put each option on its own line with an explicit consecutive number: `1.`, `2.`, `3.`, `4.` as needed. Start at `1.`, leave a blank line between the question and its list, and never substitute bullets (`-`, `*`, `•`), checkboxes, letters, inline choices, or repeated `1.` markers. This is a required response format, not merely an example style.
+- Keep only one user-facing question awaiting an answer at a time so a bare number is unambiguous. A record may retain multiple open questions, each with its own numbered options and stable question ID; present only the next question in chat.
+- Accept a bare number such as `1` as selection of that option in the pending question, or a number plus detail such as `4. đánh giá lại phương án fix`. Apply any supplied qualification; do not require the user to repeat the option label. A bare selection of `Other` or an option needing a value does not supply the missing detail: ask a focused numbered follow-up. If the number is out of range or its question is ambiguous, clarify with numbered options instead of guessing.
+- Preserve the pending question's number-to-option mapping in the record so resumed sessions interpret short replies consistently. If choices must change, present the revised question before accepting a selection against it.
+- Use this numbered chat format when the interaction channel is optional. If higher-priority instructions require a structured question tool, follow its schema and selection behavior; do not add unsupported fields or duplicate its question in chat. Preserve the displayed option order when recording the question.
 - Mark one option as `Recommended` or `Default` when there is a reasonable choice.
 - Include `Other — specify` when the listed choices may not cover the user's intent.
 - When the user must supply a free-form value unrelated to tracker storage, such as a URL or external resource name, offer useful defaults or actions first and include an option to provide a different value. Never invent the free-form value.
 - If a question is non-blocking and outside a material decision gate, state which default the agent will use if the user does not answer. Never apply a default to a material decision gate; wait for the user's answer.
 - Apply these rules to questions in chat and to every item recorded under `Open Questions` in the tracker.
-- Before sending a response, check that no user-facing question lacks its own option list.
+- Before sending a response or saving open questions, check that every question has its own consecutively numbered option list and that chat has only one pending question. Rewrite any bulleted choices before sending.
 
-Example:
+Required chat format (wording and language may adapt to the user):
 
-Instead of:
-"What approach do you want?"
+```text
+Ban muon di huong nao?
 
-Prefer:
-"Ban muon di huong nao?
 1. Minimal fix: chi sua dung loi hien tai. Recommended.
 2. Broader cleanup: sua loi va don phan lien quan.
 3. Planning only: minh viet ke hoach truoc, chua sua gi.
-4. Khac: ban mo ta huong ban muon."
+4. Khac: ban mo ta huong ban muon.
+```
+
+The user can reply `1` or `4. đánh giá lại phương án fix`. The same choices written with `-` bullets do not satisfy this contract.
 
 ## Response Pattern
 
