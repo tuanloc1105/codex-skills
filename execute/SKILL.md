@@ -41,9 +41,9 @@ Execute accepts only workflow-record version 4 bundles and defaults to `Durable`
 Load only the reference needed for the current stage, and read it completely before applying it.
 
 - Read [references/implementation.md](references/implementation.md) before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
-- Read [references/completion.md](references/completion.md) after implementation work is integrated and before claiming completion, simplifying, updating agent docs, offering security review, or sending the final implementation response.
+- Read [references/completion.md](references/completion.md) after implementation work is integrated and before claiming completion, simplifying, updating agent docs, offering security review, handling a user-requested PR/MR merge or post-merge worktree cleanup, or sending the final implementation response.
 - Read-only adoption and summary turns do not require either implementation reference unless their conditions arise.
-- Keep `Required references: None` for read-only adoption when neither routed reference applies. Add `references/implementation.md` before implementation, amendment, commit, or recovery; add `references/completion.md` before simplify or completion. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
+- Keep `Required references: None` for read-only adoption when neither routed reference applies. Add `references/implementation.md` before implementation, amendment, commit, or recovery; add `references/completion.md` before simplify, completion, or a user-requested PR/MR merge and its cleanup. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
 
 ## Persistent Mode Contract
 

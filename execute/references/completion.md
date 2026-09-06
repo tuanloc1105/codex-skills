@@ -1,6 +1,6 @@
 # Execute Completion Reference
 
-Read this reference completely after implementation is integrated and before claiming completion, simplifying, updating agent docs, offering security review, or sending the final implementation response.
+Read this reference completely after implementation is integrated and before claiming completion, simplifying, updating agent docs, offering security review, handling a user-requested PR/MR merge or post-merge worktree cleanup, or sending the final implementation response.
 
 First add `references/completion.md` through a record write transaction, read this file completely, and complete `rules-sync`.
 
@@ -48,11 +48,22 @@ If the user says yes, use `$security-review` with this scope constraint:
 - Read surrounding context, callers, or configs only as needed to validate a finding from the diff.
 - Report findings first, following the `$security-review` output format.
 
+## Post-Merge Worktree Cleanup
+
+An explicit user request to merge the associated Pull Request or Merge Request also authorizes automatic removal of this execution's dedicated linked worktree after a successful merge. Perform cleanup as the final operational step without asking for redundant confirmation, unless the user asks to keep the worktree. Without a user merge request, preserve it even if implementation is complete or the PR/MR was merged by someone else. A separate explicit cleanup request remains limited to its stated scope.
+
+1. Record the merge request and cleanup follow-up through the amendment gate. Verify the exact repository, PR/MR, source branch, and recorded dedicated worktree match. Use the applicable Git-platform workflow to perform the authorized merge and read back the remote merged state. An accepted auto-merge request, queued merge, closed-but-unmerged request, failed merge, or unknown result does not permit cleanup; retain the worktree until merge success is confirmed.
+2. Inspect the worktree for staged, unstaged, untracked, and ignored files, unfinished work, and local commits not accounted for by the merged PR/MR. Account for squash/rebase merges using the merged PR/MR's source revision and content rather than ancestry alone. Preserve anything whose ownership or recoverability is uncertain; never force removal, reset, or clean files to make removal succeed.
+3. Keep the exact adopted execution bundle readable and writable after cleanup. If it lives inside the target worktree, retain the worktree and report that cleanup requires a user decision about preserving the bound record; do not relocate, duplicate, or delete the active record automatically. Likewise, record any data-preservation blocker without undoing a successful merge.
+4. Once safe, persist merge evidence and the intended cleanup path, open the required scoped cleanup action, and move the shell working directory outside the target worktree. Remove only the recorded dedicated linked worktree with `git worktree remove <exact-path>` without force. Do not remove the user's existing checkout, other worktrees, the `.worktrees/` parent, or local/remote branches as part of this step.
+5. Verify the path is absent and `git worktree list --porcelain` no longer registers it. Persist the cleanup result, retained branch and merge identifiers in `evidence.md`, update the checklist and handoff to mark the worktree removed or retained with its reason, then close the action and checkpoint. Cleanup does not exit execute mode. If removal fails, preserve the worktree, record the failure, and report the concrete blocker instead of claiming cleanup succeeded.
+
 ## Final Completion Gate
 
 Before sending a response that claims implementation completion, a genuine blocker, or an explicit-exit pause:
 
 - For Git repositories, confirm implementation was performed in the current dedicated worktree under `<repository-root>/.worktrees/`, that `/.worktrees/` is verified as ignored, and that `evidence.md` records the latest path and branch after any worktree replacement. Confirm implementation did not occur in the user's existing checkout. For non-Git directories, confirm the worktree and ignore steps were skipped.
+- When the user requested a PR/MR merge, confirm its remote merged state and the post-merge cleanup result or concrete preservation blocker are recorded. A successfully removed worktree satisfies the worktree gate through its recorded implementation and cleanup evidence; do not recreate it solely for completion checks. Without a merge request or separate explicit cleanup request, confirm the worktree was retained.
 - Re-read every phase file and confirm no in-scope `[ ]`, `[~]`, `Pending`, or `In progress` state remains.
 - Confirm every `[!]` item satisfies the Genuine Blocker Definition.
 - Confirm unrelated ready phases were not skipped because another phase failed.
@@ -78,6 +89,7 @@ After implementation reaches `Implemented`, `Blocked`, or an explicit-exit `Paus
 - Integration-gate results for parallel waves
 - `$simplify` result and any fixes it caused
 - Whether `$update-agent-docs` was run, skipped, or unavailable, and any docs it changed
+- For a user-requested PR/MR merge, the verified merge result and whether the dedicated worktree was removed or retained, with the reason
 - Whether the execution record was updated
 - Which user-requested corrections, follow-up items, evidence, or out-of-scope handoffs were appended to the record
 - Whether execute mode remains active or was explicitly exited, plus the exact adopted execution-record path
