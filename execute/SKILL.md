@@ -9,13 +9,13 @@ description: Persistent execution and evidence-tracking mode for an approved ver
 
 When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run lifecycle calls with the exact absolute path and `--marker workflow-modes-v1`.
 
-- On fresh-session adoption, after validating and persisting `Execute mode: Active`, run `activate execute --record <execution-record>` before implementation.
+- On fresh-session adoption with no active workflow, follow `Fresh-Session Bootstrap` in [references/intake.md](references/intake.md): validate the supplied bundle, persist only the bootstrap metadata, then activate and sync before implementation.
 - After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <execution-record> --reference <path>...` before substantive work or a final response.
-- On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then run `activate execute --record <execution-record>` to confirm or rebind the same active record. Execute always keeps that exact record; `plan-init` applies only to the separate-bundle `$discuss` → `$plan` bootstrap and must never run during an execute handoff.
+- On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then follow `Active-Session Handoff` in [references/intake.md](references/intake.md): read and record-sync first, replace source references and persist Active in a new transaction, then activate and resync the same record. Execute always keeps that exact record; `plan-init` applies only to the separate-bundle `$discuss` → `$plan` bootstrap and must never run during an execute handoff.
 - When the user explicitly exits execute and the exit metadata is durable, run `deactivate`. Implementation completion alone must never call `deactivate`.
 - At activation and after every `PostCompact` reminder, read `index.md` and every manifest file completely and run record-scope sync before substantive work.
 - After `UserPromptSubmit`, follow `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running snapshot-scope sync; `record` requires a complete read and record-scope sync. Never open an action or mutate outside the record while the required scope is unacknowledged.
-- Before record edits, run `write-open` with the acknowledged bundle revision; update only allowed manifest paths and run `write-close` after all cross-file state is consistent.
+- After a workflow is active, before record edits, run `write-open` with the acknowledged bundle revision; update only allowed manifest paths and run `write-close` after all cross-file state is consistent.
 - Before every user-facing response, run `checkpoint --record <execution-record>` after all material amendments, evidence, progress, verification, and action results are durable. Use `--no-change` only for a genuinely evidence-free turn after confirming the record remains accurate.
 
 Before each bounded work unit of source, Git, external-system, or other mutating actions in execute mode, open one action that covers the complete unit's declared paths and mutation classes. Do not open a separate action per file or tool call, and do not carry an action into an unrelated goal or materially different scope:
@@ -60,7 +60,7 @@ Enter execute mode immediately when the user explicitly invokes `$execute` or as
 - Treat requests to handle work separately, keep it outside the approved scope, or avoid changing the baseline as scope instructions, not as a mode exit. Record the boundary and material handoff or evidence in the adopted plan while the mode remains active.
 - Do not treat reading or adopting a plan as authorization to implement code, mutate external systems, commit, push, or deploy. Wait for a clear current-session request authorizing the relevant action. In a git repository, a clear request to implement the adopted record authorizes local incremental commits for that implementation unless the user or plan explicitly forbids commits; it does not authorize pushing or deploying.
 
-On every adoption or re-entry, read the complete manifest before substantive work and transactionally ensure `index.md` contains:
+On every adoption or re-entry, read the complete manifest before substantive work and use the applicable intake bootstrap or active-session transaction to ensure `index.md` contains:
 
 ```markdown
 Execute mode: Active

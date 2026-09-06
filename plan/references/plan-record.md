@@ -141,7 +141,7 @@ Execute mode: Ready
 Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
 ```
 
-Set the profile to `Durable` unless already `Audited`, change Required references to the execute minimum, record approval in `evidence.md`, update the checkpoint, close the transaction, checkpoint, then run `transition execute --record <root>`.
+Set the profile to `Durable` unless already `Audited`, keep the current plan Required references through transaction closure, record approval in `evidence.md`, update the checkpoint, close the transaction, checkpoint, then run `transition execute --record <root>`. Keep the source references until execute performs its `Active-Session Handoff` intake; it must sync the same bundle before replacing them in a new transaction. Approval alone does not authorize implementation. If the user has already requested execution, continue that intake and implementation without asking again; otherwise complete the intake as bookkeeping only and checkpoint without implementation.
 
 ## Quality Bar
 

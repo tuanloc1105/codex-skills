@@ -132,6 +132,107 @@ class WorkflowModesHookTests(unittest.TestCase):
             args.extend(("--path", str(path)))
         return self.control(*args)
 
+    def sync_execute_intake(self) -> None:
+        self.assertIn("WORKFLOW_MODE_ACTIVE", json.dumps(
+            self.control("activate", "execute", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(
+            self.control("sync", "--record", str(self.record), "--scope", "record")))
+        self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(
+            self.control("rules-sync", "--record", str(self.record),
+                         "--reference", "references/intake.md")))
+        self.assertIn("WORKFLOW_EXECUTE_ACTION_REQUIRED", json.dumps(self.patch("app.py")))
+
+    def perform_authorized_execution_unit(self) -> None:
+        self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
+        self.index.write_text(self.index.read_text().replace(
+            "Required references: references/intake.md",
+            "Required references: references/intake.md, references/implementation.md"
+        ).replace("Active action: None", "Active action: A001"), encoding="utf-8")
+        evidence = self.record / "evidence.md"
+        evidence.write_text(evidence.read_text() +
+            "User requested implementation of the supplied bundle.\n"
+            "<!-- workflow-action:A001 status:open -->\n", encoding="utf-8")
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(
+            self.control("write-close", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_RULES_SYNCED", json.dumps(self.control(
+            "rules-sync", "--record", str(self.record), "--reference", "references/intake.md",
+            "--reference", "references/implementation.md")))
+        target = self.cwd / "app.py"
+        self.assertIn("WORKFLOW_ACTION_OPEN", json.dumps(self.control(
+            "action-open", "--record", str(self.record), "--evidence-id", "A001",
+            "--impact", "source-confirmed", "--path", str(target))))
+        self.assertIsNone(self.patch(str(target)))
+        self.assertIn("WORKFLOW_ACTION_SCOPE_DENIED", json.dumps(self.patch(str(self.cwd / "other.py"))))
+        self.write_open()
+        evidence.write_text(evidence.read_text().replace("status:open", "status:completed"))
+        self.index.write_text(self.index.read_text().replace("Active action: A001", "Active action: None"))
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
+        self.assertIn("tracker evidence reconciled", json.dumps(self.control("action-close", "--result", "completed")))
+        self.assertIn("WORKFLOW_TURN_CHECKPOINTED", json.dumps(self.control("checkpoint", "--record", str(self.record))))
+
+    def test_requested_handoff_from_each_source_runs_through_execute_action(self) -> None:
+        for mode in ("plan", "discuss"):
+            with self.subTest(mode=mode):
+                self.session_id = f"handoff-{mode}"
+                self.record = self.cwd / self.session_id
+                self.index = self.record / "index.md"
+                self.activate(mode)
+                if mode == "discuss":
+                    plan, verification = self.record / "plan.md", self.record / "verification.md"
+                    self.write_open(plan, verification)
+                    plan.write_text("# Plan\n"); verification.write_text("# Verification\n")
+                    self.index.write_text(self.index.read_text().replace(
+                        "evidence.md\n<!-- workflow-manifest:end -->",
+                        "evidence.md\nplan.md\nverification.md\n<!-- workflow-manifest:end -->"))
+                else:
+                    self.write_open()
+                self.index.write_text(self.index.read_text().replace(
+                    "Mode status: Active", "Mode status: Exited").replace(
+                    "Status: Draft", "Status: Approved plan, not yet implemented").replace(
+                    "Execute mode: Inactive", "Execution readiness: Ready\nExecute mode: Ready"))
+                # Source references remain valid until transition; no target-mode references yet.
+                self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
+                self.assertIn("WORKFLOW_TURN_CHECKPOINTED", json.dumps(self.control("checkpoint", "--record", str(self.record))))
+                self.assertIn("mode=execute", json.dumps(self.control("transition", "execute", "--record", str(self.record))))
+                self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(self.control("sync", "--record", str(self.record), "--scope", "record")))
+                self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
+                old = ", ".join(MODE_REFERENCES[mode])
+                self.index.write_text(self.index.read_text().replace(
+                    f"Required references: {old}", "Required references: references/intake.md"
+                ).replace("Execute mode: Ready", "Execute mode: Active"))
+                self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(self.control("write-close", "--record", str(self.record))))
+                self.sync_execute_intake()
+                self.perform_authorized_execution_unit()
+
+    def test_fresh_ready_bundle_bootstrap_and_requested_execution(self) -> None:
+        for mode in ("plan", "discuss"):
+            with self.subTest(mode=mode):
+                self.session_id = f"fresh-{mode}"
+                self.record = self.cwd / self.session_id
+                self.index = self.record / "index.md"
+                self.create_bundle(mode, manifest=("index.md", "context.md", "decisions.md", "plan.md", "verification.md", "evidence.md") + (("actions.md",) if mode == "discuss" else ()))
+                self.index.write_text(self.index.read_text().replace("Mode status: Active", "Mode status: Exited")
+                    .replace("Status: Draft", "Status: Approved plan, not yet implemented")
+                    .replace("Execute mode: Inactive", "Execution readiness: Ready\nExecute mode: Ready"))
+                # Dormant bootstrap updates only supplied record metadata before activation.
+                self.assertIsNone(self.patch(str(self.index), str(self.record / "evidence.md")))
+                original_manifest = self.index.read_text().split("<!-- workflow-manifest:start -->")[1]
+                self.index.write_text(self.index.read_text().replace("Execute mode: Ready", "Execute mode: Active")
+                    .replace(f"Required references: {', '.join(MODE_REFERENCES[mode])}", "Required references: references/intake.md")
+                    .replace("Profile: Lightweight", "Profile: Durable"))
+                self.assertEqual(original_manifest, self.index.read_text().split("<!-- workflow-manifest:start -->")[1])
+                self.sync_execute_intake()
+                self.perform_authorized_execution_unit()
+
+    def test_fresh_read_only_adoption_preserves_status_and_blocks_code(self) -> None:
+        self.create_bundle("plan", status="Approved plan, not yet implemented")
+        self.index.write_text(self.index.read_text().replace("Execute mode: Inactive", "Execute mode: Active")
+            .replace("Required references: references/plan-record.md, references/phase-planning.md", "Required references: references/intake.md"))
+        self.sync_execute_intake()
+        self.assertIn("Status: Approved plan, not yet implemented", self.index.read_text())
+        self.assertNotIn("workflow-action:", (self.record / "evidence.md").read_text())
+        self.assertIn("WORKFLOW_TURN_CHECKPOINTED", json.dumps(self.control("checkpoint", "--record", str(self.record))))
+
     def test_conditional_references_require_exact_sync_and_survive_compaction(self) -> None:
         cases = (
             ("discuss", "references/response-workflow.md"),
