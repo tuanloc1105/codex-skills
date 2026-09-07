@@ -117,6 +117,15 @@ def enrich_reason(reason: str, payload: dict, state: dict | None, control: dict 
     elif code in {"WORKFLOW_ACTION_MARKER_REQUIRED", "WORKFLOW_EVIDENCE_NOT_PERSISTED", "WORKFLOW_EVIDENCE_ID_REQUIRED", "WORKFLOW_EVIDENCE_ID_INVALID"}:
         evidence_id = control.get("evidence_id") or "<stable-uppercase-ID>"
         steps = [f"Persist <!-- workflow-action:{evidence_id} status:open --> in evidence.md and Active action: {evidence_id} in index.md through one write transaction; close it, then retry action-open with that --evidence-id."]
+    elif code in {"WORKFLOW_PLAN_REVISION_AUTHORIZATION_REQUIRED", "WORKFLOW_PLAN_REVISION_NOT_DURABLE"}:
+        if state.get("plan_revision"):
+            steps = ["Persist Mode status: Exited, Status: Draft and Execute mode: Inactive through a record write; close it and return to plan on the same bundle:",
+                     control_command("transition", "plan", *args)]
+        else:
+            steps = ["Only with explicit user permission to revise the plan, reconcile open actions/writes. Do not ask again if permission is already present.",
+                     "Read/sync the bundle, then write permission/scope, Status: Draft, Execute mode: Inactive, Mode: $discuss and Mode status: Active. Close the write, then:",
+                     control_command("transition", "discuss", *args, "--user-authorized"),
+                     "Discuss changes, return to plan on the same bundle, and obtain approval again before execute."]
     elif code == "WORKFLOW_PLAN_ACTIVATION_REQUIRED":
         steps = ["Finish the declared plan bundle; then activate that exact target:", control_command("activate", "plan", "--record", str(state.get("plan_bootstrap")))]
     else:

@@ -57,6 +57,40 @@ write. Only the manifest, hashes, identity and resolved root are saved, not reco
 contents. An already-damaged legacy session without this metadata cannot recover
 automatically.
 
+## Revise an approved plan: execute → discuss → plan
+
+An explicit user request to revise the plan is permission to begin this flow;
+do not ask again for the same permission. Original implementation approval alone
+does not authorize a revision.
+
+1. Reconcile and close open actions and record writes, preserving completed work
+   and evidence. Read and sync the active bundle.
+2. Through a normal record write, persist the user's permission and requested
+   scope. Set `Status: Draft`, `Execute mode: Inactive`, `Mode: $discuss`, and
+   `Mode status: Active`. Close the write, preserving the bundle and tracker ID.
+3. Run the installed control script and check for `WORKFLOW_MODE_ACTIVE`:
+
+   ```text
+   python3 /installed/plugin/scripts/workflow_modes_control.py transition discuss --record /path/to/active-bundle --user-authorized --marker workflow-modes-v1
+   ```
+
+4. Read the discuss skill/references, update Required references through a record
+   write, and sync record/rules. Discuss the requested changes in this bundle.
+5. When the user requests planning, persist `Mode status: Exited` through a record
+   write and run `transition plan --record /path/to/active-bundle` with the marker.
+   Keep this same bundle; do not run `plan-init`. Read the plan skill/references,
+   update Required references, and sync record/rules before revising the plan.
+6. Obtain approval of the revised plan before transitioning back to execute.
+   Source mutation is blocked in plan mode; normal scoped-action guards remain
+   in force during discussion.
+
+`--user-authorized` is the assistant's attestation of permission already present
+in the conversation, not independent verification of natural-language consent.
+The hook checks closed actions/writes, the active identity, a synchronized record,
+and draft/inactive lifecycle fields. It does not infer consent from keywords or
+reset session state. If still in plan mode, revise through normal record writes
+after user permission, reset approval to Draft, and obtain approval again.
+
 ## Infrastructure failures
 
 The launcher/supervisor handles missing interpreter, runtime files/imports,

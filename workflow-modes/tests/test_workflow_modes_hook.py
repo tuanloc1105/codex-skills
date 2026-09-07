@@ -588,6 +588,81 @@ class WorkflowModesHookTests(unittest.TestCase):
         self.assertIn("mode=execute", json.dumps(transitioned))
         self.assertIn(str(self.record), json.dumps(transitioned))
 
+    def prepare_revision_discussion(self) -> None:
+        self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
+        self.index.write_text(self.index.read_text().replace(
+            "Status: In progress", "Status: Draft\nMode: $discuss\nMode status: Active"
+        ).replace("Execute mode: Active", "Execute mode: Inactive"), encoding="utf-8")
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(
+            self.control("write-close", "--record", str(self.record))))
+
+    def test_execute_discuss_plan_revision_preserves_bundle_and_requires_approval(self) -> None:
+        self.activate("execute")
+        evidence = self.record / "evidence.md"
+        original_evidence = evidence.read_bytes()
+        self.prepare_revision_discussion()
+        result = self.control("transition", "discuss", "--record", str(self.index), "--user-authorized")
+        self.assertIn("mode=discuss", json.dumps(result))
+        self.assertIn("mode=discuss", json.dumps(
+            self.control("activate", "discuss", "--record", str(self.record))))
+        self.assertIn("same bundle", json.dumps(self.run_hook("PostCompact")))
+        self.assertIn("WORKFLOW_RECORD_SYNCED", json.dumps(
+            self.control("sync", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_WRITE_OPEN", json.dumps(self.write_open()))
+        self.index.write_text(self.index.read_text().replace(
+            ", ".join(MODE_REFERENCES["execute"]), ", ".join(MODE_REFERENCES["discuss"])
+        ).replace("Mode status: Active", "Mode status: Exited"), encoding="utf-8")
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(
+            self.control("write-close", "--record", str(self.record))))
+        self.assertIn("WORKFLOW_TRANSITION_DENIED", json.dumps(
+            self.control("transition", "execute", "--record", str(self.record))))
+        result = self.control("transition", "plan", "--record", str(self.record))
+        self.assertIn("mode=plan", json.dumps(result))
+        self.assertIn(str(self.record), json.dumps(result))
+        self.assertIn("WORKFLOW_PLAN_INIT_DENIED", json.dumps(self.control(
+            "plan-init", "--record", str(self.record), "--target", str(self.cwd / "new-plan"))))
+        self.control("sync", "--record", str(self.record))
+        self.write_open()
+        self.index.write_text(self.index.read_text().replace(
+            ", ".join(MODE_REFERENCES["discuss"]), ", ".join(MODE_REFERENCES["plan"])
+        ), encoding="utf-8")
+        self.assertIn("WORKFLOW_WRITE_CLOSED", json.dumps(
+            self.control("write-close", "--record", str(self.record))))
+        self.control("rules-sync", "--record", str(self.record),
+                     "--reference", MODE_REFERENCES["plan"][0],
+                     "--reference", MODE_REFERENCES["plan"][1])
+        self.assertIn("WORKFLOW_PLAN_READ_ONLY", json.dumps(self.patch("app.py")))
+        self.assertIn("WORKFLOW_HANDOFF_NOT_DURABLE", json.dumps(
+            self.control("transition", "execute", "--record", str(self.record))))
+        self.write_open()
+        self.index.write_text(self.index.read_text().replace(
+            "Status: Draft", "Status: Approved plan, not yet implemented"
+        ).replace("Execute mode: Inactive", "Execute mode: Ready"), encoding="utf-8")
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("mode=execute", json.dumps(
+            self.control("transition", "execute", "--record", str(self.record))))
+        self.assertEqual(evidence.read_bytes(), original_evidence)
+
+    def test_revision_requires_permission_draft_and_closed_write(self) -> None:
+        self.activate("execute")
+        args = ("transition", "discuss", "--record", str(self.record))
+        self.assertIn("WORKFLOW_PLAN_REVISION_AUTHORIZATION_REQUIRED", json.dumps(self.control(*args)))
+        self.assertIn("WORKFLOW_PLAN_REVISION_NOT_DURABLE", json.dumps(self.control(*args, "--user-authorized")))
+        self.write_open()
+        self.assertIn("WORKFLOW_WRITE_CLOSE_REQUIRED", json.dumps(self.control(*args, "--user-authorized")))
+        self.control("write-close", "--record", str(self.record))
+        self.assertIn("WORKFLOW_TRANSITION_DENIED", json.dumps(
+            self.control("transition", "plan", "--record", str(self.record))))
+
+    def test_revision_rejects_other_bundle(self) -> None:
+        self.activate("execute")
+        self.prepare_revision_discussion()
+        self.record = self.cwd / "other-plan"
+        self.index = self.record / "index.md"
+        self.create_bundle("plan")
+        self.assertIn("WORKFLOW_RECORD_MISMATCH", json.dumps(self.control(
+            "transition", "discuss", "--record", str(self.record), "--user-authorized")))
+
     def test_direct_execute_transition_keeps_discussion_bundle(self) -> None:
         self.activate("discuss")
         plan = self.record / "plan.md"; verification = self.record / "verification.md"

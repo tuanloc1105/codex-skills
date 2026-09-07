@@ -418,6 +418,11 @@ def handle_control(
                 f"transition instead of activating {mode}."
             )
         absolute_record = canonical_record(record, cwd) if isinstance(record, str) else None
+        if current and current.get("plan_revision"):
+            if absolute_record != current.get("record"):
+                return deny_tool("WORKFLOW_RECORD_MISMATCH: keep the active revision bundle.")
+            if record_tracker_id(absolute_record) != current.get("tracker_id"):
+                return deny_tool("WORKFLOW_RECORD_IDENTITY_MISMATCH: preserve the active tracker identity.")
         if (
             action == "activate"
             and mode == "plan"
@@ -465,7 +470,7 @@ def handle_control(
             allowed = {
                 "discuss": {"plan", "execute"},
                 "plan": {"execute"},
-                "execute": set(),
+                "execute": {"discuss"},
             }
             if mode not in allowed.get(str(current.get("mode")), set()):
                 return deny_tool(
@@ -473,7 +478,26 @@ def handle_control(
                 )
             if record_text is None:
                 return deny_tool("WORKFLOW_RECORD_UNREADABLE: transition record is not readable.")
-            if current.get("mode") == "discuss" and mode == "plan":
+            if current.get("mode") == "execute" and mode == "discuss":
+                if not control.get("user_authorized"):
+                    return deny_tool(
+                        "WORKFLOW_PLAN_REVISION_AUTHORIZATION_REQUIRED: return to discuss only "
+                        "when the user explicitly authorizes plan revision; attest with --user-authorized."
+                    )
+                if not record_matches(record, current.get("record"), cwd):
+                    return deny_tool("WORKFLOW_RECORD_MISMATCH: revise the active bundle, not a different record.")
+                if record_tracker_id(absolute_record) != current.get("tracker_id"):
+                    return deny_tool("WORKFLOW_RECORD_IDENTITY_MISMATCH: preserve the active tracker identity.")
+                if not record_is_synced(current):
+                    return deny_tool("WORKFLOW_RECORD_SYNC_REQUIRED: read and sync the active bundle before revising it.")
+                required = ("Status: Draft", "Execute mode: Inactive", "Mode: $discuss", "Mode status: Active")
+            elif current.get("mode") == "discuss" and current.get("plan_revision"):
+                if mode != "plan":
+                    return deny_tool("WORKFLOW_TRANSITION_DENIED: return to plan after revision discussion before execute.")
+                if not record_is_synced(current):
+                    return deny_tool("WORKFLOW_RECORD_SYNC_REQUIRED: read and sync the revision bundle before planning.")
+                required = ("Mode status: Exited", "Status: Draft", "Execute mode: Inactive")
+            elif current.get("mode") == "discuss" and mode == "plan":
                 required = ("Mode status: Exited",)
             elif current.get("mode") == "discuss" and mode == "execute":
                 required = (
@@ -488,6 +512,15 @@ def handle_control(
                     )
             else:
                 required = ("Status: Approved plan, not yet implemented", "Execute mode: Ready")
+            if mode == "discuss" or current.get("plan_revision"):
+                for marker in required:
+                    label = marker.split(":", 1)[0]
+                    values = re.findall(rf"^{re.escape(label)}:[^\n]*", record_text, re.MULTILINE)
+                    if not values or any(value.strip() != marker for value in values):
+                        return deny_tool(
+                            "WORKFLOW_PLAN_REVISION_NOT_DURABLE: persist the user's permission "
+                            "and scope through a record write; required lifecycle fields: " + ", ".join(required)
+                        )
             missing = missing_markers(record_text, required)
             if missing:
                 return deny_tool(
@@ -519,9 +552,14 @@ def handle_control(
             "rules_sync_required": True,
             "updated_at": utc_now(),
         }
+        if current and mode == "discuss" and (
+            current.get("plan_revision") or (action == "transition" and current.get("mode") == "execute")
+        ):
+            state["plan_revision"] = True
         if (
             action == "transition"
             and current
+            and not current.get("plan_revision")
             and current.get("mode") == "discuss"
             and mode == "plan"
         ):
@@ -1123,10 +1161,19 @@ def mode_message(state: dict[str, Any]) -> str:
         "rule=persist material turn changes and run checkpoint before final response. "
     )
     if mode == "discuss":
+        if state.get("plan_revision"):
+            return common + "exit=transition plan using the same bundle after revision discussion; no plan-init. </workflow-anchor>"
         return common + "exit=only plan or execute. </workflow-anchor>"
     if mode == "plan":
         return common + "boundary=source-read-only until execute transition. </workflow-anchor>"
-    return common + "exit=explicit request only, including after implementation. </workflow-anchor>"
+    return common + (
+        "exit=explicit request only, including after implementation; "
+        "revision=when the user permits plan changes, reconcile open actions, write permission/scope "
+        "and Status: Draft, Execute mode: Inactive, Mode: $discuss, Mode status: Active to the record; "
+        "close the write, then use workflow_modes_control.py transition discuss --record <active-record> "
+        "--user-authorized --marker workflow-modes-v1. Discuss, transition plan on the same bundle, "
+        "and obtain approval again before execute. </workflow-anchor>"
+    )
 
 
 def handle_stop(store: StateStore, key: str, payload: dict[str, Any]) -> dict[str, Any] | None:

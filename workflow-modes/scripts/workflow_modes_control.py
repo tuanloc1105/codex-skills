@@ -121,8 +121,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     activate.add_argument("--marker", required=True)
 
     transition = subparsers.add_parser("transition")
-    transition.add_argument("mode", choices=("plan", "execute"))
+    transition.add_argument("mode", choices=("discuss", "plan", "execute"))
     transition.add_argument("--record", required=True)
+    transition.add_argument("--user-authorized", action="store_true",
+                            help="Attest to explicit user permission for plan revision; only for transition discuss.")
     transition.add_argument("--marker", required=True)
 
     plan_init = subparsers.add_parser("plan-init")
@@ -188,6 +190,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         parser.error("invalid workflow-modes marker")
     if args.action == "activate" and args.mode != "plan" and not args.record:
         parser.error("--record is required except for initial plan activation")
+    if args.action == "transition" and args.user_authorized and args.mode != "discuss":
+        parser.error("--user-authorized is only valid for transition discuss")
     if args.action == "write-open":
         if args.recover and (not args.observed_revision or args.path):
             parser.error("--recover requires --observed-revision and forbids --path")
