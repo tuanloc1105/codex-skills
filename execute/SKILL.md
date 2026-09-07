@@ -34,6 +34,8 @@ Confirm every control call returns model-visible `WORKFLOW_*` context. If the pl
 
 Use this skill to adopt either an approved plan bundle or an execution-ready discussion bundle as the persistent execution record.
 
+Before any directory change on adoption, capture the user's initial terminal working directory as an absolute path. Preserve it for worktree placement under `Dedicated Worktree` in [references/implementation.md](references/implementation.md); on resume, retain the recorded anchor unless the user explicitly changes it. Repository discovery or a tool's later working-directory override must not replace that anchor.
+
 Execute accepts only workflow-record version 4 bundles and defaults to `Durable`. Upgrade `Lightweight` to `Durable` on adoption and preserve `Audited`.
 
 ## Reference Routing
