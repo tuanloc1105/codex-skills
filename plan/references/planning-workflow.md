@@ -1,10 +1,10 @@
 # Plan Conversation Workflow
 
-Read this reference completely before creating or revising a plan, establishing its baseline, or requesting approval. The entrypoint's Plan-First Boundary and Question and Open-Issue Contract remain mandatory. For an existing bundle, add `references/planning-workflow.md` through the normal record transaction and complete rules-sync before proceeding; for a new bundle, read this file before initialization and include it in the initial required set.
+Read this reference completely before creating or revising a plan, establishing its baseline, or requesting approval. The entrypoint's Plan-First Boundary and Question and Open-Issue Contract remain mandatory. For an existing bundle, add `references/planning-workflow.md` through the normal record transaction and verify the saved Required references before proceeding; for a new bundle, read this file before initialization and include it in the initial required set.
 
 ## Conversation Workflow
 
-1. Resolve, reserve, initialize, activate, read, and sync the exact draft plan path under `Saving Rules`.
+1. Resolve, reserve, initialize, read, and validate the exact draft plan bundle under `Saving Rules`.
 2. Restate the user's goal in concrete terms and persist it to the draft.
 3. Gather only the missing information that materially changes the plan. Keep questions concise and follow the mandatory `Question and Open-Issue Contract`; do not ask for details that can be discovered safely from the workspace.
 4. Inspect enough context to remove guesswork:

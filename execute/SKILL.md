@@ -5,32 +5,24 @@ description: Persistent execution and evidence-tracking mode for an approved ver
 
 # Execute
 
-## Workflow Modes Hook
+## Skill-Managed Lifecycle
 
-When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run lifecycle calls with the exact absolute path and `--marker workflow-modes-v1`.
+Apply this skill directly through conversation state and its Markdown record. Do not automatically activate `workflow-modes`, invoke its control script, or run its hooks or lifecycle commands, even when the plugin is installed. Plugin availability is not a prerequisite for this skill. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
 
-- On fresh-session adoption with no active workflow, follow `Fresh-Session Bootstrap` in [references/intake.md](references/intake.md): validate the supplied bundle, persist only the bootstrap metadata, then activate and sync before implementation.
-- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <execution-record> --reference <path>...` before substantive work or a final response.
-- On handoff from `$plan` or `$discuss`, require the source skill's successful `transition execute --record <execution-record>` result, then follow `Active-Session Handoff` in [references/intake.md](references/intake.md): read and record-sync first, replace source references and persist Active in a new transaction, then activate and resync the same record. Execute always keeps that exact record; `plan-init` applies only to the separate-bundle `$discuss` → `$plan` bootstrap and must never run during an execute handoff.
-- When the user explicitly exits execute and the exit metadata is durable, run `deactivate`. Implementation completion alone must never call `deactivate`.
-- At activation and after every `PostCompact` reminder, read `index.md` and every manifest file completely and run record-scope sync before substantive work.
-- After `UserPromptSubmit`, follow `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running snapshot-scope sync; `record` requires a complete read and record-scope sync. Never open an action or mutate outside the record while the required scope is unacknowledged.
-- After a workflow is active, before record edits, run `write-open` with the acknowledged bundle revision; update only allowed manifest paths and run `write-close` after all cross-file state is consistent.
-- Before every user-facing response, run `checkpoint --record <execution-record>` after all material amendments, evidence, progress, verification, and action results are durable. Use `--no-change` only for a genuinely evidence-free turn after confirming the record remains accurate.
+- On entry, resume, and after compaction, read this complete entrypoint, every currently required reference, `index.md`, and every manifest file before substantive work. For a new bundle, read the initialization guidance first, create the bundle, then verify its complete contents.
+- On later turns, reuse current context only while it remains reliable. Reread the Active Snapshot for snapshot-only changes; reread the complete bundle when record content changes outside known writes or its state is uncertain.
+- Treat a record write transaction as one coordinated file update: read the affected current files, declare new Markdown files in the manifest, update all affected content and cross-links, then verify identity, metadata, phase links, dependencies, and evidence agree. Finish or repair that update before unrelated mutation, handoff, or a final response. If persistence fails, report the blocker instead of treating unsaved state as durable.
+- Before every user-facing response, persist material turn deltas and the resume checkpoint. A genuinely unchanged turn requires only verifying that the saved state remains accurate.
 
-Before each bounded work unit of source, Git, external-system, or other mutating actions in execute mode, open one action that covers the complete unit's declared paths and mutation classes. Do not open a separate action per file or tool call, and do not carry an action into an unrelated goal or materially different scope:
+On adoption or handoff, follow [references/intake.md](references/intake.md) and keep the exact accepted bundle. Persist exit metadata only when the user explicitly exits; implementation completion alone does not exit execute.
 
-1. Persist a stable evidence ID and `<!-- workflow-action:<ID> status:open -->` in `evidence.md`, plus the matching active-action summary in `index.md`, through one write transaction.
-2. Close the record write, then run `action-open --record <bundle-root> --evidence-id <ID> --impact <non-source|source-confirmed>` with the exact paths and minimum unscoped classes.
-3. Perform only the mutations covered by that checkpoint. Do not carry an action across an unrelated user request or materially different mutation group.
-4. Through one write transaction, persist terminal evidence, update the affected phase and verification files, clear the active-action summary, and replace the open marker with the matching terminal marker.
-5. Close the record write, then run `action-close --result <completed|failed|blocked>` before a final response, deactivation, or unrelated mutation group.
+Before each bounded mutating work unit, record one action covering its declared paths and source, Git, or external effects:
 
-The execute hook must deny non-record mutations without an open action, deny opening when the evidence ID/open marker is absent from the tracker, deny paths or unscoped mutation classes outside the action, deny closing until the matching terminal marker is persisted, and block Stop while an execute action remains open. If the active record becomes genuinely unreadable while an action is open, use `action-abort --reason record-unreadable`, repair or restore the tracker, and do not mutate other state until execute is rebound. These controls enforce bookkeeping and scope; they do not grant mutation authority that the user, plan, or a higher-priority policy withheld.
+1. Persist a stable evidence ID and `<!-- workflow-action:<ID> status:open -->` in `evidence.md`, its authorization and scope, and the matching active-action summary in `index.md`.
+2. Verify the saved action before performing only the covered mutations. Use one action per complete work unit, not per file or tool call; never carry it into an unrelated goal or materially different scope.
+3. Persist terminal evidence with result `completed`, `failed`, or `blocked`, update affected phase and verification files, clear the active-action summary, and replace the open marker with its matching terminal marker before a final response, exit, or unrelated work unit.
 
-The hook treats bundle and Active Snapshot revisions as workflow boundaries. A write transaction blocks non-record mutation, transition, checkpoint, and Stop until a valid bundle revision is closed.
-
-Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin or control script is unavailable, read-only adoption and evidence updates may continue, but do not begin or resume implementation; report that lifecycle enforcement must be installed and trusted. Never bypass a denied hook decision.
+If the record becomes unreadable during an action, stop other mutations, repair or restore the record, and reconcile the action evidence before resuming. Recorded scope and evidence never grant authority withheld by the user, plan, or higher-priority instructions.
 
 Use this skill to adopt either an approved plan bundle or an execution-ready discussion bundle as the persistent execution record.
 
@@ -40,7 +32,7 @@ Execute accepts only workflow-record version 4 bundles and defaults to `Durable`
 
 ## Reference Routing
 
-Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and acknowledge the set change and complete rules-sync under the normal lifecycle. After compaction, reread every reference still required.
+Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and verify the set change under the record persistence contract. After compaction, reread every reference still required.
 
 Load only the reference needed for the current stage, and read it completely before applying it.
 
@@ -50,7 +42,7 @@ Load only the reference needed for the current stage, and read it completely bef
 - Read [references/parallel-execution.md](references/parallel-execution.md) before evaluating delegation, dispatching subagents, or recovering delegated work.
 - Read [references/post-merge-cleanup.md](references/post-merge-cleanup.md) before a user-requested PR/MR merge or dedicated-worktree cleanup.
 - Read-only adoption and summary turns do not require either implementation reference unless their conditions arise.
-- Keep `references/intake.md` required through adoption or re-entry. For a later read-only summary with no intake or other routed work, `Required references: None` is permitted. Add `references/implementation.md` before implementation, amendment, commit, or recovery; add `references/completion.md` before simplify, completion, or a user-requested PR/MR merge and its cleanup. Add `references/parallel-execution.md` while evaluating delegation or while delegated work, integration, or recovery is active; add `references/post-merge-cleanup.md` while handling a requested merge or cleanup. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
+- Keep `references/intake.md` required through adoption or re-entry. For a later read-only summary with no intake or other routed work, `Required references: None` is permitted. Add `references/implementation.md` before implementation, amendment, commit, or recovery; add `references/completion.md` before simplify, completion, or a user-requested PR/MR merge and its cleanup. Add `references/parallel-execution.md` while evaluating delegation or while delegated work, integration, or recovery is active; add `references/post-merge-cleanup.md` while handling a requested merge or cleanup. Persist and verify each set change and read newly required references before the next mutation.
 
 ## Persistent Mode Contract
 

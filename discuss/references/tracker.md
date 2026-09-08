@@ -25,7 +25,7 @@ Create these files initially:
 
 `index.md` is the control plane. Its manifest lists every bundle-owned Markdown path, beginning with `index.md`. `context.md` holds goal, scope, current state, source-of-truth evidence, baseline, preservation requirements, risks, and constraints. `decisions.md` holds assumptions, decisions, requirements, and open questions. `actions.md` holds scoped-action authorization and results. `evidence.md` holds the log, handoff evidence, amendments, commit records, and execute action markers.
 
-A Direct Execute Handoff may add `plan.md`, `verification.md`, and `phases/P<NN>-<slug>.md`. Declare new paths with `write-open --path` and add them to the manifest in the same transaction.
+A Direct Execute Handoff may add `plan.md`, `verification.md`, and `phases/P<NN>-<slug>.md`. Add new paths to the manifest in the same coordinated update.
 
 ## Index Contract
 
@@ -82,15 +82,11 @@ evidence.md
 
 Every declared path must be a relative `.md` path inside the bundle, unique, non-symlinked, and readable. Do not keep record content in undeclared files.
 
-## Persistence and Sync
+## Persistence and Rereading
 
-- Snapshot sync requires reading only the delimited Active Snapshot in `index.md`.
-- Record sync requires reading `index.md` and every manifest file completely.
-- Before any post-activation bundle edit, run `write-open --record <root> --previous-revision <acknowledged revision>`. Add one `--path <absolute path>` for each new Markdown file.
-- While the transaction is open, mutate only allowed bundle paths. Update every affected cross-file reference before closing.
-- Run `write-close --record <root>` only after the manifest, tracker identity, state, phase links, and evidence markers are consistent. A failed close leaves the transaction open for repair.
-- Never transition, checkpoint, stop, or perform non-record mutation while a write transaction is open.
-- After a successful close, complete the normal checkpoint. Use `checkpoint --no-change` only for a genuinely unchanged turn.
+- A snapshot reread covers the delimited Active Snapshot in `index.md`; a complete record reread covers `index.md` and every manifest file.
+- Apply the entrypoint's coordinated record update contract. Include new Markdown paths in the manifest and verify tracker identity, state, phase links, and evidence markers before completing the update.
+- Persist the current checkpoint after material changes. An unchanged turn needs no artificial rewrite.
 
 If persistence fails, do not present unsaved conclusions as durable state. Report the failed files and stop before further substantive work.
 
@@ -107,7 +103,7 @@ When discussion is settled, persist the state and ask the user to choose:
 1. `$plan` — close this bundle and create a separate plan bundle linked back to it.
 2. `$execute` — make this same bundle execution-ready and let execute adopt it.
 
-For `$plan`, set `Mode status: Exited`, record the transition in `evidence.md`, close the write transaction, checkpoint, then run `transition plan --record <root>`. `$plan` creates a distinct bundle under its own saving rules.
+For `$plan`, set `Mode status: Exited`, record the transition in `evidence.md`, verify the complete saved update, and hand off to `$plan`. `$plan` creates a distinct bundle under its own saving rules.
 
 For direct `$execute`, require concrete goal/scope/requirements/constraints, no blocking question, verified baseline and preservation criteria, an executable plan, verification, and initialized evidence/handoff state. Add:
 
@@ -125,7 +121,7 @@ Execute mode: Ready
 Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
 ```
 
-Set the profile to `Durable` unless already `Audited`, keep the current discuss Required references through transaction closure, update the checkpoint and evidence log, close the transaction, checkpoint, and run `transition execute --record <root>`. Only after that transition succeeds, follow execute's `Active-Session Handoff` intake to sync the same bundle and replace Required references in a new execute-mode transaction. Do not ask for execution confirmation again when the user already requested this transition.
+Set the profile to `Durable` unless already `Audited`, keep the current discuss Required references until the handoff is durable, and update and verify the checkpoint and evidence log. Then follow execute's `Active-Session Handoff` intake on the same bundle, replacing Required references in a coordinated execute update. Do not ask for execution confirmation again when the user already requested this transition.
 
 ## Authority and Evidence
 

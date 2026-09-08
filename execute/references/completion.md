@@ -2,7 +2,7 @@
 
 Read this reference completely after implementation is integrated and before claiming completion, simplifying, updating agent docs, offering security review, handling a user-requested PR/MR merge or post-merge worktree cleanup, or sending the final implementation response.
 
-First add `references/completion.md` through a record write transaction, read this file completely, and complete `rules-sync`.
+First add `references/completion.md` through a record write transaction, read this file completely, and verify the saved Required references.
 
 ## Required Simplify Pass
 

@@ -2,7 +2,7 @@
 
 Read this reference completely before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
 
-First add `references/implementation.md` through a record write transaction, read this file completely, and complete `rules-sync` before mutation.
+First add `references/implementation.md` through a record write transaction, read this file completely, and verify the saved Required references before mutation.
 
 ## Dedicated Worktree
 

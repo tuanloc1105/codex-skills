@@ -1,6 +1,6 @@
 # Execute Post-Merge Worktree Cleanup
 
-Read this reference completely before handling a user-requested PR/MR merge or dedicated-worktree cleanup. Add `references/post-merge-cleanup.md` through a normal record transaction and complete rules-sync before the merge or cleanup mutation. Keep it required until the result and any preservation blocker are recorded.
+Read this reference completely before handling a user-requested PR/MR merge or dedicated-worktree cleanup. Add `references/post-merge-cleanup.md` through a normal record transaction and verify the saved Required references before the merge or cleanup mutation. Keep it required until the result and any preservation blocker are recorded.
 
 ## Post-Merge Worktree Cleanup
 

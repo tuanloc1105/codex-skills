@@ -1,6 +1,6 @@
 # Discuss Response Workflow
 
-Read this reference completely before handling an actionable request in discuss, including tracker initialization, baseline analysis, scoped actions, or a workflow transition. The entrypoint's Immediate Decision Gate and Question Style remain mandatory throughout. For an existing bundle, add `references/response-workflow.md` to Required references through the normal record transaction and complete rules-sync before proceeding; for a new bundle, read this file before initialization and include it in the initial required set.
+Read this reference completely before handling an actionable request in discuss, including tracker initialization, baseline analysis, scoped actions, or a workflow transition. The entrypoint's Immediate Decision Gate and Question Style remain mandatory throughout. For an existing bundle, add `references/response-workflow.md` to Required references through the normal record transaction and verify the saved Required references before proceeding; for a new bundle, read this file before initialization and include it in the initial required set.
 
 ## Response Pattern
 

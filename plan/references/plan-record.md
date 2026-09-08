@@ -117,15 +117,13 @@ Produces: <downstream contract>
 ## Execution Notes
 ```
 
-`Depends on` is authoritative; wave is derived. Links and metadata in `plan.md` and the phase file must agree before `write-close`.
+`Depends on` is authoritative; wave is derived. Links and metadata in `plan.md` and the phase file must agree before completing the record update.
 
 ## Persistence Contract
 
-- Snapshot sync reads only the Active Snapshot in `index.md`; record sync reads the complete manifest.
-- Before post-activation edits, run `write-open --record <root> --previous-revision <revision>`, declaring each new phase or optional file with `--path`.
-- Update all affected files and cross-links, then run `write-close --record <root>`. A failed close leaves the transaction open for repair.
-- Do not transition, checkpoint, stop, or mutate outside the bundle while the transaction is open.
-- After close, checkpoint the turn. A no-change checkpoint is valid only when the bundle remains accurate.
+- A snapshot reread covers the Active Snapshot in `index.md`; a complete record reread covers `index.md` and every manifest file.
+- Apply the entrypoint's coordinated record update contract. Declare each new phase or optional Markdown file in the manifest and verify all affected files and cross-links before completing the update.
+- Finish or repair the update before handoff or a final response. Persist the turn checkpoint after material changes; an unchanged turn needs no artificial rewrite.
 
 ## Approval and Execute Handoff
 
@@ -141,7 +139,7 @@ Execute mode: Ready
 Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
 ```
 
-Set the profile to `Durable` unless already `Audited`, keep the current plan Required references through transaction closure, record approval in `evidence.md`, update the checkpoint, close the transaction, checkpoint, then run `transition execute --record <root>`. Keep the source references until execute performs its `Active-Session Handoff` intake; it must sync the same bundle before replacing them in a new transaction. Approval alone does not authorize implementation. If the user has already requested execution, continue that intake and implementation without asking again; otherwise complete the intake as bookkeeping only and checkpoint without implementation.
+Set the profile to `Durable` unless already `Audited`, keep the current plan Required references until the handoff is durable, record approval in `evidence.md`, and update and verify the checkpoint. Then follow execute's `Active-Session Handoff` intake on the same bundle before replacing source references in a coordinated update. Approval alone does not authorize implementation. If the user has already requested execution, continue that intake and implementation without asking again; otherwise complete the intake as bookkeeping only and checkpoint without implementation.
 
 ## Quality Bar
 

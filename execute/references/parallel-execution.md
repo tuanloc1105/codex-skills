@@ -1,6 +1,6 @@
 # Execute Parallel Execution
 
-Read this reference completely before evaluating delegation for eligible phases, dispatching subagents, or recovering their work. Add `references/parallel-execution.md` through a normal record transaction and complete rules-sync before dispatch or related mutation. Keep this reference required while delegated work or its integration/recovery remains active.
+Read this reference completely before evaluating delegation for eligible phases, dispatching subagents, or recovering their work. Add `references/parallel-execution.md` through a normal record transaction and verify the saved Required references before dispatch or related mutation. Keep this reference required while delegated work or its integration/recovery remains active.
 
 ## Parallel Phase Scheduling
 

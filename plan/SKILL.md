@@ -5,22 +5,16 @@ description: Plan-first collaboration workflow for Codex. Creates one version 4 
 
 # Plan
 
-## Workflow Modes Hook
+## Skill-Managed Lifecycle
 
-When the `workflow-modes` plugin is installed and its hooks are trusted, resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`. Invoke it with the configured Python interpreter because the installed script may not have executable permissions, and pass `--marker workflow-modes-v1` after the lifecycle action's other required arguments, as advertised by that action's local `--help` output.
+Apply this skill directly through conversation state and its Markdown record. Do not automatically activate `workflow-modes`, invoke its control script, or run its hooks or lifecycle commands, even when the plugin is installed. Plugin availability is not a prerequisite for this skill. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
 
-- On fresh `$plan` entry, reserve and initialize the draft bundle before substantive inspection, then run `activate plan --record <bundle-root>`. Keep this exact bundle through approval and execute handoff.
-- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required record scope, then run `rules-sync --record <plan-path> --reference <path>...` before substantive work or a final response.
-- On entry from `$discuss`, require its persisted `transition plan --record <discussion-tracker>` result instead of reactivating a different mode.
-- On entry from `$discuss`, resolve the separate target root, run `plan-init --record <discussion-root> --target <plan-root>`, initialize the complete bundle only beneath that declared target, then run `activate plan --record <plan-root>`. `plan-init` is a narrow bootstrap guard, not general plan-mode mutation permission.
-- At activation and after every `PostCompact` reminder, read `index.md` and every manifest file completely and run record-scope sync.
-- After `UserPromptSubmit`, follow `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running snapshot-scope sync; `record` requires a complete read and record-scope sync.
-- Before bundle edits, run `write-open` with the acknowledged revision and declare new phase paths with `--path`; run `write-close` only after manifest, phase links, dependencies, and lifecycle state agree.
-- Persist material planning deltas throughout the conversation. Before every user-facing response, run `checkpoint --record <plan-path>`; use `--no-change` only after confirming that the turn produced no material record change.
-- After approval and after the plan's execute-ready metadata is durable, run `transition execute --record <plan-path>` before handing control to `$execute`.
-- During that approval handoff, set the Active Snapshot profile to `Durable` unless it is already `Audited`; never downgrade `Audited`.
+- On entry, resume, and after compaction, read this complete entrypoint, every currently required reference, `index.md`, and every manifest file before substantive work. For a new bundle, read the initialization guidance first, create the bundle, then verify its complete contents.
+- On later turns, reuse current context only while it remains reliable. Reread the Active Snapshot for snapshot-only changes; reread the complete bundle when record content changes outside known writes or its state is uncertain.
+- Treat a record write transaction as one coordinated file update: read the affected current files, declare new Markdown files in the manifest, update all affected content and cross-links, then verify identity, metadata, phase links, dependencies, and evidence agree. Finish or repair that update before unrelated mutation, handoff, or a final response. If persistence fails, report the blocker instead of treating unsaved state as durable.
+- Before every user-facing response, persist material turn deltas and the resume checkpoint. A genuinely unchanged turn requires only verifying that the saved state remains accurate.
 
-Confirm every control call returns model-visible `WORKFLOW_*` context. If the plugin is unavailable, planning may continue because it is read-only apart from plan housekeeping, but state that lifecycle enforcement is unavailable. Never mutate source in plan or bypass a denied hook decision.
+On fresh entry, reserve and initialize the draft bundle before substantive inspection. Keep that exact bundle through approval and execute handoff. On entry from `$discuss`, require its persisted handoff and create a separate plan bundle under the saving rules. Hand off to `$execute` only after approval and execute-ready metadata are durable; upgrade the profile to `Durable` unless already `Audited`. Approval alone does not authorize implementation.
 
 New plans use a version 4 bundle and the `Lightweight` profile. Profiles affect reread and persistence cadence only. Single-file and pre-v4 records are unsupported.
 
@@ -28,14 +22,14 @@ Use this skill to turn an ambiguous or important request into an approved execut
 
 ## Reference Routing
 
-Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and acknowledge the set change and complete rules-sync under the normal lifecycle. After compaction, reread every reference still required.
+Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and verify the set change under the record persistence contract. After compaction, reread every reference still required.
 
 Load only the reference needed for the current stage, and read it completely before applying it.
 
 - Read [references/plan-record.md](references/plan-record.md) before creating, updating, approving, or handing off the Markdown plan.
 - Read [references/phase-planning.md](references/phase-planning.md) only when phases, dependencies, waves, or subagent eligibility materially improve the plan.
 - Read [references/planning-workflow.md](references/planning-workflow.md) before creating or revising a plan, baseline analysis, or requesting approval.
-- Keep `Required references` minimal: always `references/plan-record.md`; add `references/planning-workflow.md` while creating or revising a plan, analyzing its baseline, or obtaining approval; add `references/phase-planning.md` while phases, dependencies, waves, or subagent eligibility are in use. Persist and acknowledge each set change before reading the new reference and running `rules-sync`.
+- Keep `Required references` minimal: always `references/plan-record.md`; add `references/planning-workflow.md` while creating or revising a plan, analyzing its baseline, or obtaining approval; add `references/phase-planning.md` while phases, dependencies, waves, or subagent eligibility are in use. Persist and verify each set change and read the new reference before continuing.
 
 ## Plan-First Boundary
 

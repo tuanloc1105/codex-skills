@@ -11,36 +11,29 @@ Operate as a discussion partner and keep one Markdown record bundle for the conv
 
 Keep the mode active across analysis and every scoped action. Completing an action, including an authorized source-code change, automatically returns control to `discuss`; it never exits the mode. Only an explicit transition to `$plan` or `$execute` may durably set the tracker to `Mode status: Exited`, and only after the applicable handoff state is persisted. If the user asks to "exit discuss", "turn off discuss", "start coding", or uses similar wording without choosing `$plan` or `$execute`, keep discuss active and apply `Settled Discussion Transition Gate` so the user chooses one of those workflows.
 
-## Workflow Modes Hook
+## Skill-Managed Lifecycle
 
-When the `workflow-modes` plugin is installed and its hooks are trusted, use its control script as a lifecycle guard. Resolve `workflow_modes_control.py` from the installed plugin bundle, normally `<user-home>/plugins/workflow-modes/scripts/`, and run it with the exact absolute path. Every call must end with `--marker workflow-modes-v1`; confirm the hook returns model-visible `WORKFLOW_*` context.
+Apply this skill directly through conversation state and its Markdown record. Do not automatically activate `workflow-modes`, invoke its control script, or run its hooks or lifecycle commands, even when the plugin is installed. Plugin availability is not a prerequisite for this skill. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
 
-- After the bundle is established and its active metadata is persisted, run `activate discuss --record <bundle-root>`.
-- After activation, compaction, or any Required references change, read this complete entrypoint and every named reference, sync the required bundle scope, then run `rules-sync --record <bundle-root> --reference <path>...`.
-- At activation and after `PostCompact`, read `index.md` and every manifest file completely, then run record-scope sync.
-- After `UserPromptSubmit`, follow the hook's `sync_status`: `current` requires no reread; `snapshot` requires reading only the delimited Active Snapshot and running `sync --record <tracker> --scope snapshot`; `record` requires a complete read and record-scope sync. A changed or unacknowledged required scope remains a hard boundary for non-record mutation.
-- Before bundle edits, run `write-open --record <bundle-root> --previous-revision <acknowledged revision>` and declare new Markdown paths with `--path`. After all cross-file state is consistent, run `write-close --record <bundle-root>`. Repair a denied close; never bypass it.
-- Before any authorized non-source-code mutation, persist the action and run `action-open --record <tracker> --impact non-source`, adding one `--path <absolute-path>` for each known local target. When the required mutation tool has no inspectable file target, also add the narrow matching `--unscoped <shell|external>` classification.
-- Before an authorized source-code mutation, persist its confirmation and scope, then run `action-open --record <tracker> --impact source-confirmed --path <absolute-path>...`. File-targeted mutation outside those paths must remain blocked. For a repository-scoped Git mutation such as merge or rebase, include the repository root as `--path` and add `--unscoped git`; this authorizes only that tool class for the current bounded action.
-- After persisting an action's terminal result, run `action-close --result <completed|failed|blocked>` before the user-facing response. A failed action still requires closure and returns to discuss.
-- Before every user-facing response, run `checkpoint --record <tracker>` after all material turn deltas are durable. When the turn genuinely changes nothing in the tracker, run `checkpoint --record <tracker> --no-change`; never use `--no-change` to skip a required update.
-- After the `$plan` durability gate, run `transition plan --record <tracker>` before invoking `$plan`.
-- After a successful Direct Execute Handoff, run `transition execute --record <tracker>` before invoking `$execute`.
+- On entry, resume, and after compaction, read this complete entrypoint, every currently required reference, `index.md`, and every manifest file before substantive work. For a new bundle, read the initialization guidance first, create the bundle, then verify its complete contents.
+- On later turns, reuse current context only while it remains reliable. Reread the Active Snapshot for snapshot-only changes; reread the complete bundle when record content changes outside known writes or its state is uncertain.
+- Treat a record write transaction as one coordinated file update: read the affected current files, declare new Markdown files in the manifest, update all affected content and cross-links, then verify identity, metadata, phase links, dependencies, and evidence agree. Finish or repair that update before unrelated mutation, handoff, or a final response. If persistence fails, report the blocker instead of treating unsaved state as durable.
+- Before every user-facing response, persist material turn deltas and the resume checkpoint. A genuinely unchanged turn requires only verifying that the saved state remains accurate.
 
-If the plugin or control script is unavailable, continue read-only discussion and tracker maintenance, state that lifecycle enforcement is unavailable, and do not perform an otherwise authorized mutation until the user installs and trusts the hook or explicitly chooses `$plan` or `$execute`. Never bypass a denied hook decision.
+Before an authorized mutation, persist its scope, confirmation when required, local targets, and external or Git effects. Perform only that bounded action, then persist its completed, failed, or blocked result before responding and resume discuss. If the record becomes unreadable, restore its readability before further mutation. Hand off only after the applicable transition gate and exit metadata are durable.
 
 New discussion bundles use the `Lightweight` profile. Profiles change persistence and reread cadence, never authorization or mutation enforcement. Only workflow-record version 4 bundles are accepted.
 
 ## Reference Routing
 
-Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and acknowledge the set change and complete rules-sync under the normal lifecycle. After compaction, reread every reference still required.
+Remove a conditional reference from `Required references` only after its stage and any dependent work have ended; persist and verify the set change under the record persistence contract. After compaction, reread every reference still required.
 
 Load only the reference needed for the current stage, and read that reference completely before applying it.
 
 - Read [references/tracker.md](references/tracker.md) before creating, resuming, migrating, persisting, or handing off a discussion tracker.
 - Read [references/actions.md](references/actions.md) before baseline analysis of an existing mechanism, any scoped mutation, or combining discuss with another skill.
 - Read [references/response-workflow.md](references/response-workflow.md) before an actionable request, including initialization, baseline analysis, scoped actions, or transition.
-- Keep `Required references` minimal: always `references/tracker.md`; add `references/response-workflow.md` while an actionable request is active; add `references/actions.md` while baseline analysis, a scoped action, or a skill combination is active. Persist and acknowledge each set change, read newly required references, and run `rules-sync` before the next mutation.
+- Keep `Required references` minimal: always `references/tracker.md`; add `references/response-workflow.md` while an actionable request is active; add `references/actions.md` while baseline analysis, a scoped action, or a skill combination is active. Persist and verify each set change and read newly required references before the next mutation.
 - The decision gate and question rules remain in this entrypoint and apply throughout the mode; the response sequence is in `references/response-workflow.md`.
 
 ## Immediate Decision Gate
