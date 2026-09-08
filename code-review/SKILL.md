@@ -17,11 +17,12 @@ After selecting the mode, read every reference required by the active row before
 | `medium` or `high` | [target-resolution.md](references/target-resolution.md), [mode-playbooks.md](references/mode-playbooks.md), [finder-angles.md](references/finder-angles.md), [verification.md](references/verification.md) |
 | `extra-high`, `xhigh`, `max`, or `maximum` | [target-resolution.md](references/target-resolution.md), [mode-playbooks.md](references/mode-playbooks.md), [finder-angles.md](references/finder-angles.md), [verification.md](references/verification.md), [deep-sweep.md](references/deep-sweep.md) |
 | `ultra` or `ultrareview` explanation | [mode-playbooks.md](references/mode-playbooks.md) |
-| raw JSON, structured output, typed reporting, `--comment`, `--fix`, `--artifact`, or a shareable review | add [reporting-and-actions.md](references/reporting-and-actions.md) |
+| `--fix` in any mode | add [verification.md](references/verification.md) and [reporting-and-actions.md](references/reporting-and-actions.md) |
+| raw JSON, structured output, typed reporting, `--comment`, `--artifact`, or a shareable review | add [reporting-and-actions.md](references/reporting-and-actions.md) |
 
-Apply the mode row and every matching action row. This file wins if a reference conflicts with it.
+Mode-table verification describes review-only behavior. For `--fix`, minimal and all low aliases add focused three-state verification of retained fix candidates only; they do not expand candidate search. Apply the mode row and every matching action row. This file wins if a reference conflicts with it.
 
-For maintenance comparisons with extracted Claude Code prompts, use [upstream-crosswalk.md](references/upstream-crosswalk.md). It is provenance documentation, not a runtime review reference; do not load it during ordinary reviews.
+For maintenance comparisons with extracted Claude Code prompts, use [upstream-crosswalk.md](references/upstream-crosswalk.md). It is provenance documentation, not a runtime review reference; do not load it during ordinary reviews. For skill maintenance checks and response rubrics, use [evaluation.md](references/evaluation.md), also maintenance-only.
 
 ## Select the Mode
 
@@ -39,6 +40,8 @@ Normalize aliases before routing. Detailed behavior lives in the selected playbo
 | `extra-high` / `xhigh` | 5 correctness + 5 supporting angles, up to 8 candidates each | three-state + gap sweep | 15 |
 | `max` / `maximum` | 5 correctness + 5 supporting angles, up to 8 candidates each | three-state + gap sweep | 15 |
 
+At medium/high, fold triggered language-pitfall checks (D) into A and wrapper/forwarding checks (E) into C, retaining 3+5 angles. Only xhigh/max have separate D/E specialists (5+5). Minimal/low retain their own scope.
+
 Use `low-minimum` or `low-expanded` only when the user explicitly requests a minimum number of findings, expanded low-effort output, or exhaustive low-effort coverage. Never invent findings to meet its target.
 
 At `medium`, favor precision: every reported issue should be something a maintainer would act on. At `high`, `extra-high`/`xhigh`, and `max`/`maximum`, favor recall: pass every candidate with a nameable failure scenario into verification instead of silently dropping uncertain candidates.
@@ -47,15 +50,13 @@ At `medium`, favor precision: every reported issue should be something a maintai
 
 ## Gather the Diff
 
-Resolve the requested target before judging it, following `target-resolution.md`. Honor an explicit base or target first. Treat user-provided scope restrictions, focus files, exclusions, and review instructions as hard constraints throughout the review, including any delegated work. Otherwise, for a local branch, cover both committed and uncommitted changes with the equivalent of:
+Resolve the requested target before judging it, following `target-resolution.md`. Honor explicit targets and all scope restrictions first. For an implicit current-branch review, select the merge destination from applicable PR metadata already safely available, the symbolic repository default, or an existing `main`/`master` distinct from the selected tip. Tracking upstream is appropriate only for explicit unpushed-only review; a feature tracking itself is not its merge destination.
 
-```text
-git diff @{upstream}...HEAD
-```
+Compare the destination/HEAD merge-base directly to the final tracked worktree with `git diff <merge-base>`, plus eligible non-ignored untracked additions. Do not concatenate committed and local patches: local edits can cancel committed changes. Preserve provenance separately from final review hunks. Working-tree-only uses `HEAD` as baseline; staged, unstaged and historical targets retain their exact endpoints. Follow the reference for root/fallback handling and untracked path reconciliation.
 
-Gather the resolved range diff first without double-counting overlapping changes. When the resolved target includes the working tree, also gather tracked modifications and list non-ignored untracked files with the equivalent of `git ls-files --others --exclude-standard`; represent each untracked file as an addition hunk so new files are not omitted. Gather the changed-file summary and unified diff, then inspect enclosing functions, callers, callees, tests, fixtures, schemas, generated types, migrations, feature flags, config, history, blame, and documented contracts only as needed to establish behavior. Keep large raw outputs out of the conversation; share an ephemeral indexed diff source or focused excerpt with reviewers instead of duplicating a large raw diff. This internal evidence source is not a published review artifact.
+Gather the changed-file summary and unified diff, then inspect enclosing functions, callers, callees, tests, fixtures, schemas, generated types, migrations, feature flags, config, history, blame, and documented contracts only as needed to establish behavior. Keep large raw outputs out of the conversation; share an ephemeral indexed diff source or focused excerpt with reviewers instead of duplicating a large raw diff. Broad finders must have lossless access to the complete scoped diff, including removed blocks, via an index with retrievable chunks. Excerpts are navigation aids, not a substitute for required coverage. Track unread/unavailable portions and do not claim complete coverage from a summary. This internal evidence source is not a published review artifact.
 
-For `low`, `low-minimum`, and `low-expanded`, make one diff-reading call, skip test and fixture hunks (`test/`, `spec/`, `__tests__/`, `*_test.*`, `*.test.*`, `fixtures/`, `testdata/`), do not read full files, and judge only what is visible in the hunk.
+For `low`, `low-minimum`, and `low-expanded`, make one diff-reading call, skip test and fixture hunks (`test/`, `spec/`, `__tests__/`, `*_test.*`, `*.test.*`, `fixtures/`, `testdata/`), do not read full files during candidate search, and judge only what is visible in the hunk. An explicit fix request permits minimum contextual reads solely to confirm retained fix candidates and editable-target correspondence.
 
 ## Select the Execution Backend
 
@@ -67,7 +68,7 @@ Without a dedicated workflow, run `minimal` and low modes inline. For `medium` a
 
 ## Generate Candidates Independently
 
-Follow the selected playbook and the detailed angle checklist. Keep finder passes independent, preserve distinct failure mechanisms on the same line, and deduplicate only after candidate generation. For `medium` and above, pass every candidate with a nameable failure scenario into verification; verification, not finder intuition, owns the final verdict. For `minimal`, retain only evidence-backed findings from the single contextual pass without claiming a separate verifier. Low modes follow their hunk-only playbooks and skip verification.
+Follow the selected playbook and the detailed angle checklist. Keep finder passes independent, preserve distinct failure mechanisms on the same line, and deduplicate only after candidate generation. For `medium` and above, pass every candidate with a nameable failure scenario into verification; verification, not finder intuition, owns the final verdict. For `minimal`, retain only evidence-backed findings from the single contextual pass without claiming a separate verifier. Low modes follow their hunk-only search playbooks and skip review verification; explicit fixes add only the action-specific pass below.
 
 ## Low-Effort Output
 
@@ -75,7 +76,7 @@ Follow the exact hunk-only scope and output routing in the active low-effort pla
 
 ## Verify Candidates
 
-For `medium` and above, deduplicate candidates with the same defect, location, and mechanism while preserving finder provenance, then give each survivor a focused verification pass. Keep `CONFIRMED` and `PLAUSIBLE`; discard `REFUTED`. Use the active mode's precision or recall bias without weakening the requirement for a concrete trigger and wrong effect. Survival through recall-biased verification does not by itself make a `PLAUSIBLE` finding safe to auto-fix. Assign severity from impact after verification; never derive severity from the verdict or number of finders.
+For `medium` and above, deduplicate candidates with the same defect, location, and mechanism while preserving finder provenance, then give each survivor a focused verification pass. Keep `CONFIRMED` and evidenced `PLAUSIBLE`; discard `REFUTED` and exclude unsupported speculation. PLAUSIBLE requires a real code mechanism, a concrete wrong effect and a specific unknown premise; lack of refutation alone is insufficient. Use the active mode's precision or recall bias without weakening the requirement for a concrete trigger and wrong effect. Survival through recall-biased verification does not by itself make a `PLAUSIBLE` finding safe to auto-fix. Assign severity from impact after verification; never derive severity from the verdict or number of finders.
 
 ## Run the Gap Sweep
 
@@ -83,7 +84,7 @@ For `extra-high`, `xhigh`, `max`, and `maximum`, run the complete deep sweep aft
 
 ## Report Findings
 
-Rank findings most severe first and respect the mode cap. For human-readable output, put findings before the summary. Include the file and line, severity when useful, concise title, concrete failure scenario, why the change causes it, category, and verification verdict when a verify pass ran. If none survive, say so clearly and mention only meaningful residual risk or skipped checks.
+Rank findings most severe first and respect the mode cap. For human-readable output, put findings before the summary. Include the file and line, severity when useful, concise title, concrete failure scenario, why the change causes it, category, and verification verdict when a verify pass ran. For PLAUSIBLE, state the missing confirmation in permitted text/fields. Disclose capped survivors and incomplete coverage where the output permits it; never add fields/prose to exact low, JSON or typed contracts. If none survive, say so clearly and mention only meaningful residual risk or skipped checks.
 
 For raw JSON, structured output, typed reporting, artifacts, GitHub comments, or fixes, follow the required reporting and action reference. A caller-supplied JSON schema wins over tool availability; generic structured output defaults to the canonical raw JSON array when no active typed schema is required. A typed reporting tool is used only when active instructions require it, and its findings are not duplicated in prose.
 
@@ -93,6 +94,6 @@ Post comments only when the user passes `--comment` or explicitly requests them.
 
 ## Apply Fixes
 
-Apply fixes only when the user passes `--fix` or explicitly requests them. Produce and verify findings before editing, auto-fix only `CONFIRMED` findings unless the user explicitly approves the uncertain behavior, keep every change traceable to a finding, and run narrow verification. Report fixes, skips, and residual risk when the selected output contract permits action metadata; an exact raw JSON findings contract instead returns the final unresolved findings in its requested schema without prose or outcome fields.
+Apply fixes only when the user passes `--fix` or explicitly requests them. For minimal and low modes, confirm retained fix candidates with the focused three-state procedure in verification.md, reading only the minimum necessary context. Before every edit, establish repository, target-head and editable-content correspondence using target-resolution.md; skip mismatches or unsafe overlaps without automatic checkout. Produce and verify findings before editing, auto-fix only `CONFIRMED` findings unless the user explicitly approves the uncertain behavior, keep every change traceable to a finding, and run narrow verification. Report fixes, skips, and residual risk when the selected output contract permits action metadata; an exact raw JSON findings contract instead returns the final unresolved findings in its requested schema without prose or outcome fields.
 
 When multiple actions are requested, use this order: find and verify; apply safe fixes; reverify and rebuild the final capped finding set from the complete verified pool; prepare the selected report; post comments for unresolved PR findings; create or publish an explicitly requested artifact; then deliver the final report once as the last output action. Never emit a final-channel response before requested tool actions complete. Never emit a pre-fix report when fixes are requested unless active host instructions explicitly require a separate initial reporting phase. Do not create or publish a review artifact by default.

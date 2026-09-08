@@ -1,0 +1,62 @@
+[
+  {
+    "id": "F01",
+    "mode": "low and minimal --fix",
+    "prompt": "hunk: function outer() { inner(); }; caller awaits outer(); inner returns Promise; same repo/head/bytes; intended propagation is documented",
+    "expected": "Confirm missing return using only needed caller/contract; narrow return fix, focused check; no wider search.",
+    "contract": {
+      "edits": "one confirmed return fix",
+      "verification": "action-only three-state"
+    }
+  },
+  {
+    "id": "F02",
+    "mode": "low review only",
+    "prompt": "same missing-return hunk, no --fix",
+    "expected": "Hunk-only search; no extra verification or mutation; contiguous finding lines or (none).",
+    "contract": {
+      "edits": "none",
+      "verification": "none"
+    }
+  },
+  {
+    "id": "F03",
+    "mode": "medium PR 12 --fix",
+    "prompt": "review repo A head aaa; editable repo B head bbb; both have src/api.js with missing return",
+    "expected": "Retain valid PR finding; skip mismatch with permitted reason; zero edits and no checkout.",
+    "contract": {
+      "edits": "none",
+      "reason": "target mismatch"
+    }
+  },
+  {
+    "id": "F04",
+    "mode": "minimal historical and staged --fix",
+    "prompt": "historical head aaa differs from checkout bbb; alternatively HEAD matches but index file omits return and worktree already returns",
+    "expected": "Skip historical mismatch. For index variant revalidate content; never overwrite worktree or blindly patch index coordinates.",
+    "contract": {
+      "edits": "none",
+      "reason": "snapshot mismatch"
+    }
+  },
+  {
+    "id": "F05",
+    "mode": "low --fix",
+    "prompt": "matching target with unrelated README edit; alternatively user edits the same function after review",
+    "expected": "Preserve README and fix only proven return preimage; skip overlapping changed preimage unless correspondence and safety are proved.",
+    "contract": {
+      "edits": "conditional",
+      "reason": "preserve unrelated and overlapping edits"
+    }
+  },
+  {
+    "id": "F06",
+    "mode": "high --fix",
+    "prompt": "PLAUSIBLE: retry can duplicate charge if provider does not deduplicate; provider idempotency contract unavailable",
+    "expected": "Retain uncertainty; no auto-fix or invented provider behavior.",
+    "contract": {
+      "edits": "none",
+      "reason": "missing confirmation"
+    }
+  }
+]

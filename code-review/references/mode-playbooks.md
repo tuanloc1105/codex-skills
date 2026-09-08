@@ -2,7 +2,9 @@
 
 Use the playbook selected by the user's requested effort. Default to `medium`. Preserve the user's target, base, focus files, exclusions, and extra instructions in every delegated task and verification pass.
 
-`Verification` below means the mode's contextual candidate-verification phase and may produce a three-state verdict. A focused `action-safety validation` required before a typed, external, or mutating action is narrower: it checks that the affected claim is still supported without widening candidate search, changing the mode, or fabricating a verdict that the output contract does not request.
+`Verification` below means the mode's contextual candidate-verification phase and may produce a three-state verdict. A focused `action-safety validation` required before a typed, external, or mutating action is narrower: it checks that the affected claim is still supported without widening candidate search or changing the mode; that safety check alone does not assign a three-state verdict.
+
+For explicit `--fix` in minimal or any low alias, load `verification.md` and run its action-only three-state pass on retained fix candidates. This exception permits minimum necessary context and produces internal verdicts even when the output has no verdict field. It never adds finder passes or expands hunk-only candidate search. Review-only behavior below is unchanged.
 
 ## Contents
 
@@ -21,7 +23,7 @@ Use this mode for one careful contextual pass without the multi-angle or separat
 2. Inspect enclosing functions and use focused search, history, blame, callers, callees, tests, or contracts only when they establish intent or reachability.
 3. Keep only findings with a concrete triggering input or state and an observable wrong result.
 4. Check wrong or inverted conditions, boundaries, nullish paths, missing `await` or return propagation, removed guards or validation, swallowed errors, broken callers, and races; keep only concrete failures.
-5. Do not split the work into independent finder angles or claim three-state verification.
+5. Do not split the work into independent finder angles or claim three-state review verification; the explicit-fix exception above is action-only.
 6. Keep at most fifteen findings, most severe first.
 
 Use the normal output-selection rules. A typed reporting call is never followed by a duplicate textual list; that canonical no-duplication rule overrides legacy minimal-mode restatement behavior.
@@ -33,7 +35,7 @@ Use this mode for a fast, hunk-only review.
 1. Read the changed-file summary and unified diff once.
 2. Cover the explicit target first. Otherwise cover committed and uncommitted branch changes.
 3. Skip test and fixture hunks under `test/`, `spec/`, `__tests__/`, `fixtures/`, and `testdata/`, plus `*_test.*` and `*.test.*` files.
-4. Do not read full files, inspect callers, spawn reviewers, or run verification.
+4. During candidate search, do not read full files, inspect callers, spawn reviewers, or run review verification. Apply the explicit-fix exception only afterward to retained fix candidates.
 5. Flag only hunk-visible runtime defects, duplicated helpers visible in the diff context, and dead code left by the diff. Check wrong or inverted conditions, off-by-one boundaries, nullish values, falsy zero, missing `await` or return propagation, wrong variables, swallowed errors, and missing escaping only when the failure is visible in the hunk.
 6. Apply the normal output-selection rules. The human fallback returns at most four findings, most severe first, as contiguous lines with no heading, bullets, blank separators, or summary:
 
@@ -62,7 +64,7 @@ Treat the target as a search obligation, never as permission to invent findings.
 Use this mode for precision-biased review.
 
 1. Gather the diff and inspect enclosing functions, callers, callees, tests, schemas, migrations, flags, config, and contracts only as needed.
-2. Run correctness angles A-C and all five supporting angles from `finder-angles.md` independently.
+2. Run correctness angles A-C and all five supporting angles from `finder-angles.md` independently. Fold triggered D checks into A and E checks into C; retain eight base angles, without separate D/E reviewers.
 3. Let each angle produce up to six candidates with a nameable failure scenario.
 4. Deduplicate candidates after all finder passes.
 5. Verify every remaining candidate with the precision-biased rules in `verification.md`.
@@ -78,7 +80,7 @@ Use this mode for recall-biased review within the same finder scope as `medium`.
 2. Let each angle produce up to six candidates.
 3. Deduplicate only after all finder passes complete.
 4. Pass every candidate with a nameable scenario into recall-biased verification.
-5. Default realistic uncertainty to `PLAUSIBLE` unless code refutes it.
+5. Keep realistic uncertainty as `PLAUSIBLE` only with an evidenced mechanism, concrete wrong effect and specific unknown premise; absence of refutation alone is insufficient.
 6. Keep at most ten verified findings, most severe first.
 
 Favor catching real defects over suppressing uncertain but reachable failure mechanisms.
@@ -128,7 +130,7 @@ Do not treat a generic task, thread, or workflow tool as a dedicated code-review
 For `medium` and above, when parallel reviewers are available and permitted:
 
 1. Assign each selected finder angle to an independent reviewer.
-2. Give each reviewer the target, user constraints, and a raw diff only when it is small; otherwise give a shared ephemeral indexed diff source plus focused excerpts so every reviewer sees the same scope without duplicating large output. This is internal evidence, not a published review artifact.
+2. Give each reviewer the target, user constraints, and a raw diff only when it is small; otherwise give a shared ephemeral indexed diff source plus focused excerpts so every reviewer sees the same scope without duplicating large output. Every broad finder must be able to retrieve the complete scoped diff losslessly, including deleted blocks; focused excerpts alone do not establish coverage. Record unread/unavailable chunks rather than claiming a complete review. This is internal evidence, not a published review artifact.
 3. Do not give a finder another finder's conclusions.
 4. Run independent finder tasks concurrently within the available concurrency limit.
 5. Assign each deduplicated candidate to a verifier that did not originate it when practical. Preserve finder identifiers internally so this separation can be checked rather than assumed.

@@ -1,0 +1,67 @@
+[
+  {
+    "id": "R01",
+    "mode": "medium versus xhigh",
+    "prompt": "Changed wrapper drops return and cancellation context; choose routing",
+    "expected": "medium/high A-C+five, D in A/E in C; xhigh A-E+five; full scoped diff accessible",
+    "contract": {
+      "medium_angles": 8,
+      "xhigh_angles": 10
+    }
+  },
+  {
+    "id": "R02",
+    "mode": "high",
+    "prompt": "Compare imagined corruption with no mechanism; retry duplicate charge with unknown provider idempotency; divide by zero guarded by nonzero invariant",
+    "expected": "Exclude speculation; PLAUSIBLE with provider premise; REFUTED with exact guard.",
+    "contract": {
+      "verdicts": [
+        "excluded",
+        "PLAUSIBLE",
+        "REFUTED"
+      ]
+    }
+  },
+  {
+    "id": "R03",
+    "mode": "high structured variants",
+    "prompt": "One PLAUSIBLE retry finding; generic JSON, custom certainty schema, required typed tool, human output",
+    "expected": "Canonical four keys and uncertainty in scenario; custom requested keys only; required typed once without prose duplicate; human missing confirmation.",
+    "contract": {
+      "canonical_keys": [
+        "file",
+        "line",
+        "summary",
+        "failure_scenario"
+      ]
+    }
+  },
+  {
+    "id": "R04",
+    "mode": "medium --fix and xhigh sweep",
+    "prompt": "11 sorted survivors; first 3 of initial 8 fixed; another location has existing mechanism",
+    "expected": "Backfill remaining 8 unresolved; preserve new location in sweep; with 12 survivors disclose one omitted in human only.",
+    "contract": {
+      "cap": 8,
+      "fixed": 3,
+      "survivors": 11
+    }
+  },
+  {
+    "id": "R05",
+    "mode": "review/action combinations",
+    "prompt": "Review only; fix only; comment on PR; all actions; raw JSON with failed publisher",
+    "expected": "No implicit actions; find/verify, safe fixes/checks, reverify/backfill, prepare, unresolved comments, requested artifact, final once. Preserve exact output.",
+    "contract": {
+      "order": [
+        "find_verify",
+        "fix_check",
+        "reverify_backfill",
+        "prepare",
+        "comment",
+        "artifact",
+        "final"
+      ]
+    }
+  }
+]

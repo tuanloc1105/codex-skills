@@ -8,6 +8,7 @@ Verify after all finder angles complete and near-duplicates are merged. Give eve
 - Three-state verdicts
 - Precision and recall bias
 - Verification record and guardrails
+- Action-only confirmation for minimal and low fixes
 
 ## Deduplicate
 
@@ -61,7 +62,7 @@ State:
 - why current code does not exclude it;
 - the evidence that would confirm or refute it.
 
-Do not use `PLAUSIBLE` for a vague concern without a concrete wrong effect.
+Cite the actual code mechanism and name the specific unknown reachability/runtime premise. Do not use `PLAUSIBLE` for an invented mechanism or a vague concern without a concrete wrong effect. Absence of refutation is not evidence. Exclude unsupported speculation without manufacturing a REFUTED verdict; retain an internal exclusion reason.
 
 `PLAUSIBLE` may survive into the report, but it is not by itself a safe basis for
 an automatic fix. Resolve the missing fact in `confirmation_needed` before
@@ -94,7 +95,7 @@ uncertainty to `PLAUSIBLE` rather than `REFUTED` for:
 - regex or allowlist anchor loss;
 - environment, platform, timezone, and compatibility differences.
 
-A single non-refuted verification carries the finding. Still require a nameable trigger and observable wrong effect.
+A single evidence-backed CONFIRMED or PLAUSIBLE verification can retain the finding. Mere non-refutation cannot. Require a demonstrated mechanism, a nameable trigger and observable wrong effect; for PLAUSIBLE record exactly which premise remains unknown.
 
 ## Verification Record
 
@@ -124,3 +125,9 @@ Omit `confirmation_needed` for `CONFIRMED` and `REFUTED`. Discard `REFUTED` cand
 - Do not assume an external API contract from memory when repository evidence is available.
 - Do not run broad tests merely to verify one candidate when a focused trace or test is sufficient.
 - Do not edit code during verification unless the user requested `--fix` and reporting has reached the fix phase.
+
+## Action-Only Confirmation for Minimal and Low Fixes
+
+When fixes are explicit, select retained fix candidates under the mode cap, then use Build the Verification Case for each. Read only the smallest necessary enclosing code, caller, type or contract to prove the trigger, effect and proposed behavior. Do not look for new findings outside the original search scope. Record CONFIRMED, PLAUSIBLE or REFUTED internally regardless of whether the output accepts a verdict field. Ordinary review without fixes does not run this extra phase.
+
+Only CONFIRMED is automatically editable. Discard a refuted claim, retain an unresolved plausible claim, and leave a confirmed but mismatched target unresolved. Confirmation does not substitute for the editable-target gate in target-resolution.md. An explicit decision about uncertain behavior is a separately authorized change, not evidence retroactively proving the original defect. After a safe edit, run a focused check and reverify affected findings; backfill the report from the complete retained pool without expanding the fix set automatically.

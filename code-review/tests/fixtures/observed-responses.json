@@ -1,0 +1,273 @@
+[
+  {
+    "id": "T01",
+    "mode": "medium implicit branch",
+    "prompt": "Use test_target_evidence.py T01: calc.py line 2 changes return x + 1 to return x / 0; feature tracks origin/feature at HEAD; origin/HEAD points at main. Dry-run the review.",
+    "expected": "Select merge destination; report division by zero, not empty upstream diff.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "calc.py:2 — CONFIRMED: calc(1) now divides by zero and raises ZeroDivisionError. Review baseline is the merge-base with origin/main; origin/feature tracks this same pushed head and is not the merge destination.",
+      "selected_base": "origin/main",
+      "finding_count": 1,
+      "planned_edits": []
+    },
+    "assessment": "pass",
+    "assessment_reason": "Selected destination and concrete exception match executed Git fixture."
+  },
+  {
+    "id": "T03",
+    "mode": "medium implicit branch",
+    "prompt": "Use test_target_evidence.py T03: committed return x / 0 is locally restored to original return x + 1. Dry-run the final-state review.",
+    "expected": "Final patch empty; do not report stale division-by-zero finding.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "The final-state diff is empty: calc.py is restored to its baseline bytes. No changed code remains to review; the committed division-by-zero hunk is stale.",
+      "finding_count": 0,
+      "planned_edits": []
+    },
+    "assessment": "pass",
+    "assessment_reason": "No stale finding matches executed cancellation fixture."
+  },
+  {
+    "id": "F01",
+    "mode": "low and minimal --fix",
+    "prompt": "hunk: function outer() { inner(); }; caller awaits outer(); inner returns Promise; same repo/head/bytes; intended propagation is documented",
+    "expected": "Confirm missing return using only needed caller/contract; narrow return fix, focused check; no wider search.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "For low and minimal --fix, retain the missing-return candidate, then inspect only the supplied caller and propagation contract. outer() currently returns undefined, so awaiting it does not await inner(). CONFIRMED. Same repository, head and preimage permit changing inner(); to return inner();. Check return identity and delayed completion, then reverify. Low final output is (none) if that fix succeeds; minimal may describe the fix. This is a dry-run plan; no file was edited.",
+      "verification": "action-only three-state",
+      "candidate_search_expanded": false,
+      "planned_edits": [
+        "return inner();"
+      ],
+      "verdict": "CONFIRMED",
+      "planned_checks": [
+        "return identity and delayed completion"
+      ]
+    },
+    "assessment": "pass",
+    "assessment_reason": "Internal confirmation precedes planned narrow edit; low output kept exact."
+  },
+  {
+    "id": "F02",
+    "mode": "low review only",
+    "prompt": "same missing-return hunk, no --fix",
+    "expected": "Hunk-only search; no extra verification or mutation; contiguous finding lines or (none).",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "api.js:1 — outer drops inner’s promise, so awaiting outer completes before inner finishes.",
+      "verification": "none",
+      "candidate_search_expanded": false,
+      "planned_edits": []
+    },
+    "assessment": "pass",
+    "assessment_reason": "Single finding line; no verification or mutation planned."
+  },
+  {
+    "id": "F03",
+    "mode": "medium PR 12 --fix",
+    "prompt": "review repo A head aaa; editable repo B head bbb; both have src/api.js with missing return",
+    "expected": "Retain valid PR finding; skip mismatch with permitted reason; zero edits and no checkout.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "src/api.js:1 — The reviewed PR drops return propagation. Skip fix: repo A/head aaa does not match editable repo B/head bbb. Keep the PR finding unresolved; do not change checkout or files.",
+      "planned_edits": [],
+      "checkout_switch": false,
+      "skip_reason": "repository and target-head mismatch"
+    },
+    "assessment": "pass",
+    "assessment_reason": "Wrong repository/head yields no edits."
+  },
+  {
+    "id": "F04",
+    "mode": "minimal historical and staged --fix",
+    "prompt": "historical head aaa differs from checkout bbb; alternatively HEAD matches but index file omits return and worktree already returns",
+    "expected": "Skip historical mismatch. For index variant revalidate content; never overwrite worktree or blindly patch index coordinates.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "Historical variant: skip the edit because aaa is not checkout bbb. Index variant: re-read index and worktree; the worktree already returns the value, so do not apply the index patch to it. Retain the still-valid staged finding and record snapshot mismatch.",
+      "planned_edits": [],
+      "skip_reason": "historical head or index/worktree mismatch",
+      "checkout_switch": false
+    },
+    "assessment": "pass",
+    "assessment_reason": "Both historical and index mismatch variants avoid blind edits."
+  },
+  {
+    "id": "F05",
+    "mode": "low --fix",
+    "prompt": "matching target with unrelated README edit; alternatively user edits the same function after review",
+    "expected": "Preserve README and fix only proven return preimage; skip overlapping changed preimage unless correspondence and safety are proved.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "With exact target/preimage correspondence, change only the missing return and preserve the README edit byte-for-byte. If the function was edited after review, stop that fix and revalidate; with the supplied unknown overlap, skip it.",
+      "safe_variant_edits": [
+        "return inner();"
+      ],
+      "overlap_variant_edits": [],
+      "preserved_paths": [
+        "README.md"
+      ]
+    },
+    "assessment": "pass",
+    "assessment_reason": "Unrelated README is preserved and unsafe overlap skipped."
+  },
+  {
+    "id": "F06",
+    "mode": "high --fix",
+    "prompt": "PLAUSIBLE: retry can duplicate charge if provider does not deduplicate; provider idempotency contract unavailable",
+    "expected": "Retain uncertainty; no auto-fix or invented provider behavior.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "billing.js:42 — PLAUSIBLE: after a timeout, retry may charge twice if the provider does not deduplicate. The retry mechanism is present, but the provider idempotency contract is missing. Leave unresolved; no automatic fix.",
+      "verdict": "PLAUSIBLE",
+      "confirmation_needed": "Provider idempotency contract",
+      "planned_edits": []
+    },
+    "assessment": "pass",
+    "assessment_reason": "Missing premise retained without automatic fix."
+  },
+  {
+    "id": "R01",
+    "mode": "medium versus xhigh",
+    "prompt": "Changed wrapper drops return and cancellation context; choose routing",
+    "expected": "medium/high A-C+five, D in A/E in C; xhigh A-E+five; full scoped diff accessible",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "Medium/high use A, B, C and five supporting angles; A incorporates triggered D checks and C incorporates E forwarding/cancellation checks. Xhigh uses separate A-E and five supporting angles plus gap sweep. Give broad finders lossless access to the complete scoped diff, not just wrapper excerpts.",
+      "medium_angles": 8,
+      "xhigh_angles": 10,
+      "full_diff_access": true
+    },
+    "assessment": "pass",
+    "assessment_reason": "Eight versus ten angles; D/E folding and full-diff access explicit."
+  },
+  {
+    "id": "R02",
+    "mode": "high",
+    "prompt": "Compare imagined corruption with no mechanism; retry duplicate charge with unknown provider idempotency; divide by zero guarded by nonzero invariant",
+    "expected": "Exclude speculation; PLAUSIBLE with provider premise; REFUTED with exact guard.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "Exclude imagined corruption: no code mechanism supports it. Retry case is PLAUSIBLE because timeout then retry can duplicate a charge under unknown provider deduplication. Division claim is REFUTED when the exact enclosing guard rejects zero before division; the supplied invariant rules out its trigger.",
+      "verdicts": [
+        "excluded",
+        "PLAUSIBLE",
+        "REFUTED"
+      ],
+      "confirmation_needed": "Provider idempotency contract"
+    },
+    "assessment": "pass",
+    "assessment_reason": "Speculation, evidenced uncertainty and guard refutation are separated."
+  },
+  {
+    "id": "R03",
+    "mode": "high structured variants",
+    "prompt": "One PLAUSIBLE retry finding; generic JSON, custom certainty schema, required typed tool, human output",
+    "expected": "Canonical four keys and uncertainty in scenario; custom requested keys only; required typed once without prose duplicate; human missing confirmation.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "Choose exactly the requested output route. The following payloads are alternative dry-run outputs, not multiple reports delivered to a review caller.",
+      "canonical": [
+        {
+          "file": "billing.js",
+          "line": 42,
+          "summary": "Retry may duplicate a charge",
+          "failure_scenario": "Unconfirmed: timeout then retry may charge twice if the provider does not deduplicate; the provider idempotency contract is missing."
+        }
+      ],
+      "custom": {
+        "file": "billing.js",
+        "line": 42,
+        "verdict": "PLAUSIBLE",
+        "confirmation_needed": "Provider idempotency contract"
+      },
+      "custom_requested_keys": [
+        "file",
+        "line",
+        "verdict",
+        "confirmation_needed"
+      ],
+      "typed_calls": 1,
+      "typed_prose_duplicate": false,
+      "typed": {
+        "level": "high",
+        "findings": [
+          {
+            "file": "billing.js",
+            "line": 42,
+            "summary": "Retry may duplicate a charge",
+            "short_summary": "Retry may duplicate a charge",
+            "failure_scenario": "Unconfirmed: retry may charge twice; provider idempotency contract is missing.",
+            "category": "correctness",
+            "verdict": "PLAUSIBLE"
+          }
+        ]
+      },
+      "human": "billing.js:42 — PLAUSIBLE: timeout then retry may charge twice. Confirmation needed: provider idempotency contract."
+    },
+    "assessment": "pass",
+    "assessment_reason": "Alternative routes preserve keys, uncertainty and single typed delivery."
+  },
+  {
+    "id": "R04",
+    "mode": "medium --fix and xhigh sweep",
+    "prompt": "11 sorted survivors; first 3 of initial 8 fixed; another location has existing mechanism",
+    "expected": "Backfill remaining 8 unresolved; preserve new location in sweep; with 12 survivors disclose one omitted in human only.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "After fixing ranks 1-3 from 11 survivors, report unresolved ranks 4-11: all eight slots are backfilled. With 12 survivors, retain rank 12 internally and disclose one omitted survivor in permitted human metadata. A repeated mechanism at another location is a new sweep candidate; verify it before ranking.",
+      "final_ids": [
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "omitted_with_12": 1,
+      "new_location_kept": true
+    },
+    "assessment": "pass",
+    "assessment_reason": "Backfill and location-sensitive sweep decision match caps."
+  },
+  {
+    "id": "R05",
+    "mode": "review/action combinations",
+    "prompt": "Review only; fix only; comment on PR; all actions; raw JSON with failed publisher",
+    "expected": "No implicit actions; find/verify, safe fixes/checks, reverify/backfill, prepare, unresolved comments, requested artifact, final once. Preserve exact output.",
+    "provenance": "same-context coordinator dry-run",
+    "actual": {
+      "response": "Review-only has no edit/comment/artifact actions. Fix-only confirms, checks correspondence, applies safe edits and rechecks before final output. PR comments use unresolved findings after fixes. With all actions: find/verify, fix/check, reverify/backfill, prepare, comment, artifact, final once. If publisher fails under raw JSON, record the failure internally and deliver only the unresolved canonical array. No push or commit.",
+      "review_only_actions": [
+        "find_verify",
+        "prepare",
+        "final"
+      ],
+      "fix_only_actions": [
+        "find_verify",
+        "fix_check",
+        "reverify_backfill",
+        "prepare",
+        "final"
+      ],
+      "all_actions": [
+        "find_verify",
+        "fix_check",
+        "reverify_backfill",
+        "prepare",
+        "comment",
+        "artifact",
+        "final"
+      ],
+      "publisher_failure_output": [],
+      "push": false,
+      "commit": false
+    },
+    "assessment": "pass",
+    "assessment_reason": "Actions remain opt-in and ordered; JSON does not grow failure prose."
+  }
+]
