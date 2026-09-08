@@ -134,6 +134,8 @@ Check:
 7. Verify every new candidate with the active mode's recall-biased rules.
 8. Add only `CONFIRMED` and `PLAUSIBLE` results to the final ranking.
 
-If the fresh reread finds no genuinely new mechanism, return an empty sweep. Do
+If the fresh reread finds no new defect/location/mechanism tuple, return an empty sweep. Do
 not pad the list or re-confirm an existing finding to fill the eight-candidate
 allowance.
+
+Use lossless full scoped diff access during the sweep; record coverage gaps. A surviving PLAUSIBLE requires an evidenced mechanism and specific unknown premise, not merely an unrefuted hypothesis. Preserve the complete survivor pool for post-fix backfill and disclose truncation only through permitted reporting surfaces.

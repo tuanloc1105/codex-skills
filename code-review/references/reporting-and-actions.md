@@ -1,6 +1,6 @@
 # Reporting and Actions
 
-Use this reference when the caller requests JSON or structured output, typed findings, GitHub comments, fixes, or a shareable artifact. Complete the active mode's search and verification phases first. Before any typed, external, or mutating action, run focused action-safety validation on each affected finding even when the base search mode normally omits a separate verifier. This narrow validation does not expand candidate search, change the selected mode, or create a three-state verdict unless the active output contract requires one.
+Use this reference when the caller requests JSON or structured output, typed findings, GitHub comments, fixes, or a shareable artifact. Complete the active mode's search and verification phases first. Before any typed, external, or mutating action, run focused action-safety validation on each affected finding even when the base search mode normally omits a separate verifier. This narrow validation does not expand candidate search or change the selected mode. Explicit fixes additionally require action-only three-state confirmation for minimal/low retained fix candidates, even when the output omits verdicts; other safety validation alone does not create a verdict.
 
 ## Contents
 
@@ -9,6 +9,7 @@ Use this reference when the caller requests JSON or structured output, typed fin
 - JSON and structured output
 - Typed ReportFindings output
 - Human-readable output
+- Truncation and coverage disclosure
 - Fix application and re-verification
 - GitHub inline comments
 - Shareable review artifacts
@@ -77,9 +78,25 @@ The canonical array uses exactly these fields:
 ]
 ```
 
-Rank the final unresolved findings most severe first and enforce the active finding cap. Emit `[]` when nothing remains unresolved. Do not add internal evidence, verification notes, action outcomes, or convenience fields to the canonical contract. A caller-supplied schema may request fields such as `severity`, `category`, `verdict`, `evidence`, provenance, or action outcomes; populate only the requested fields.
+Rank the final unresolved findings most severe first and enforce the active finding cap. Emit `[]` when nothing remains unresolved. Do not add internal evidence, separate verification-note fields, action outcomes, or convenience fields to the canonical contract. For PLAUSIBLE, failure_scenario must explicitly say the scenario is unconfirmed and name the missing fact; do not present it as established. The legacy four-field array is unsuitable for machine gating by certainty. A caller-supplied schema may request fields such as `severity`, `category`, `verdict`, `evidence`, provenance, or action outcomes; populate only the requested fields.
 
 Other explicitly authorized actions may still run before delivery, but they must not change or append to the JSON response. The canonical post-fix array contains only unresolved findings, so successful fixes disappear and skipped still-valid findings remain. When the caller needs fix dispositions, require a caller schema that includes them or use typed or human output. When a comment, fix, or artifact action cannot run, do not break the JSON contract with an explanatory prose suffix.
+
+For example, only when a caller explicitly requests these additional fields, a richer finding may be:
+
+```json
+{
+  "file": "billing.js",
+  "line": 42,
+  "summary": "Retry may duplicate a charge",
+  "failure_scenario": "Unconfirmed: after a timeout, retry may charge twice if the provider does not deduplicate.",
+  "verdict": "PLAUSIBLE",
+  "confirmation_needed": "Provider idempotency contract",
+  "action_outcome": "skipped: missing confirmation"
+}
+```
+
+This is an opt-in example, not a new default schema. Use only the caller's requested keys and outcome vocabulary; omit action outcomes when not requested. If the schema excludes certainty fields, carry uncertainty in an allowed scenario/body field.
 
 ## Typed ReportFindings Output
 
@@ -110,7 +127,7 @@ Make `short_summary` at most 60 characters and express only the claim, without r
 
 Include `verdict` only when a three-state verification pass ran; action-safety validation alone does not produce a verdict. Do not fabricate one for an unverified minimal or low finding.
 
-Pass findings most severe first, enforce the active cap, and pass an empty `findings` array when nothing survives. Do not print the findings again as prose or raw JSON after the tool call.
+For PLAUSIBLE, preserve the missing confirmation in `confirmation_needed` if accepted, otherwise in an allowed failure_scenario/body field. Do not add schema-forbidden keys. Pass findings most severe first, enforce the active cap, and pass an empty `findings` array when nothing survives. Do not print the findings again as prose or raw JSON after the tool call.
 
 Add `outcome` to each finding only when active apply instructions explicitly request a post-fix typed re-report. Set it to the disposition that actually occurred and conform to the active tool schema; do not invent an outcome vocabulary. In that phase, the typed outcomes replace per-finding prose restatements of what was fixed or skipped. Report only non-finding operational metadata afterward when active instructions require it and doing so does not violate the tool contract.
 
@@ -126,18 +143,22 @@ Put findings before the summary. For each finding include:
 - triggering input or state and observable wrong behavior;
 - why the change causes it;
 - category;
-- verification verdict when verification ran.
+- verification verdict when verification ran, with the specific missing fact for PLAUSIBLE.
 
 If nothing survives, say so clearly in one line. Preserve the active low-effort playbook's exact `(none)` contract when it applies. Mention only meaningful residual risk, skipped checks, or authorized actions that could not run. Do not pad the response with compliments, a diff walkthrough, or alternate restatements of the same findings.
+
+## Truncation and Coverage Disclosure
+
+Keep the full survivor pool through re-verification. After final ranking, human output outside exact low modes states how many unresolved survivors were omitted by the cap. Extensible typed/custom output may use a caller-allowed count/coverage field; never invent fields, extra findings or a second report for metadata. Exact low lines, canonical JSON and strict typed schemas retain their contracts, so keep suppressed counts and coverage limitations internally when no permitted surface exists. Never imply the cap represents every defect or that unavailable diff portions were inspected. Candidate caps and reporting caps remain unchanged.
 
 ## Apply Fixes and Re-verify
 
 When the user passes `--fix` or explicitly requests fixes:
 
-1. Complete finding generation and verification before editing.
+1. Complete finding generation before editing. For minimal/low fixes, run action-only three-state confirmation from verification.md on retained fix candidates, with minimum necessary context and no additional candidate search. Other modes use their normal verification.
 2. Select the highest-ranked action set under the active mode cap and auto-fix only `CONFIRMED` findings in that set.
 3. For a `PLAUSIBLE` finding, either obtain an explicit user decision about the uncertain behavior or perform focused re-verification that upgrades it to `CONFIRMED`; otherwise leave it unresolved.
-4. Keep every edit traceable to one finding and preserve intended behavior, repository conventions, and unrelated user changes.
+4. Before each edit, prove editable-target correspondence from target-resolution.md: repository/head identity, reviewed snapshot versus current bytes, and safe separation from unrelated changes. Skip mismatches/unsafe overlap and retain a reason internally and in permitted action output; never switch checkout automatically. Keep every edit traceable to one finding and preserve intended behavior, repository conventions, and unrelated user changes.
 5. Skip a finding when the fix would change intended behavior, require changes well outside the reviewed diff, or prove false during deeper inspection.
 6. Record the actual disposition and a concise reason for every non-applied finding.
 7. Run the narrowest meaningful test, type check, lint check, or reproduction for each applied fix.

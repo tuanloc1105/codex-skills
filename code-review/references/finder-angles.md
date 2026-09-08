@@ -80,8 +80,7 @@ Inspect tests and fixtures as evidence of the contract. Flag a test change when 
 
 ## Correctness D: Language and Framework Pitfalls
 
-Use this angle at `extra-high`, `xhigh`, `max`, and `maximum`, and whenever the
-diff clearly triggers it at a lower mode.
+Use a separate D specialist at `extra-high`, `xhigh`, `max`, and `maximum`. At medium/high, fold triggered checks below into A; do not add a reviewer. Minimal/low apply only checks supported by their existing contextual/hunk scope.
 
 Check established traps for the active language and framework, including:
 
@@ -95,9 +94,7 @@ Flag only a concrete instance introduced or made reachable by the change. Do not
 
 ## Correctness E: Wrapper and Proxy Correctness
 
-Use this angle at `extra-high`, `xhigh`, `max`, and `maximum`, and whenever the
-diff adds or changes a cache, proxy, decorator, adapter, client wrapper,
-repository wrapper, or middleware layer.
+Use a separate E specialist at `extra-high`, `xhigh`, `max`, and `maximum`. At medium/high, fold the checks below into C when a cache, proxy, decorator, adapter, client/repository wrapper or middleware changes. Do not add a reviewer. Minimal/low preserve their existing scope.
 
 Verify that every caller-used method:
 

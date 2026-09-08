@@ -1,0 +1,20 @@
+[
+  {
+    "id": "T01",
+    "mode": "medium implicit branch",
+    "prompt": "Use test_target_evidence.py T01: calc.py line 2 changes return x + 1 to return x / 0; feature tracks origin/feature at HEAD; origin/HEAD points at main. Dry-run the review.",
+    "expected": "Select merge destination; report division by zero, not empty upstream diff.",
+    "contract": {
+      "base": "origin/main"
+    }
+  },
+  {
+    "id": "T03",
+    "mode": "medium implicit branch",
+    "prompt": "Use test_target_evidence.py T03: committed return x / 0 is locally restored to original return x + 1. Dry-run the final-state review.",
+    "expected": "Final patch empty; do not report stale division-by-zero finding.",
+    "contract": {
+      "findings": 0
+    }
+  }
+]
