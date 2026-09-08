@@ -62,6 +62,48 @@ class RecoveryTests(unittest.TestCase):
         self.assertTrue(after['checkpoint_required'])
         self.assertIsNone(after['write_transaction'])
 
+    def test_new_session_snapshot_and_execute_resume_preserve_progress(self):
+        self.activate('execute')
+        self.write_open()
+        evidence = self.record / 'evidence.md'
+        evidence.write_text('# Evidence\nPhase P001 completed and verified; P002 pending.\n')
+        self.assertIn('WORKFLOW_WRITE_CLOSED', json.dumps(
+            self.control('write-close', '--record', str(self.record))))
+        previous_session = self.session_id
+        previous_state = self.snapshot()
+        before = {p: p.read_bytes() for p in self.record.rglob('*.md')}
+        self.session_id = 'resume-session'
+        inactive = self.snapshot()
+        self.assertEqual(inactive, {'active': False, 'mode': None, 'record': None})
+        self.assertIsNone(self.control('activate', '--help'))
+        self.assertEqual(self.snapshot(), inactive)
+        with sqlite3.connect(self.cwd / 'workflow-modes.sqlite3') as connection:
+            self.assertEqual(connection.execute('SELECT COUNT(*) FROM sessions').fetchone()[0], 1)
+        self.assertIn('WORKFLOW_MODE_ACTIVE', json.dumps(
+            self.control('activate', 'execute', '--record', str(self.record))))
+        self.assertIn('WORKFLOW_RECORD_SYNCED', json.dumps(
+            self.control('sync', '--record', str(self.record))))
+        references = tuple(item for ref in fixtures.MODE_REFERENCES['execute']
+                           for item in ('--reference', ref))
+        self.assertIn('WORKFLOW_RULES_SYNCED', json.dumps(
+            self.control('rules-sync', '--record', str(self.record), *references)))
+        self.assertEqual(self.snapshot()['record'], str(self.record))
+        self.assertEqual(before, {p: p.read_bytes() for p in self.record.rglob('*.md')})
+        self.session_id = previous_session
+        self.assertEqual(self.snapshot(), previous_state)
+
+    def test_inactive_controls_explain_bootstrap_without_activating(self):
+        self.create_bundle('execute')
+        for args in (('sync', '--record', str(self.record)),
+                     ('transition', 'execute', '--record', str(self.record)),
+                     ('write-open', '--record', str(self.record), '--previous-revision', self.revision())):
+            denial = self.control(*args)['hookSpecificOutput']['permissionDecisionReason']
+            self.assertIn('WORKFLOW_MODE_INACTIVE', denial)
+            self.assertIn('Fresh-Session Bootstrap', denial)
+            self.assertIn('activate execute', denial)
+            self.assertIn('--help only displays usage', denial)
+            self.assertFalse(self.snapshot()['active'])
+
     def test_exact_rollback_closes_without_fake_edit(self):
         self.activate('plan')
         original = self.index.read_bytes()

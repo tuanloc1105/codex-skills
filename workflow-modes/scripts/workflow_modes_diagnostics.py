@@ -67,6 +67,10 @@ def enrich_reason(reason: str, payload: dict, state: dict | None, control: dict 
     if code in {"WORKFLOW_CONTROL_ARGUMENT_INVALID", "WORKFLOW_CONTROL_AMBIGUOUS", "WORKFLOW_CONTROL_INVALID"}:
         steps = ["Run one Python lifecycle command per tool call, without shell operators. No state was changed by this rejected request.",
                  control_command(control.get("action") if control.get("action") not in {None, "invalid", "ambiguous"} else "snapshot", "--help")]
+    elif code == "WORKFLOW_MODE_INACTIVE":
+        steps = ["No workflow is active in this session. Read the requested skill and supplied bundle; follow its fresh-session bootstrap before activation. Do not use transition, sync or write-open before activation.",
+                 "For an accepted execution bundle, follow execute's Fresh-Session Bootstrap, then run activate execute with that exact --record. Require WORKFLOW_MODE_ACTIVE, then sync the record and rules before implementation. Preserve completed phases and evidence.",
+                 "--help only displays usage; it does not activate a mode.", control_command("activate", "--help")]
     elif code == "WORKFLOW_RECORD_MISMATCH":
         steps = ["Use the active record shown above; inspect the session before retrying:", control_command("snapshot")]
     elif code == "WORKFLOW_RECORD_IDENTITY_MISMATCH":

@@ -585,6 +585,15 @@ def handle_control(
         store.mutate(key, lambda _old: None)
         return context_output("PreToolUse", "WORKFLOW_MODE_INACTIVE: execute explicitly exited.")
     if not current:
+        if action == "snapshot":
+            return context_output(
+                "PreToolUse",
+                "WORKFLOW_MODE_SNAPSHOT: inactive; no workflow is active in this session. "
+                "To resume an accepted execution bundle, follow execute's Fresh-Session Bootstrap, "
+                "then activate execute with that exact --record and sync record/rules before implementation. "
+                "--help only displays usage; it does not activate a mode.\n"
+                + json.dumps({"active": False, "mode": None, "record": None}, sort_keys=True),
+            )
         return deny_tool("WORKFLOW_MODE_INACTIVE: activate a tracker-backed mode first.")
     if action == "plan-init":
         if current.get("mode") != "plan" or not current.get("plan_handoff_source"):

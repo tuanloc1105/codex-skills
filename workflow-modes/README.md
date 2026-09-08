@@ -20,6 +20,13 @@ control/diagnostic runtime failed. Its report includes the first validation
 failure and a raw `observed_revision`; repeat after fixing that failure to expose
 any remaining problems. It does not sync or authorize the record.
 
+In a new session, `snapshot` succeeds with `active: false`, `mode: null`, and
+`record: null` when no workflow is active. This describes the current session,
+not the progress saved in a bundle. To resume an accepted execution bundle,
+follow execute's Fresh-Session Bootstrap, activate execute with the exact
+`--record`, then sync the record and rules before implementation. `--help` only
+displays usage and does not activate a mode.
+
 `snapshot` gets its state from PreToolUse. The hook confirmation includes the
 acknowledged/current revisions, required references, write transaction and its
 allowed paths, action/evidence ID, checkpoint status and baseline metadata. The
