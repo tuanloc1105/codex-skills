@@ -86,6 +86,7 @@ Workflow State: MODE_UNRESOLVED
 | Working branch naming and MR traceability | Required | Hard | <evidence> | Developer | Pending |
 | Commit message prefix | Required for commit | Hard | <evidence> | Developer | Pending |
 | LinearB init commit before source mutation | Required | Hard | <working branch, first-ticket-owned-commit position, clean-index check, init commit SHA, and timestamp> | Developer | Pending |
+| Pre-MR empty commit | Required for user-requested MR creation | Hard | <clean index, marker SHA, parent SHA, timestamp, identical trees, and pushed source SHA; existing-MR reuse evidence when applicable> | Developer | Pending |
 | Pre-code PR size assessment | Required before plan approval or source mutation | Hard unless exact excess has a verified indivisible-change exception | <estimate, functional Subtask recommendation, or indivisibility evidence> | Developer/User | Pending |
 | Actual PR size assessment | Required before CODE_READY, push, or MR creation | Hard unless exact excess has a verified indivisible-change exception | <measurement, base, classification, split assessment, and exception evidence> | Developer/User | Pending |
 | Indivisible-change exception evidence | <Required for unavoidable excess/Not applicable> | Hard | <exact paths, alternatives considered, smallest coherent scope, separated measurements, checks, and regeneration evidence when applicable> | Developer | Pending |
@@ -133,6 +134,7 @@ Workflow State: MODE_UNRESOLVED
 - Exact actions: <create branch, commit, push, create MR; list only user-authorized actions; merge is governed separately by verified Tech Lead approval>
 - Pre-implementation branch/commit authorization: <current-session evidence or unresolved; required before source mutation>
 - LinearB init commit: <working branch, first-ticket-owned-commit position, clean-index evidence, commit SHA and timestamp, or pending before IMPLEMENTING>
+- Pre-MR empty commit: <exact MR request authorizing the marker, message, clean-index evidence, SHA, parent SHA, timestamp, identical-tree verification, and pushed source SHA; or existing-MR reuse evidence>
 - Epic base branch: <remote ref and SHA>
 - Development base: <exact remote ref and recorded SHA>
 - Working source branch: <exact branch>
@@ -144,7 +146,7 @@ Workflow State: MODE_UNRESOLVED
 
 - Delivery choice: <commit now, schedule final commit + MR, or unresolved>
 - Choice evidence: <current request or explicit answer>
-- Scheduled actions: <remaining commit, push, create MR, or not applicable>
+- Scheduled actions: <remaining commit, required pre-MR empty commit, push, create MR, or not applicable>
 - Schedule and timezone: <absolute timestamp/timezone or not applicable>
 - Pinned execution identity: <repository, branch, expected HEAD, diff identity, remote, target, Jira key, commit message, MR title/body file, and checks>
 - Scheduler artifacts: <Python worker, immutable job config, native service definition, logs, state, or not applicable>
