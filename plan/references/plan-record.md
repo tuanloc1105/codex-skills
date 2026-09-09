@@ -43,7 +43,7 @@ Status: <Draft planning discussion | Approved plan, not yet implemented | In pro
 Plan mode: <Active | Exited>
 Execution readiness: <Not ready | Ready>
 Execute mode: <Inactive | Ready | Active | Exited>
-Resume instruction: <mode-appropriate bundle instruction>
+Resume instruction: <mode-appropriate instruction containing the canonical bundle root and tracker ID>
 Workspace: <working directory>
 Repository: <root, branch, commit>
 Active action: <ID and status, or None>
@@ -136,7 +136,7 @@ Status: Approved plan, not yet implemented
 Plan mode: Exited
 Execution readiness: Ready
 Execute mode: Ready
-Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
+Resume instruction: Invoke $execute on <canonical bundle root> (tracker <tracker ID>), read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
 ```
 
 Set the profile to `Durable` unless already `Audited`, keep the current plan Required references until the handoff is durable, record approval in `evidence.md`, and update and verify the checkpoint. Then follow execute's `Active-Session Handoff` intake on the same bundle before replacing source references in a coordinated update. Approval alone does not authorize implementation. If the user has already requested execution, continue that intake and implementation without asking again; otherwise complete the intake as bookkeeping only and checkpoint without implementation.

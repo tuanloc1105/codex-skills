@@ -1,6 +1,13 @@
 ## Codebase Retrieval
 - Use raw file reads only when editing or when symbolic/search summaries are insufficient.
 
+## Persistent Workflow Recovery
+
+- Treat `$discuss`, `$plan`, and `$execute` as persistent workflow modes backed by one exact Markdown record bundle.
+- After context compaction, session resume, or uncertainty about workflow state, perform recovery before any substantive tool call or work: recover the active mode, canonical bundle root, and tracker ID; read that mode's complete `SKILL.md`; read and validate `index.md`, every manifest file, and every reference listed under `Required references`; reconcile open actions, pending questions, lifecycle transitions, and any completed but unrecorded work; then verify the Active Snapshot, Resume Checkpoint, and next safe action.
+- Do not infer the active bundle from the newest `discussion/` or `plans/` directory. If its exact path cannot be recovered from durable state, ask the user for the path and stop substantive work.
+- Treat a compacted conversation summary as context only. The validated active bundle is authoritative workflow state. Keep its exact canonical root and tracker ID in every durable resume instruction and checkpoint.
+
 ## Skill Self-Recovery
 
 - When a loaded skill contains an incorrect, stale, or contradictory instruction, or reproducibly causes the current task to be performed incorrectly, stop following the defective path and repair the skill in the same session before continuing. Do not change a skill for a one-off target, environment, or operator error that is not a reusable skill defect.

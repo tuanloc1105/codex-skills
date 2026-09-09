@@ -43,7 +43,7 @@ Mode: $discuss
 Mode status: <Active | Awaiting decision | Paused | Exited>
 Execution readiness: <Not ready | Ready>
 Execute mode: <Inactive | Ready | Active | Exited>
-Resume instruction: Invoke $discuss, read index.md and the manifest files required by the current state, and continue this exact bundle before substantive work.
+Resume instruction: Invoke $discuss on <canonical bundle root> (tracker <tracker ID>), read index.md and the manifest files required by the current state, and continue this exact bundle before substantive work.
 Workspace: <captured working directory>
 Repository: <root, branch, commit>
 Mutation boundary: <current boundary>
@@ -118,7 +118,7 @@ Mode status: Exited
 Status: Approved for execution
 Execution readiness: Ready
 Execute mode: Ready
-Resume instruction: Invoke $execute, read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
+Resume instruction: Invoke $execute on <canonical bundle root> (tracker <tracker ID>), read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
 ```
 
 Set the profile to `Durable` unless already `Audited`, keep the current discuss Required references until the handoff is durable, and update and verify the checkpoint and evidence log. Then follow execute's `Active-Session Handoff` intake on the same bundle, replacing Required references in a coordinated execute update. Do not ask for execution confirmation again when the user already requested this transition.
