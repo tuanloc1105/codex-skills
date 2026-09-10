@@ -6,9 +6,10 @@ Read this reference completely before creating, adopting, persisting, or handing
 
 Use a version 4 Markdown bundle, never a single tracker file. Resolve every relative destination against the working directory captured at skill entry and never ask a storage-choice question.
 
-- With no destination, create `./discussion/YYYY-MM-DD-<slug>/`.
+- With no destination, create `./discussion/YYYY-MM-DD-no<N>-<slug>/`.
 - Treat an explicit directory or its `index.md` as an existing bundle to adopt. Other file paths are invalid record destinations.
-- Use lowercase ASCII slugs. On collision, reserve the lowest available sibling such as `-2`, then `-3`.
+- Use lowercase ASCII slugs. Number new bundles independently within `./discussion/` for each calendar date: inspect sibling directory names matching that date's `YYYY-MM-DD-no<N>-*` form, take the greatest positive integer `N`, and use `N + 1`; start at `no1` when none match. Ignore legacy names and malformed or non-positive sequence values, and never reuse a missing lower number.
+- Reserve the selected directory with an atomic create. If it already exists because another writer won the race, recompute from the current siblings and retry with the next sequence number. The sequence belongs only to the containing `discussion/` directory and is independent of the sequence under `plans/`.
 - Create missing ancestors automatically. Reject Git metadata locations, path traversal, and symlinks that escape the bundle.
 - Freeze the canonical bundle root for the mode lifetime. Tell the user that root and the resume prompt `Use $discuss and continue the record bundle at <root>`.
 

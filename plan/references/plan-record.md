@@ -6,9 +6,10 @@ Read this reference completely before creating, updating, approving, or handing 
 
 Use a version 4 Markdown bundle. Never create a single plan file and never ask about storage.
 
-- With no destination, create `./plans/YYYY-MM-DD-<slug>/` relative to the working directory captured at entry.
+- With no destination, create `./plans/YYYY-MM-DD-no<N>-<slug>/` relative to the working directory captured at entry.
 - Treat an explicit directory or its `index.md` as a bundle destination. Reject other file destinations.
-- Use lowercase ASCII slugs and reserve the lowest collision-free sibling (`-2`, `-3`, and so on).
+- Use lowercase ASCII slugs. Number new bundles independently within `./plans/` for each calendar date: inspect sibling directory names matching that date's `YYYY-MM-DD-no<N>-*` form, take the greatest positive integer `N`, and use `N + 1`; start at `no1` when none match. Ignore legacy names and malformed or non-positive sequence values, and never reuse a missing lower number.
+- Reserve the selected directory with an atomic create. If it already exists because another writer won the race, recompute from the current siblings and retry with the next sequence number. The sequence belongs only to the containing `plans/` directory and is independent of the sequence under `discussion/`.
 - Create missing ancestors automatically, reject Git metadata locations and escaping symlinks, then freeze the canonical bundle root.
 - When entered from `$discuss`, create a separate plan bundle and record the source discussion bundle in `context.md` and `evidence.md`.
 - Tell the user `Use $plan and continue the draft bundle at <root>`; after approval use `Use $execute and read the plan bundle at <root>`.

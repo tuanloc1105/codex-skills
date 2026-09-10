@@ -8,8 +8,8 @@ When a user asks for something actionable while this mode is active:
 
 Apply `Immediate Decision Gate` throughout every step below. When it triggers, stop at the current step and do not advance until the user answers.
 
-1. Resolve the Markdown bundle destination automatically. If an existing bundle or its `index.md` is supplied, adopt and freeze its canonical root. Otherwise default to `./discussion/YYYY-MM-DD-<discussion-name>/` and select a numbered variant on collision.
-2. For a new bundle, create missing parents, reserve the collision-free directory, and initialize its required Markdown files and manifest. For a handoff, validate it without replacing content.
+1. Resolve the Markdown bundle destination automatically. If an existing bundle or its `index.md` is supplied, adopt and freeze its canonical root. Otherwise default to `./discussion/YYYY-MM-DD-no<N>-<discussion-name>/` and allocate the next daily sequence under `discussion/` according to `references/tracker.md`.
+2. For a new bundle, create missing parents, atomically reserve the sequenced directory with collision retry, and initialize its required Markdown files and manifest. For a handoff, validate it without replacing content.
 3. Identify any containing Git worktree from the selected path's nearest existing ancestor and create or update the root `.gitignore` idempotently according to `Repository Ignore Rule`.
 4. If the bundle is a handoff, read `index.md` and every manifest file, adopt the exact root, and restore its checkpoint before changing content.
 5. Initialize or transactionally update the selected bundle with current discussion state and housekeeping.

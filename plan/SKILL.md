@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Plan-first collaboration workflow for Codex. Creates one version 4 Markdown plan bundle under ./plans/, keeps it active through approval and execute handoff, and stores every declared phase in its own self-contained, stable-ID Markdown file under phases/. Use for reviewed implementation planning and durable cross-session handoff.
+description: Plan-first collaboration workflow for Codex. Creates one dated, daily-sequenced version 4 Markdown plan bundle under ./plans/, keeps it active through approval and execute handoff, and stores every declared phase in its own self-contained, stable-ID Markdown file under phases/. Use for reviewed implementation planning and durable cross-session handoff.
 ---
 
 # Plan

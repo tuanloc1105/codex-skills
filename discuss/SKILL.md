@@ -1,6 +1,6 @@
 ---
 name: discuss
-description: Use when the user invokes $discuss or requests discussion work with a persistent version 4 Markdown record bundle. Keep discuss active across scoped actions and exit only through $plan or $execute. Without a destination, create a dated topic directory under ./discussion/, maintain its manifest and repository ignore rule, and persist discussion state across focused Markdown files.
+description: Use when the user invokes $discuss or requests discussion work with a persistent version 4 Markdown record bundle. Keep discuss active across scoped actions and exit only through $plan or $execute. Without a destination, create a dated, daily-sequenced topic directory under ./discussion/, maintain its manifest and repository ignore rule, and persist discussion state across focused Markdown files.
 ---
 
 # Discuss
