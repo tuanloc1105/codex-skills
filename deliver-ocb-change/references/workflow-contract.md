@@ -40,7 +40,9 @@ Workflow State: MODE_UNRESOLVED
 - Epic evidence: <key/source or unresolved>
 - Delivery mode: <new work, post-completion bug fix, or unresolved>
 - Completed Story, Task, or Bug and bug-fix Subtask: <evidence, not applicable with reason, or unresolved>
-- Jira Done transition: <authorized action, resulting status and evidence, deferred with owner, or not applicable with reason>
+- Jira work start: <`date "+%Y-%m-%d"` stdout, derived tomorrow, pre-read status/date values and metadata, transition/edit operations or skips, and verified status/Start Date/Due Date>
+- Jira Done transition: <pre-read status, Original Estimate, Time Spent and complete worklog count; transition ID/metadata; atomic worklog operation or skip reason; resulting status, Time Spent, worklog count and count delta; deferred owner; or not applicable>
+- Bug Ready-to-test handoff: <Bug type, pre-read status/Reporter/assignee/Resolution, destination transition and allowed Resolution metadata, selected Resolution, assignment operation, verified Ready to test/Resolution/Reporter-assignee match, or not applicable>
 - Epic base branch: <remote branch, SHA, existence and ownership evidence, or unresolved>
 - Development base: <Epic base for an independent ticket, or predecessor Jira key, remote branch, recorded SHA, dependency evidence, and ancestry for a stacked ticket>
 - Stack order: <ordered predecessor Jira keys/branches/MRs, user-owned review order, merge prerequisites, or not applicable>
@@ -78,6 +80,9 @@ Workflow State: MODE_UNRESOLVED
 | --- | --- | --- | --- | --- | --- |
 | Delivery mode and path classification | Required | Hard | <evidence or exact accepted assumption> | User/Developer | Pending |
 | Jira identity and hierarchy | Required | Hard | <evidence> | Developer | Pending |
+| Jira assignee matches authenticated Developer | Required | Hard, user-overridable | <authenticated account, current assignee, observation time> | Developer/User | Pending |
+| Truthful Jira work-start status and dates | Required before implementation | Hard, user-overridable | <today command/result, tomorrow, pre/post status, Start Date, Due Date, metadata, mutations/skips, timestamp> | Developer/User | Pending |
+| Intended sprint alignment | <Required when sprint delivery applies/Not applicable> | Hard, user-overridable | <sprint ID/name, dates, membership, or reason not applicable> | Developer/User | Pending |
 | New Jira ticket contract | <Required for creation/Not applicable> | Hard | <Vietnamese title/body, four headings, estimate <= 3 hours with field/unit, current-account assignee, authorization, and post-create re-read> | User/Developer | Pending |
 | New Subtask for post-completion bug | <Required/Not applicable> | Hard | <evidence or reason> | User/Developer | Pending |
 | Domain acceptance source | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Product/Developer | Pending |
@@ -86,18 +91,21 @@ Workflow State: MODE_UNRESOLVED
 | Working branch naming and MR traceability | Required | Hard | <evidence> | Developer | Pending |
 | Commit message prefix | Required for commit | Hard | <evidence> | Developer | Pending |
 | LinearB init commit before source mutation | Required | Hard | <working branch, first-ticket-owned-commit position, clean-index check, init commit SHA, and timestamp> | Developer | Pending |
+| LinearB remote observability | Required before implementation | Hard, user-overridable | <verified GitLab project, remote visibility or local-only warning and override> | Developer/User | Pending |
 | Pre-MR empty commit | Required for user-requested MR creation | Hard | <clean index, marker SHA, parent SHA, timestamp, identical trees, and pushed source SHA; existing-MR reuse evidence when applicable> | Developer | Pending |
 | Pre-code PR size assessment | Required before plan approval or source mutation | Hard unless exact excess has a verified indivisible-change exception | <estimate, functional Subtask recommendation, or indivisibility evidence> | Developer/User | Pending |
 | Actual PR size assessment | Required before CODE_READY, push, or MR creation | Hard unless exact excess has a verified indivisible-change exception | <measurement, base, classification, split assessment, and exception evidence> | Developer/User | Pending |
+| Final activity traceability audit | Required before CODE_READY | Hard, user-overridable | <Jira key, assignee, status, sprint, branch, intended commits, remote/MR visibility, and unobservable legitimate work> | Developer/User | Pending |
 | Indivisible-change exception evidence | <Required for unavoidable excess/Not applicable> | Hard | <exact paths, alternatives considered, smallest coherent scope, separated measurements, checks, and regeneration evidence when applicable> | Developer | Pending |
 | Common repository checks | Required | Hard | <evidence> | Developer | Pending |
 | Backend verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Backend Developer | Pending |
 | Frontend/UI verification | <Required/Not applicable> | <Hard/Advisory> | <evidence> | Frontend Developer | Pending |
 | AI attribution | <Required/Not applicable/Deferred> | <Hard/Advisory> | <evidence> | Developer | Pending |
 | Git delivery authorization | Required for listed actions before MR creation | Hard | <bundle> | User | Pending |
-| Delivery timing choice | Required before first source mutation | Hard | <commit now or schedule final commit + MR and evidence> | User | Pending |
-| Scheduled delivery safety | <Required for scheduled delivery/Not applicable> | Hard | <complete scheduled-delivery contract, dry-run, native scheduler loaded state, and cancellation path> | Developer/User | Pending |
-| Jira Done transition after MR creation | <Required when authorized/Deferred/Not applicable> | Hard for the transition only | <CODE_READY, MR repository/source/target, authorization, and re-read status> | User/Developer | Pending |
+| Post-implementation delivery confirmation | Required after CODE_READY | Hard | <reviewed diff, checks, commit set/messages, push, MR source/target/title/body, and exact authorization> | User | Pending |
+| Jira-only MR body and Jira MR-link comment | Required for MR creation | Hard, warning-first | <canonical Jira URL as entire initial MR body; canonical MR URL as one deduplicated Jira comment; post-write re-reads> | Developer/User | Pending |
+| Jira Done transition and atomic worklog after MR creation | Required | Hard for the transition only, warning-first | <CODE_READY, MR repository/source/target, pre-read status/Original Estimate/Time Spent/worklogs, exact transition payload, post-read Done/Time Spent/worklog count> | Developer/User | Pending |
+| Bug Ready-to-test Resolution and Reporter assignment | <Required when requested for Bug/Not applicable> | Hard, warning-first | <Bug verification, exact destination, allowed Resolution choices, selected Resolution, Reporter identity, resulting status/Resolution/assignee> | Developer/User | Pending |
 | Tech Lead approval | Required before merge except exact target `dev`; Not applicable for `dev` | Hard when required; not overridable | <approver identity and current approval evidence, or exact target `dev` evidence> | Tech Lead | Pending |
 | Merge readiness | Required before merge | Hard; not overridable | <source, target, SHA, checks, and GitLab mergeability> | Developer | Pending |
 | Stacked predecessor merge order | <Required for stacked/Not applicable> | Hard; not overridable | <ordered predecessor merge evidence, refreshed ancestry, final diff, and rerun checks> | Developer | Pending |
@@ -121,19 +129,24 @@ Workflow State: MODE_UNRESOLVED
 - Epic base branch: <remote ref, SHA, repository, Epic mapping, and ownership source>
 - Development base: <Epic base, or predecessor Jira key, remote branch, SHA, dependency evidence, and source>
 - Working issue and source branch: <key and resolved branch>
+- Work-activity context: <authenticated Jira account, current assignee, `date "+%Y-%m-%d"` result, verified In Progress/Start Date/Due Date, intended sprint and dates, and observation time>
 - Branch ancestry: <Epic base -> ordered predecessor branches -> working issue evidence>
 - Stacked review and merge order: <ordered Jira keys/MRs, user-owned review sequence, and merge prerequisites, or not applicable>
 - Remote and GitLab project: <identity>
-- MR target, title, and description requirements: <values>
+- MR target and title: <values>
+- Initial MR body: <canonical absolute working Jira URL only>
+- Jira MR-link comment: <canonical absolute MR URL, duplicate preflight, comment ID/evidence, or pending>
 - Naming username and commit prefix: <source and value>
 - AI attribution state: <mechanism, AI_ATTRIBUTION_UNAVAILABLE, or unresolved>
 
 ### Git Delivery Authorization
 
 - Repository: <absolute path and GitLab project>
-- Exact actions: <create branch, commit, push, create MR; list only user-authorized actions; merge is governed separately by verified Tech Lead approval>
-- Pre-implementation branch/commit authorization: <current-session evidence or unresolved; required before source mutation>
+- Exact actions: <create branch, init commit, implementation commit, pre-MR empty commit, push, create MR, add Jira MR-link comment; list only user-authorized actions; merge is governed separately by verified Tech Lead approval>
+- Pre-implementation branch/init-commit authorization: <current-session evidence or unresolved; required before source mutation>
 - LinearB init commit: <working branch, first-ticket-owned-commit position, clean-index evidence, commit SHA and timestamp, or pending before IMPLEMENTING>
+- LinearB observability: <remote evidence, or local-only warning, scoped override, and residual reporting risk>
+- Post-implementation authorization: <reviewed diff, proposed implementation commit set/messages, post-implementation empty commit, push, MR actions/targets, Jira MR-link comment, exact user evidence, or unresolved at CODE_READY>
 - Pre-MR empty commit: <exact MR request authorizing the marker, message, clean-index evidence, SHA, parent SHA, timestamp, identical-tree verification, and pushed source SHA; or existing-MR reuse evidence>
 - Epic base branch: <remote ref and SHA>
 - Development base: <exact remote ref and recorded SHA>
@@ -142,20 +155,14 @@ Workflow State: MODE_UNRESOLVED
 - Diff boundary: <exact paths or reviewed diff identity>
 - Authorized: no
 
-### Delivery Timing and Scheduler
+### Post-implementation Delivery Checkpoint
 
-- Delivery choice: <commit now, schedule final commit + MR, or unresolved>
-- Choice evidence: <current request or explicit answer>
-- Scheduled actions: <remaining commit, required pre-MR empty commit, push, create MR, or not applicable>
-- Schedule and timezone: <absolute timestamp/timezone or not applicable>
-- Pinned execution identity: <repository, branch, expected HEAD, diff identity, remote, target, Jira key, commit message, MR title/body file, and checks>
-- Scheduler artifacts: <Python worker, immutable job config, native service definition, logs, state, or not applicable>
-- Persistent scheduler: <launchd, systemd, or Windows Task Scheduler identity; installed path/task path; principal; loaded/enabled state; next run; or not applicable>
-- Independent-of-chat evidence: <native scheduler inspection after load or not applicable>
-- Dry-run and failure-path evidence: <commands/results or pending>
-- Idempotency and drift result: <evidence or pending>
-- Cancellation and cleanup: <commands, owner, retention, or not applicable>
-- Scheduler authorization: <exact artifact creation, installation, activation, and deferred Git/GitLab actions; Authorized: yes/no>
+- Reviewed uncommitted diff: <repositories, branches, paths/hunks, size, and identity>
+- Verification evidence: <checks and results>
+- Proposed implementation commits: <exact paths per commit and messages>
+- Pre-MR empty commit: <exact message and expected parent, or pending>
+- Push and MR proposal: <remote, source, target, title, Jira-only body, Jira MR-link comment, and secondary effects>
+- User confirmation: <exact authorized actions and targets, or pending at CODE_READY>
 
 ### Verification
 
@@ -163,12 +170,15 @@ Workflow State: MODE_UNRESOLVED
 - Backend checks: <commands, contracts, data/security evidence, or applicability>
 - Frontend checks: <commands, UI states, viewports/browsers, accessibility, visual and privacy evidence, or applicability>
 - Actual results: <update during execution>
+- Activity traceability audit: <Jira/branch/intended-commit/MR correlation, sprint and status re-read, unobservable legitimate activity, corrections, or scoped overrides>
 
 ### MR Evidence and Final Handoff
 
 - MR URL/IID: <verified value or unavailable>
 - Verified source/target/title/description: <evidence>
-- Jira Done evidence: <issue key, transition authorization, resulting status, and observation time; deferred owner; or not applicable>
+- Jira MR-link comment: <exact MR URL, duplicate preflight, verified comment evidence, or deferred owner>
+- Jira Done evidence: <issue key, pre-read status/Original Estimate/Time Spent/complete worklog count, exact transition and atomic worklog decision, resulting Done/Time Spent/worklog count and observation time; deferred owner; or not applicable>
+- Bug Ready-to-test evidence: <issue key/type, transition, selected Resolution, Reporter, resulting status/Resolution/assignee, observation time, or not applicable>
 - Observable pipeline/check state: <state and observation time>
 - Tech Lead approval: <approver identity, approval state, and observation time>
 - Merge evidence: <merge result, resulting SHA, and observation time, or pending>
@@ -185,11 +195,13 @@ If a failed gate leaves no executable value, the user must supply or explicitly 
 
 Mode and path classification should be evidence-backed before `$plan` or mutation. If evidence is incomplete, pause and recommend the classification; continue only when the user explicitly authorizes an exact mode and path scope under a recorded override. In `mixed` mode, both domain policies apply to their classified paths and the union of applicable gates must pass or be individually overridden. Never downgrade `mixed` merely because one side has fewer changed lines.
 
-The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Resolve the development base independently: default to the Epic base, or use a verified predecessor working branch only when the user explicitly elects stacked execution before predecessor merge. A stacked contract must record the complete ordered dependency chain, fixed predecessor SHA used for branch creation, user-owned review order, and non-overridable predecessor-merge prerequisites. Before plan approval or source mutation, require the PR-size section to identify expected touchpoints, measurement method, effective maximum, a supported estimate, separated line classifications, and either functional Jira Subtask recommendations or complete indivisibility evidence for every oversized slice. For a stacked ticket, apply the assessment to its incremental diff from the development base, disclose the cumulative Epic-target diff, and require a final Epic-target measurement after predecessors merge. If the estimate, split assessment, or required exception evidence is unresolved, keep the workflow before `PLAN_APPROVED` and do not mutate source. Plan phases and incremental commits do not replace the requirement for a separately traceable Jira slice, branch, and PR. Jira creation, editing, or status transition requires exact authorization through `$interact-with-jira`, followed by relationship or resulting-status verification as applicable. Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient. When implementation will create local commits, working-branch creation and commit authorization must be resolved before entering `IMPLEMENTING`. After creating or verifying the working branch, require a clean index and create the LinearB init commit before any source mutation; record its SHA and timestamp. Push and MR authorization may remain pending until code is ready. Do not use a pending commit or init-commit gate as permission to accumulate uncommitted implementation.
+Before source mutation, execute the bounded automatic Jira work-start procedure from [core-policy.md](core-policy.md), then require current Jira evidence for authenticated-Developer assignment, a truthful `In Progress`-type state, verified Start Date and Due Date, and exact intended sprint membership when sprint delivery applies. Each is warning-first and user-overridable: pause dependent implementation, state the observed mismatch and reporting risk, recommend the exact Jira correction, and continue only under an exact scoped override. A gate override never authorizes assignment, sprint, or any Jira mutation beyond the bounded automatic operations. After the init commit, likewise record remote GitLab observability; local-only evidence requires a warning and an explicit scoped override to continue until the post-implementation checkpoint. Never delay truthful completion or create artificial delivery objects to improve a metric.
+
+The post-completion bug Subtask and Epic-base prerequisites use the warning-and-override procedure in [core-policy.md](core-policy.md). Resolve the development base independently: default to the Epic base, or use a verified predecessor working branch only when the user explicitly elects stacked execution before predecessor merge. A stacked contract must record the complete ordered dependency chain, fixed predecessor SHA used for branch creation, user-owned review order, and non-overridable predecessor-merge prerequisites. Before plan approval or source mutation, require the PR-size section to identify expected touchpoints, measurement method, effective maximum, a supported estimate, separated line classifications, and either functional Jira Subtask recommendations or complete indivisibility evidence for every oversized slice. For a stacked ticket, apply the assessment to its incremental diff from the development base, disclose the cumulative Epic-target diff, and require a final Epic-target measurement after predecessors merge. If the estimate, split assessment, or required exception evidence is unresolved, keep the workflow before `PLAN_APPROVED` and do not mutate source. Plan phases do not replace the requirement for a separately traceable Jira slice, branch, and PR. Except for the exact bounded automatic start and completion operations authorized by a delivery request under [core-policy.md](core-policy.md), Jira creation, editing, or status transition requires exact authorization through `$interact-with-jira`, followed by relationship or resulting-status verification as applicable. Git authorization is valid only when every operational field is exact and `Authorized: yes` is explicitly approved in the current plan context; plan approval or generic risk acceptance alone is insufficient. Working-branch creation and init-commit authorization must be resolved before entering `IMPLEMENTING`. After creating or verifying the working branch, require a clean index and create the LinearB init commit before any source mutation; record its SHA and timestamp. Keep implementation changes uncommitted through verification. Implementation-commit, push, and MR authorization remains pending until the user reviews and approves the exact post-implementation delivery proposal at `CODE_READY`.
 
 Before creating any Jira work item, require the complete new-ticket contract from [core-policy.md](core-policy.md). The agent must produce and justify an estimate no greater than 3 hours, verify the Jira field and unit, and propose further functional Subtasks for work above that limit. The current authenticated Jira identity must be verified and used as assignee. Creation authorization must cover the exact Vietnamese title/body, issue type and hierarchy, estimate, and assignee; after creation, re-read every field and keep the gate failed if Jira omitted, normalized, or rejected any required value.
 
-Resolve the delivery timing choice before the first source mutation. `Schedule final commit + MR` does not authorize any operation and does not weaken incremental commit cadence. Before installing or activating a scheduled job, require the complete exact scheduler contract and action-specific authorization described in [scheduled-delivery.md](scheduled-delivery.md). `CODE_READY` may be followed by `WAITING_EXTERNAL` with the scheduled resume checkpoint; do not claim `MR_READY` until the job has run successfully and the MR is re-read and verified.
+At `CODE_READY`, stop with the reviewed implementation diff uncommitted and present the exact commit, push, and MR proposal. The MR proposal must use only the canonical Jira URL as its initial body and include the one-comment Jira backlink operation. Do not perform any of those actions until the user explicitly confirms the enumerated repositories, branches, diff boundary, commit messages, remote, source/target, Jira-only MR body, and Jira comment target. Revalidate the proposal after drift.
 
 ## State updates
 
@@ -201,9 +213,9 @@ Use and evidence these transitions:
 - Enter `JIRA_RESOLVED` after Jira identity, ancestry, applicable acceptance status, and any post-completion Subtask gate each pass or receive a scoped override.
 - Enter `EPIC_BASE_RESOLVED` after the Epic-base gate passes or the user authorizes an exact fallback under a scoped override, and the separate development base plus any stacked ancestry are resolved.
 - Enter `PLAN_APPROVED` only with an approved plan, complete contract, and a resolved pre-code size assessment for every planned Jira slice: compliant size, refined functional split, or `Not applicable — verified indivisible change` with its exception-evidence gate passed.
-- Enter `IMPLEMENTING` after the current Jira slice's pre-code size assessment is resolved through compliance or a verified indivisible-change exception, the delivery timing choice is recorded, other source-mutation gates pass or receive scoped overrides, and, for Git-backed implementation, exact working-branch creation and local incremental-commit authorization are recorded and the required LinearB init commit exists on each affected working branch with its SHA and timestamp captured.
-- Enter `CODE_READY` after the actual ticket-owned incremental diff from the resolved development base is measured and its size assessment is compliant or covered by a revalidated indivisible-change exception, the cumulative Epic-target diff is recorded for a stacked ticket, and applicable acceptance criteria and common plus domain checks pass or receive allowed scoped overrides.
-- After `CODE_READY`, once the MR exists with the expected repository, source, and target, transition the working Jira issue to `Done` immediately when the exact transition is authorized, then re-read and record the resulting status. This transition does not require pipeline results, Tech Lead approval, mergeability, `MR_READY`, or merge evidence. If it is unauthorized or unavailable, defer only the Jira transition with an owner and resume condition; do not block the independent review-and-merge path.
+- Enter `IMPLEMENTING` after the current Jira slice's pre-code size assessment is resolved through compliance or a verified indivisible-change exception, authenticated-Developer assignment, truthful work-start status, applicable sprint alignment, and other source-mutation gates pass or receive scoped overrides, and, for Git-backed implementation, exact working-branch creation and init-commit authorization are recorded, the required LinearB init commit exists on each affected working branch with its SHA and timestamp captured, and remote observability passes or receives a scoped override.
+- Enter `CODE_READY` after the uncommitted ticket-owned implementation diff from the resolved development base is measured and its size assessment is compliant or covered by a revalidated indivisible-change exception, the cumulative Epic-target diff is recorded for a stacked ticket, the final activity traceability audit passes or receives an allowed scoped override, and applicable acceptance criteria and common plus domain checks pass or receive allowed scoped overrides. Pause here for post-implementation delivery confirmation.
+- After `CODE_READY`, once the MR exists with the expected repository, source, and target, execute the bounded Jira completion procedure from [core-policy.md](core-policy.md). Pre-read status, raw Original Estimate, Time Spent, the complete worklog list/count, and transition metadata. When the issue is not `Done` and has no worklog, add exactly one worklog equal to Original Estimate within the first `Done` transition request; never use a standalone worklog call or first try without it. Re-read and record final `Done`, Time Spent, worklog count, and any count delta. This does not require pipeline results, Tech Lead approval, mergeability, `MR_READY`, or merge evidence. If unavailable or unverifiable, defer only the Jira completion action with an owner and resume condition; do not duplicate a possibly applied worklog or block the independent review-and-merge path.
 - Enter `MERGED` only after verifying current Tech Lead approval on the exact MR when its exact target is not `dev`; for exact target `dev`, record approval as `Not applicable — target dev`. In every case verify the unchanged expected source and target, current MR SHA, required pipeline/check results, GitLab mergeability, explicit merge authorization, and successful Developer-performed merge. For a stacked ticket, first verify every predecessor merged into the Epic branch in order, refresh ancestry, update or rebase when repository policy requires, confirm the final Epic-target diff contains only the ticket-owned scope and is size-compliant or covered by a revalidated indivisible-change exception, and rerun affected checks. Applicable Tech Lead approval is sufficient authorization under this workflow for the Developer to perform the merge; the Tech Lead does not need to perform it.
 - Use `WAITING_EXTERNAL` when external credentials, permissions, approval, required evidence, tools, or systems prevent the next step. Record prior state, operation, owner, resume condition, and next check.
 - Resume only after revalidating stale evidence, mode/path classification, overrides, and authorization.
@@ -216,9 +228,7 @@ Apply the outcome mapping in [Composition and resume](composition-and-resume.md)
 
 `MR_PREPARED` requires every applicable gate to be `Passed`, `Overridden`, or truthfully `Not applicable`; a size gate marked `Not applicable — verified indivisible change` must have its separate exception-evidence gate passed with separated measurements and review warning; exact intended working source and MR target; completed implementation; reviewed session diff; and an English proposed handoff. Every override must remain visible with its missing evidence and residual risk. Use this state when an external condition prevents authorized branch creation, push, or MR creation.
 
-`MR_READY` additionally requires an authorized push and an existing MR in the exact GitLab repository with an exact source and Epic target. Ancestry, title, description, and observable checks must pass or have recorded overrides. A stacked MR may be `MR_READY` while predecessors remain open when its dependency chain, incremental and cumulative diffs, disclosure, and review order are recorded; it is not merge-ready until the non-overridable predecessor merge-order gate passes. Missing evidence is never verified by override; an unauthorized, uncreated, or repository/target-ambiguous MR is never `MR_READY` because the required action itself is not exactly defined or authorized. An exactly authorized Jira `Done` transition may already have occurred after `CODE_READY` and verified MR creation; its outcome is recorded separately and does not depend on this readiness state or merge.
-
-A future scheduled time is not `MR_READY`. Until the persistent job completes and its Git/GitLab results are re-read, keep the truthful prior state and record `WAITING_EXTERNAL` with the schedule, native service identity, logs, cancellation command, and resume condition. A successful process exit alone is insufficient; verify the expected commit, pushed source SHA, MR source/target/title/body, and observable checks.
+`MR_READY` additionally requires an authorized push; an existing MR in the exact GitLab repository with the exact source and Epic target; an initial MR body consisting only of the canonical Jira URL; and exactly one verified Jira comment containing only the canonical MR URL, unless an identical pre-existing comment was reused. Ignore later AI-review additions when validating the initial body contract. Ancestry, title, and observable checks must pass or have recorded overrides. A stacked MR may be `MR_READY` while predecessors remain open when its dependency chain, incremental and cumulative diffs, disclosure, and review order are recorded outside the Jira-only MR body; it is not merge-ready until the non-overridable predecessor merge-order gate passes. Missing evidence is never verified by override; an unauthorized, uncreated, or repository/target-ambiguous MR is never `MR_READY` because the required action itself is not exactly defined or authorized. An exactly authorized Jira `Done` or `Ready to test` transition may already have occurred after `CODE_READY` and verified MR creation; its outcome is recorded separately and does not depend on this readiness state or merge.
 
 `MERGED` additionally requires verified approval from a Tech Lead on that exact MR when the exact target branch is not `dev`; for exact target `dev`, approval is `Not applicable — target dev`. It always requires current required checks, a mergeable GitLab state, an unchanged expected source and target, explicit merge authorization, and evidence that the Developer's merge completed successfully. A stacked ticket additionally requires ordered predecessor merge evidence, refreshed ancestry, a clean ticket-owned final Epic-target diff and size result, and rerun affected checks. Applicable Tech Lead approval, predecessor merge order, and merge-readiness gates are not overridable. Never self-approve, enable auto-merge, bypass controls, merge ahead of a predecessor, or treat an approval from an unverified role as Tech Lead approval.
 
