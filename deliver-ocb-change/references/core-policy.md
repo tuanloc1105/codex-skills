@@ -113,7 +113,7 @@ Before the first source mutation, ask the user to choose `commit now` or `schedu
 
 Scheduled delivery must follow [scheduled-delivery.md](scheduled-delivery.md). Use a Python worker with a native persistent OS scheduler rather than an in-chat timer or an unsupervised Python loop. The worker must fail closed on authorization, repository, branch, HEAD, diff, checks, authentication, remote, target, MR, or idempotency drift. A chat session ending never cancels or authorizes the job. Record scheduler artifacts, native service identity, loaded state, next run, logs, result state, cancellation command, and cleanup owner in the workflow contract.
 
-Never self-approve or modify GitLab administration. Once a Tech Lead approval is verified on the exact MR and required checks and GitLab mergeability pass, the Developer may proactively merge without requiring the Tech Lead to perform the merge. Never bypass approval, protected-branch, pipeline, or mergeability controls. Deployment, release, Mobile delivery, and post-merge metrics remain out of scope.
+Never self-approve or modify GitLab administration. Once a Tech Lead approval is verified on the exact MR when required, and required checks and GitLab mergeability pass, the Developer may proactively merge without requiring the Tech Lead to perform the merge. Tech Lead approval is not required when the MR's exact target branch is `dev`; record that gate as `Not applicable — target dev`. This exception does not waive explicit merge authorization, required checks, source/target/SHA verification, GitLab mergeability, or protected-branch controls. Never bypass applicable approval, protected-branch, pipeline, or mergeability controls. Deployment, release, Mobile delivery, and post-merge metrics remain out of scope.
 
 Before `glab`, verify installed version, leaf help, authentication, repository, and identity. Use explicit source and target. Never use interactive defaults or auto-merge. Before a merge command, also verify the Tech Lead approver identity and approval state, current source and target, pipeline/check state, mergeability, and current MR SHA.
 
@@ -131,4 +131,4 @@ Use only attribution explicitly permitted by higher-priority policy, repository 
 
 ## Out-of-scope ownership
 
-Developer ownership continues through verified `MERGED`: the Tech Lead owns review and approval, and the Developer owns the merge after that approval. GitLab administration, deployment, release, DevSecOps, Service Operations, Mobile delivery, and post-merge reporting belong to other roles or workflows.
+Developer ownership continues through verified `MERGED`: the Tech Lead owns review and approval when the target is not `dev`, and the Developer owns the merge after applicable approval. GitLab administration, deployment, release, DevSecOps, Service Operations, Mobile delivery, and post-merge reporting belong to other roles or workflows.

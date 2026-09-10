@@ -53,10 +53,10 @@ Keep OCB Workflow State separate from the host's implementation Status and activ
 | --- | --- |
 | Code accepted, remaining delivery actions can proceed | CODE_READY with technical checks; continue authorized delivery work. Do not claim the full OCB task is complete. |
 | Push/MR/approval or another external prerequisite is unavailable | Record WAITING_EXTERNAL, last achieved state, exact operation, owner, and resume condition. Use the host's Blocked status only when its blocker definition is met. |
-| MR exists but Tech Lead approval or merge prerequisites are pending | Retain verified MR_READY evidence and record the external wait. Jira Done and MR_READY are not MERGED. |
+| MR exists but applicable Tech Lead approval or merge prerequisites are pending | Retain verified MR_READY evidence and record the external wait. Tech Lead approval is not applicable when the exact target branch is `dev`. Jira Done and MR_READY are not MERGED. |
 | User explicitly requested only preparation or another limited endpoint | Complete only that agreed scope and report its actual OCB state plus remaining delivery owner; do not label it MERGED. |
 | User pauses, cancels, or exits | Honor the stop immediately, preserve the last achieved OCB state and unfinished gates, and apply the host's pause/exit procedure. Do not schedule more work or merge to satisfy a completion gate. |
-| Merge succeeded and current evidence verifies it | Record MERGED with approver, source/target, checks, merge result, and remaining non-delivery ownership. Stop before deployment or release. |
+| Merge succeeded and current evidence verifies it | Record MERGED with applicable approver evidence or `Not applicable — target dev`, source/target, checks, merge result, and remaining non-delivery ownership. Stop before deployment or release. |
 
 A pause of the chat workflow does not automatically disable or authorize a separately installed delivery job. Disclose any recorded live job and its cancellation path, and follow scheduled-delivery authorization for changes to it. Do not claim cancellation without verifying the scheduler state.
 
