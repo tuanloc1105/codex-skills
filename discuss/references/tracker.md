@@ -1,13 +1,13 @@
 # Discuss Record Bundle Reference
 
-Read this reference completely before creating, adopting, persisting, or handing off a discussion record bundle.
+Read this reference completely before creating, explicitly continuing, persisting, or handing off a discussion record bundle.
 
 ## Bundle Requirement
 
 Use a version 4 Markdown bundle, never a single tracker file. Resolve every relative destination against the working directory captured at skill entry and never ask a storage-choice question.
 
-- With no destination, create `./discussion/YYYY-MM-DD-no<N>-<slug>/`.
-- Treat an explicit directory or its `index.md` as an existing bundle to adopt. Other file paths are invalid record destinations.
+- On every new `$discuss` invocation, create `./discussion/YYYY-MM-DD-no<N>-<slug>/` by default, including when the request supplies, links, or mentions an existing bundle.
+- Adopt and update an existing directory or its `index.md` only when the user explicitly asks to continue, resume, or update that specific bundle. A supplied bundle without that continuation instruction is read-only source context for the newly created bundle and must not be modified. Other file paths are invalid record destinations.
 - Use lowercase ASCII slugs. Number new bundles independently within `./discussion/` for each calendar date: inspect sibling directory names matching that date's `YYYY-MM-DD-no<N>-*` form, take the greatest positive integer `N`, and use `N + 1`; start at `no1` when none match. Ignore legacy names and malformed or non-positive sequence values, and never reuse a missing lower number.
 - Reserve the selected directory with an atomic create. If it already exists because another writer won the race, recompute from the current siblings and retry with the next sequence number. The sequence belongs only to the containing `discussion/` directory and is independent of the sequence under `plans/`.
 - Create missing ancestors automatically. Reject Git metadata locations, path traversal, and symlinks that escape the bundle.
@@ -93,7 +93,7 @@ If persistence fails, do not present unsaved conclusions as durable state. Repor
 
 ## Cross-Session Handoff
 
-On resume, canonicalize the supplied directory or `index.md`, read the complete bundle, validate its identity and manifest, restore the Active Snapshot and Resume Checkpoint, then compare recorded repository/external revisions with live state when they matter. Earlier-session mutation authorization is historical context, never current permission.
+Cross-session continuation requires an explicit instruction to continue, resume, or update the supplied bundle. When that intent is explicit, canonicalize the supplied directory or `index.md`, read the complete bundle, validate its identity and manifest, restore the Active Snapshot and Resume Checkpoint, then compare recorded repository/external revisions with live state when they matter. If the user only supplies or mentions the bundle, create a new bundle and use the old one read-only when relevant. Earlier-session mutation authorization is historical context, never current permission.
 
 If two bundles claim the same tracker ID or the lineage is ambiguous, preserve both, record the conflict, and apply the Immediate Decision Gate.
 

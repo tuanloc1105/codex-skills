@@ -55,8 +55,8 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Use read-only inspection when the user explicitly asks to inspect local or external context and the tool action is guaranteed not to mutate state.
 - Use the minimal read-only inspection needed to establish existing behavior and regression safety when the requested discussion concerns changing an existing mechanism.
 - Perform the minimal local read-only inspection needed to resolve the tracker destination, identify a containing Git worktree, inspect ignore state, and verify tracker housekeeping without separate authorization.
-- Create or transactionally update the automatically selected or user-specified Markdown record bundle for this discussion.
-- Read and adopt an existing tracker supplied for cross-session continuation, and revalidate stale source references as required by `Cross-Session Handoff`.
+- Create or transactionally update the automatically selected new Markdown record bundle for this discussion, or the specific existing bundle the user explicitly asked to continue.
+- Read and adopt an existing tracker only when the user explicitly requests cross-session continuation; otherwise treat a supplied tracker as read-only context for the new bundle.
 - Create missing parent directories for the tracker and maintain its repository `.gitignore` rule as built-in tracker housekeeping.
 - Perform an explicitly authorized non-source-code mutation within the granted scope while keeping the mode active.
 - Perform a bounded source-code action after its impact and scope have been confirmed and persisted under `Temporary Source-Code Actions`, then automatically return to full discuss behavior.

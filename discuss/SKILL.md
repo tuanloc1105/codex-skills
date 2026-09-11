@@ -1,13 +1,15 @@
 ---
 name: discuss
-description: Use when the user invokes $discuss or requests discussion work with a persistent version 4 Markdown record bundle. Keep discuss active across scoped actions and exit only through $plan or $execute. Without a destination, create a dated, daily-sequenced topic directory under ./discussion/, maintain its manifest and repository ignore rule, and persist discussion state across focused Markdown files.
+description: Use when the user invokes $discuss or requests discussion work with a persistent version 4 Markdown record bundle. Start a new dated, daily-sequenced bundle by default, even when an older bundle is supplied; reuse an older bundle only when the user explicitly asks to continue it. Keep discuss active across scoped actions and exit only through $plan or $execute.
 ---
 
 # Discuss
 
 ## Core Contract
 
-Operate as a discussion partner and keep one Markdown record bundle for the conversation. By default, the only allowed mutations are creating or transactionally updating that bundle, creating missing parent directories, and maintaining its repository `.gitignore` entry.
+Operate as a discussion partner and keep one Markdown record bundle for the active discuss-mode lifetime. On a new invocation, always create a new bundle unless the user explicitly asks to continue, resume, or update a specific existing bundle. Merely supplying, linking, or mentioning an existing bundle does not authorize adopting or modifying it; treat it as read-only context for the new bundle when relevant. Once the bundle is selected, keep using it on later turns and during compaction recovery until the mode exits.
+
+By default, the only allowed mutations are creating or transactionally updating the active bundle, creating missing parent directories, and maintaining its repository `.gitignore` entry.
 
 Keep the mode active across analysis and every scoped action. Completing an action, including an authorized source-code change, automatically returns control to `discuss`; it never exits the mode. Only an explicit transition to `$plan` or `$execute` may durably set the tracker to `Mode status: Exited`, and only after the applicable handoff state is persisted. If the user asks to "exit discuss", "turn off discuss", "start coding", or uses similar wording without choosing `$plan` or `$execute`, keep discuss active and apply `Settled Discussion Transition Gate` so the user chooses one of those workflows.
 
@@ -15,7 +17,7 @@ Keep the mode active across analysis and every scoped action. Completing an acti
 
 Apply this skill directly through conversation state and its Markdown record. Do not automatically activate `workflow-modes`, invoke its control script, or run its hooks or lifecycle commands, even when the plugin is installed. Plugin availability is not a prerequisite for this skill. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
 
-- On entry, resume, and after compaction, read this complete entrypoint, every currently required reference, `index.md`, and every manifest file before substantive work. For a new bundle, read the initialization guidance first, create the bundle, then verify its complete contents.
+- On a new invocation, read the initialization guidance first and create and verify a new bundle. Adopt an existing bundle only when the same request explicitly says to continue, resume, or update that bundle; a path or attachment alone is not continuation intent. On later turns within the active mode and after compaction, read this complete entrypoint, every currently required reference, `index.md`, and every manifest file before substantive work as required by the recovery rules.
 - Treat compaction recovery as a hard gate, not as optional rereading. Before the first substantive tool call after compaction, recover the active mode, canonical bundle root, and tracker ID from durable state; read and validate the bundle; reconcile any completed but unrecorded work; and verify the Active Snapshot, Resume Checkpoint, and next safe action. If the exact active bundle cannot be resolved, do not guess from the newest directory: ask for its path and stop substantive work.
 - On later turns, reuse current context only while it remains reliable. Reread the Active Snapshot for snapshot-only changes; reread the complete bundle when record content changes outside known writes or its state is uncertain.
 - Treat a record write transaction as one coordinated file update: read the affected current files, declare new Markdown files in the manifest, update all affected content and cross-links, then verify identity, metadata, phase links, dependencies, and evidence agree. Finish or repair that update before unrelated mutation, handoff, or a final response. If persistence fails, report the blocker instead of treating unsaved state as durable.
