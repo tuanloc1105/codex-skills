@@ -1,0 +1,4 @@
+interface:
+  display_name: "Handoff Execute"
+  short_description: "Execute an approved record in a lower-cost Codex session"
+  default_prompt: "Use $handoff-execute to evaluate and, when safe, hand off the approved execution record at /path/to/record/ to a lower-cost Codex CLI session, then reconcile, simplify, and verify the result."
