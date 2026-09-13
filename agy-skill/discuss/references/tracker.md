@@ -88,7 +88,8 @@ Every declared path must be a relative `.md` path inside the bundle, unique, non
 - A snapshot reread covers the delimited Active Snapshot in `index.md`; a complete record reread covers `index.md` and every manifest file.
 - Apply the entrypoint's coordinated record update contract. Include new Markdown paths in the manifest and verify tracker identity, state, phase links, and evidence markers before completing the update.
 - Persist the current checkpoint after material changes. An unchanged turn needs no artificial rewrite.
-- If persistence fails, do not present unsaved conclusions as durable state. Report the failed files and stop before further substantive work.
+
+If persistence fails, do not present unsaved conclusions as durable state. Report the failed files and stop before further substantive work.
 
 ## Cross-Session Handoff
 
@@ -96,18 +97,39 @@ Cross-session continuation requires an explicit instruction to continue, resume,
 
 If two bundles claim the same tracker ID or the lineage is ambiguous, preserve both, record the conflict, and apply the Immediate Decision Gate.
 
-## Transition Gates
+## Transition Gate
 
-### Settled Discussion Transition Gate
+When discussion is settled, persist the state and ask the user to choose (preferring `ask_question`):
 
-When discussion settles and no blocking question remains, ask the user whether to transition to `plan` or `execute` using `ask_question` (or numbered chat format):
-1. `plan`: create a separate structured implementation plan bundle under `./plans/`.
-2. `execute`: execute directly using this discussion bundle (Direct Execute Handoff).
+1. `plan` — close this bundle and create a separate plan bundle linked back to it.
+2. `execute` — make this same bundle execution-ready and let execute adopt it.
 
-### Direct Execute Handoff
+For `plan`, set `Mode status: Exited`, record the transition in `evidence.md`, verify the complete saved update, and hand off to `plan`. `plan` creates a distinct bundle under its own saving rules.
 
-When transitioning directly from `discuss` to `execute`:
-1. Add `plan.md`, `verification.md`, and initial phase files to the discussion bundle.
-2. Verify all deliverables and verification criteria are clearly specified.
-3. Update `index.md`: set `Mode status: Exited`, `Execution readiness: Ready`, `Execute mode: Ready`.
-4. Hand off the canonical bundle root directly to `execute`.
+For direct `execute`, require concrete goal/scope/requirements/constraints, no blocking question, verified baseline and preservation criteria, an executable plan, verification, and initialized evidence/handoff state. Add:
+
+- `plan.md` with the execution strategy, dependency graph, waves, and links to phase files.
+- One self-contained `phases/P<NN>-<slug>.md` for each declared phase.
+- `verification.md` with phase, integration, regression, and final checks.
+
+Then atomically persist in the bundle:
+
+```markdown
+Mode status: Exited
+Status: Approved for execution
+Execution readiness: Ready
+Execute mode: Ready
+Resume instruction: Invoke execute on <canonical bundle root> (tracker <tracker ID>), read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
+```
+
+Set the profile to `Durable` unless already `Audited`, keep the current discuss Required references until the handoff is durable, and update and verify the checkpoint and evidence log. Then follow execute's `Active-Session Handoff` intake on the same bundle, replacing Required references in a coordinated execute update. Do not ask for execution confirmation again when the user already requested this transition.
+
+## Authority and Evidence
+
+The bundle is authoritative for recorded discussion state, not for live repository, ticket, API, database, or external-system behavior. In `context.md`, classify material claims as verified, user-reported, inferred, proposed, or unknown and include exact locators, revisions or observation times, conflicts, and revalidation conditions. Higher-priority instructions and current live state override stale bundle content.
+
+Use stable decision and question IDs. Preserve superseded history without leaving contradictory entries active. Do not store transcripts, hidden reasoning, secrets, unrelated chat, or raw implementation output.
+
+## Repository Ignore Rule
+
+When the bundle is inside a Git worktree, idempotently add one root-anchored trailing-slash rule for the bundle's containing tracker directory, normally `/discussion/`. Preserve existing `.gitignore` content and ordering, never alter the index, and verify the bundle is ignored. If the directory contains unrelated untracked files, warn that they are also ignored. If ignore maintenance fails, retain the selected bundle and report the limitation.

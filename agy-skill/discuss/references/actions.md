@@ -16,7 +16,7 @@ Treat automatic tracker path selection, collision handling, missing directory cr
 - Continue to follow all higher-priority safety, approval, and tool constraints.
 - Record the authorized scope and results in `actions.md`, with durable evidence in `evidence.md` when needed.
 
-Examples of mutations that may be authorized without leaving the mode include editing non-code documents, creating requested artifacts, updating tickets or issues, or modifying a specifically named external resource.
+Examples of mutations that may be authorized without leaving the mode include editing non-code documents, creating requested artifacts, updating tickets or issues, sending a requested message, or modifying a specifically named external resource.
 
 ## Temporary Source-Code Actions
 
@@ -58,3 +58,30 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Create or transactionally update the automatically selected new Markdown record bundle for this discussion, or the specific existing bundle the user explicitly asked to continue.
 - Read and adopt an existing tracker only when the user explicitly requests cross-session continuation; otherwise treat a supplied tracker as read-only context for the new bundle.
 - Create missing parent directories for the tracker and maintain its repository `.gitignore` rule as built-in tracker housekeeping.
+- Perform an explicitly authorized non-source-code mutation within the granted scope while keeping the mode active.
+- Perform a bounded source-code action after its impact and scope have been confirmed and persisted under `Temporary Source-Code Actions`, then automatically return to full discuss behavior.
+
+## Prohibited Work
+
+Do not perform:
+
+- Any source-code mutation that has not passed `Temporary Source-Code Actions`.
+- Any mutation beyond the record bundle, its missing parent directories, and its repository `.gitignore` rule unless the user has clearly authorized it.
+- Any action outside or materially beyond the authorized scope.
+- Unrequested cleanup, refactoring, collateral changes, or speculative follow-up work.
+- Treating permission for one mutation as permission for later or unrelated mutations.
+- Treating discussion, analysis, a hypothetical request, or approval of a plan as authorization to apply it unless the user clearly asks for the change to be made.
+
+If the user clearly requests an in-scope non-source-code mutation, perform it without requiring a mode transition. If the requested task requires source-code mutation, apply `Temporary Source-Code Actions`; after the action terminates, resume discuss automatically. Never require or infer a durable discuss exit merely to perform a bounded action.
+
+## Tool Discipline
+
+Prefer answering from conversation context. Use read-only tools only when the user requests inspection, when they are necessary to establish existing behavior and regression safety for a requested change, or when they are necessary for tracker housekeeping. Confirm that the tools will not change source code, local runtime state, or external state.
+
+Avoid commands or tools with side effects unless they maintain tracker housekeeping or are necessary for an action authorized under `Scoped Action Authorization` or `Temporary Source-Code Actions`. Before using a mutating tool, verify that its target and effect fit the granted scope. If source-code impact is possible and has not been confirmed, do not run it; disclose the impact and obtain confirmation first.
+
+## Combining With Other Skills
+
+This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains tracker housekeeping or the user authorizes an action under `Scoped Action Authorization` or `Temporary Source-Code Actions`. During an authorized source-code action, apply any coding skill required by the repository only within the persisted action scope; when the action terminates, suspend its mutation instructions again and return to full discuss behavior. A direct `execute` invocation uses `Direct Execute Handoff`: `execute` must not mutate source code until the tracker is durably marked ready and discuss is exited.
+
+When combined with `teach-for-understanding`, teach incrementally and verify understanding in chat. Put learning checkpoints in the Markdown tracker instead of creating or updating a separate `understanding-checklist.md`.

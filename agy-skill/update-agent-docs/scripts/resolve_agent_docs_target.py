@@ -65,15 +65,24 @@ def with_repo_boundary(result: dict[str, object], repo_root: Path) -> dict[str, 
 
 def classify_agents_file(repo_root: Path) -> dict[str, object]:
     agents_path = repo_root / "AGENTS.md"
+    gemini_path = repo_root / "GEMINI.md"
 
-    if not agents_path.exists() and not agents_path.is_symlink():
+    # Prefer AGENTS.md if it exists; otherwise fallback to GEMINI.md if present
+    target_candidate = agents_path
+    if not agents_path.exists() and not agents_path.is_symlink() and (gemini_path.exists() or gemini_path.is_symlink()):
+        target_candidate = gemini_path
+
+    if not target_candidate.exists() and not target_candidate.is_symlink():
         return with_repo_boundary({
             "mode": "create",
             "agents_path": str(agents_path),
             "target_path": str(agents_path),
             "target_exists": False,
-            "reason": "AGENTS.md does not exist; create it at the repository root.",
+            "reason": "Neither AGENTS.md nor GEMINI.md exists; create AGENTS.md at the repository root.",
         }, repo_root)
+
+    agents_path = target_candidate
+    file_name = agents_path.name
 
     if agents_path.is_symlink():
         symlink_target = agents_path.resolve()
@@ -87,7 +96,7 @@ def classify_agents_file(repo_root: Path) -> dict[str, object]:
                 "target_path": str(include_target),
                 "target_exists": include_target.exists(),
                 "include": include_line,
-                "reason": "AGENTS.md is a symlink to a single @include file; edit the included file.",
+                "reason": f"{file_name} is a symlink to a single @include file; edit the included file.",
             }, repo_root)
 
         return with_repo_boundary({
@@ -95,7 +104,7 @@ def classify_agents_file(repo_root: Path) -> dict[str, object]:
             "agents_path": str(agents_path),
             "target_path": str(symlink_target),
             "target_exists": symlink_target.exists(),
-            "reason": "AGENTS.md is a symlink; edit the resolved target.",
+            "reason": f"{file_name} is a symlink; edit the resolved target.",
         }, repo_root)
 
     content = read_text(agents_path)
@@ -110,7 +119,7 @@ def classify_agents_file(repo_root: Path) -> dict[str, object]:
             "target_path": str(target_path),
             "target_exists": target_path.exists(),
             "include": include_line,
-            "reason": "AGENTS.md contains a single @include directive; edit the included file.",
+            "reason": f"{file_name} contains a single @include directive; edit the included file.",
         }, repo_root)
 
     include_lines = [line for line in non_empty_lines if INCLUDE_RE.match(line)]
@@ -123,7 +132,7 @@ def classify_agents_file(repo_root: Path) -> dict[str, object]:
             "suggested_include_target": str(first_target),
             "target_exists": agents_path.exists(),
             "include_count": len(include_lines),
-            "reason": "AGENTS.md contains @include-style lines plus other content; inspect before choosing the source of truth.",
+            "reason": f"{file_name} contains @include-style lines plus other content; inspect before choosing the source of truth.",
         }, repo_root)
 
     return with_repo_boundary({
@@ -131,13 +140,13 @@ def classify_agents_file(repo_root: Path) -> dict[str, object]:
         "agents_path": str(agents_path),
         "target_path": str(agents_path),
         "target_exists": True,
-        "reason": "AGENTS.md is a regular documentation file; edit it directly.",
+        "reason": f"{file_name} is a regular documentation file; edit it directly.",
     }, repo_root)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("repo_root", nargs="?", default=os.getcwd(), help="Repository root containing AGENTS.md")
+    parser.add_argument("repo_root", nargs="?", default=os.getcwd(), help="Repository root containing AGENTS.md or GEMINI.md")
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).expanduser().resolve()

@@ -91,3 +91,66 @@ The manifest begins with `index.md`; every entry is a unique relative `.md` path
 - `phases/P<NN>-<slug>.md`: one self-contained phase each.
 - `verification.md`: phase-local, wave integration, regression, final end-to-end checks, expected results, skipped checks, and residual risks.
 - `evidence.md`: discussion source link, planning evidence, approval, amendments, action markers, commit records, execution decisions, handoff notes, re-entry, and exit.
+
+## Phase File Contract
+
+Use stable IDs and filenames such as `phases/P01-add-bundle-model.md`. A phase file contains:
+
+```markdown
+# P01: <name>
+
+Status: <Pending | In progress | Completed | Blocked | Superseded>
+Depends on: <IDs or None>
+Wave: <positive integer>
+Subagent: <Eligible | Not eligible — reason>
+Owned scope: <exclusive paths/resources>
+Produces: <downstream contract>
+
+## Goal
+## Context
+## Tasks
+- [ ] <specific action>
+## Intended Logic
+## Touchpoints
+## Verification
+## Acceptance Gate
+## Rollback or Recovery
+## Execution Notes
+```
+
+`Depends on` is authoritative; wave is derived. Links and metadata in `plan.md` and the phase file must agree before completing the record update.
+
+## Persistence Contract
+
+- A snapshot reread covers the Active Snapshot in `index.md`; a complete record reread covers `index.md` and every manifest file.
+- Apply the entrypoint's coordinated record update contract. Declare each new phase or optional Markdown file in the manifest and verify all affected files and cross-links before completing the update.
+- Finish or repair the update before handoff or a final response. Persist the turn checkpoint after material changes; an unchanged turn needs no artificial rewrite.
+
+## Approval and Execute Handoff
+
+Approval requires a decision-complete bundle: concrete goal and scope, verified baseline, preservation criteria, accepted decisions, no blocking questions, complete phase dependencies and ownership, implementation logic, verification, integration gates, and rollback.
+
+After explicit approval, update the same bundle:
+
+```markdown
+Status: Approved plan, not yet implemented
+Plan mode: Exited
+Execution readiness: Ready
+Execute mode: Ready
+Resume instruction: Invoke execute on <canonical bundle root> (tracker <tracker ID>), read index.md and every manifest file, keep this exact bundle as the execution source of truth, and continue updating it until explicit exit.
+```
+
+Set the profile to `Durable` unless already `Audited`, keep the current plan Required references until the handoff is durable, record approval in `evidence.md`, and update and verify the checkpoint. Then follow execute's `Active-Session Handoff` intake on the same bundle before replacing source references in a coordinated update. Approval alone does not authorize implementation. If the user has already requested execution, continue that intake and implementation without asking again; otherwise complete the intake as bookkeeping only and checkpoint without implementation.
+
+## Quality Bar
+
+- Make the plan operational and decision-complete without preserving a raw transcript.
+- Record current behavior and evidence before changing an existing mechanism.
+- Give each material risk a targeted check and each intentional behavior change explicit acceptance criteria.
+- Keep phase IDs, filenames, dependencies, waves, ownership, outputs, verification, and manifest internally consistent.
+- Mark subagent eligibility only for bounded, independently verifiable, non-overlapping ownership.
+- Label unknowns and state how execution will resolve them; unresolved outcome-changing choices block approval.
+
+## Repository Ignore Rule
+
+When inside a Git worktree, idempotently ignore the containing plans directory with one root-anchored trailing-slash rule, normally `/plans/`. Preserve existing `.gitignore` content and index state. If ignore maintenance fails, retain the bundle and report the limitation.
