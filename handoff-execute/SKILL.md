@@ -5,7 +5,7 @@ description: Coordinate execution of an approved version 4 $plan bundle or execu
 
 # Handoff Execute
 
-Act as the controlling parent session. Evaluate the accepted execution record, launch one independent Codex CLI worker only when the handoff is safe, wait for it to finish, inspect its actual work, then retain ownership for simplification and final verification. Launch the worker with `codex exec`; never use `spawn_agent`, another subagent facility, or `$handoff-execute` inside the worker.
+Act as the controlling parent session. Evaluate the accepted execution record, launch one independent Codex CLI worker only when the handoff is safe, wait for it to finish its complete `$execute` quality gates, inspect its actual work, then retain ownership for an independent second simplification pass and final verification. Launch the worker with `codex exec`; never use `spawn_agent`, another subagent facility, or `$handoff-execute` inside the worker.
 
 This skill is a coordinator in front of `$execute`, not a replacement execution record. Adopt the exact version 4 bundle produced by an approved `$plan` or a `$discuss` tracker that passed `Direct Execute Handoff`. Never copy it, create a second plan, or infer the newest bundle. Require its path or reuse the exact already-active canonical root and tracker ID.
 
@@ -24,7 +24,7 @@ Read [recovery.md](references/recovery.md) before recovering an interrupted, fai
 
 Bind the current session to the exact canonical bundle root and tracker ID. On entry, resume, or after compaction, recover those identifiers from durable state and validate the complete bundle before any substantive tool call. If they cannot be recovered, ask for the path and stop; never choose a bundle by recency.
 
-Keep `$execute`'s record transaction, evidence, authorization, worktree, commit, completion, and explicit-exit contracts in force. `handoff-execute` changes who performs the implementation interval, not what execution is authorized or how completion is proven. Record the handoff preflight, launch configuration, runtime directory, worker process/session information available from the CLI, result, reconciliation, simplify pass, and final verification in the adopted bundle.
+Keep `$execute`'s record transaction, evidence, authorization, worktree, commit, completion, and explicit-exit contracts in force. `handoff-execute` changes who performs the implementation interval, not what execution is authorized or how completion is proven. Record the handoff preflight, launch configuration, runtime directory, worker process/session information available from the CLI, result, reconciliation, both simplify passes, and final verification in the adopted bundle.
 
 Only one session may write source files or the execution bundle at a time:
 
@@ -44,10 +44,11 @@ Do not interpret approval alone as implementation authorization. The current req
 4. Persist and verify the handoff action and ownership transfer. Store runtime files outside the repository, worktree, and execution bundle, and record their exact paths for recovery.
 5. Invoke [launch_worker.py](scripts/launch_worker.py) with the canonical bundle root, tracker ID, dedicated worktree, runtime directory, and any verified constraints. The script must launch `codex exec`, pass the prompt through stdin, and return the worker's exit code. Do not use interactive `codex`, `codex -p` as a prompt flag, or shell-built prompt interpolation.
 6. Wait on the actual CLI process. Allow the command to yield and poll its process handle rather than using blind sleep loops. Give the user concise progress updates during long runs.
-7. After termination, reclaim ownership and reconcile the receipt, complete bundle, Git state, declared scope, commits, checks, and working-tree changes. A zero exit code or `implemented` receipt is evidence, never proof of completion.
-8. If implementation is complete enough to review, invoke `$simplify` in the parent on the full `$execute` session scope: starting `HEAD` exclusive through current `HEAD` inclusive, plus remaining in-scope staged, unstaged, and untracked changes. The worker must not run the final simplify pass.
-9. Apply only verified simplify improvements, run focused checks, commit simplify fixes separately when commits are authorized, and record them.
-10. Complete every `$execute` completion gate and persist the final checkpoint. Implementation completion does not exit execute mode.
+7. Require the worker to complete `$execute`'s own implementation, verification, `$simplify`, simplify-fix commit, and post-simplify verification gates before handoff. Its receipt must describe that quality pass and any residual risk accurately.
+8. After termination, reclaim ownership and reconcile the receipt, complete bundle, Git state, declared scope, commits, checks, and working-tree changes. A zero exit code or `implemented` receipt is evidence, never proof of completion.
+9. Invoke `$simplify` again in the parent as an independent acceptance pass on the full `$execute` session scope: starting `HEAD` exclusive through current `HEAD` inclusive, including the worker's implementation and simplify commits plus remaining in-scope staged, unstaged, and untracked changes.
+10. Apply only verified improvements from the parent's second pass directly in the parent session, run focused checks, commit those fixes separately when commits are authorized, and record them. Do not prompt or resume the worker for normal simplify fixes.
+11. Complete every `$execute` completion gate and persist the final checkpoint. Implementation completion does not exit execute mode.
 
 ## Failure Boundary
 

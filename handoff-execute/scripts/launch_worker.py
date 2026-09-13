@@ -106,7 +106,9 @@ Adopt and execute only this exact workflow-record version 4 bundle:
 
 You are the sole writer of the execution bundle and implementation worktree for this bounded worker interval. Read the complete $execute skill, every required reference, every manifest file, repository instructions, and the full accepted record before mutation. Implement the entire authorized scope, update the original bundle transactionally, create only authorized local incremental commits, and run required verification.
 
-Do not invoke $handoff-execute, spawn subagents, or delegate implementation to another agent or session. Do not create another plan or execution bundle. Do not push, deploy, merge, rewrite history, perform destructive or external mutations, broaden scope, or modify unrelated user work unless the record and current authorization explicitly permit the exact action. Do not run the final $simplify pass; the controlling parent session owns simplification after your handoff.
+Do not invoke $handoff-execute, spawn subagents, or delegate implementation to another agent or session. Do not create another plan or execution bundle. Do not push, deploy, merge, rewrite history, perform destructive or external mutations, broaden scope, or modify unrelated user work unless the record and current authorization explicitly permit the exact action.
+
+Before handoff, complete the full $execute quality workflow, including its required $simplify pass. Apply and commit verified simplify fixes when authorized, run the affected checks again, and record the simplify results and residual risks in the execution bundle. The controlling parent session will independently reconcile your work and run a second $simplify acceptance pass; do not defer your own quality gate to it.
 
 Additional parent constraints:
 {constraints}

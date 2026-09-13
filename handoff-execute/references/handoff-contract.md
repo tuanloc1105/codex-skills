@@ -47,8 +47,10 @@ The prompt must direct the new session to:
 - make only authorized local commits and never push, deploy, merge, rewrite history, or perform destructive/external actions without explicit authorization;
 - update the execution bundle transactionally throughout implementation;
 - run phase-local and final verification;
-- not run the final `$simplify` pass, which belongs to the parent;
+- complete `$execute`'s required `$simplify` pass, apply and commit verified cleanup when authorized, verify again, and record the results before handoff;
 - return one receipt matching `references/worker-receipt.schema.json`.
+
+The parent runs a second, independent `$simplify` pass after reconciliation. It applies any resulting fixes itself and does not prompt or resume the worker during the normal completion path.
 
 ## Monitoring and Reconciliation
 
