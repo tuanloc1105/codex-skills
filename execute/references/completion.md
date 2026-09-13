@@ -6,12 +6,13 @@ First add `references/completion.md` through a record write transaction, read th
 
 ## Required Simplify Pass
 
-After the plan's implementation units are committed, invoke `$simplify` on the complete current-session changes before the final response.
+After the plan's implementation units are committed for Git targets, or their changed-path and before/after evidence is current for non-Git targets, invoke `$simplify` on the complete current-session changes before the final response.
 
-- Scope `$simplify` to the diff from the captured starting `HEAD` (exclusive) through the current `HEAD` (inclusive), plus remaining in-scope staged, unstaged, and untracked changes. Include all implementation commits created in the session, not only the most recent commit or working-tree diff.
+- For Git targets, scope `$simplify` to the diff from the captured starting `HEAD` (exclusive) through the current `HEAD` (inclusive), plus remaining in-scope staged, unstaged, and untracked changes. Include all implementation commits created in the session, not only the most recent commit or working-tree diff.
+- For non-Git targets, scope `$simplify` to every path in the recorded current-session changed-path inventory and compare it with the saved before-state evidence. Do not require commits, staging, branches, or `HEAD`; their absence is not a blocker.
 - Run one coordinator-owned simplify pass only after all parallel phase results have been collected and integrated; do not run independent simplify passes inside subagents.
 - Allow `$simplify` to apply focused fixes for confirmed or plausible issues in scope.
-- Commit simplify-driven fixes separately after focused checks pass; do not rewrite earlier implementation commits unless the user explicitly requests it.
+- For Git targets, commit simplify-driven fixes separately after focused checks pass; do not rewrite earlier implementation commits unless the user explicitly requests it. For non-Git targets, update the changed-path and verification evidence after those fixes.
 - Do not let simplification broaden the plan or refactor unrelated code.
 - If `$simplify` is unavailable, rejected, or lacks capacity for its preferred reviewer layout, perform all required review passes locally or with the available safe capacity and state the limitation. Do not block plan completion waiting for a specific subagent count.
 
@@ -30,7 +31,7 @@ When invoking `$update-agent-docs` from this skill, explicitly constrain it to t
 - Do not run a repository-wide documentation refresh.
 - Do not document unrelated existing code, conventions, scripts, or workflows just because they are discovered while checking the docs.
 - Keep any agent-doc changes limited to guidance made necessary by the current diff.
-- If there is no git repository or no current-session change to inspect, skip this step and state the limitation in the final response.
+- If there is no current-session change to inspect, skip this step and state the limitation in the final response. A non-Git target with recorded current-session path changes remains eligible for a scoped agent-doc update using that evidence.
 - If `$update-agent-docs` requires additional authorization, including permission to edit outside the repository, skip the optional update and record the reason unless that external documentation update is itself an explicit plan goal. Do not leave an otherwise completed implementation in progress solely because an automatic agent-doc update could not run.
 
 ## Security Review Offer
