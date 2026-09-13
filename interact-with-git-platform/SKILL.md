@@ -64,6 +64,35 @@ When the target set or effect was not already exact, perform a read-only preflig
 - Use JSON or another documented structured format for machine processing. Check the command's exit status before parsing; do not interpret partial output as success.
 - Avoid debug or verbose HTTP modes when they may disclose authorization headers or sensitive payloads.
 
+## Work with issues, pull requests, and merge requests
+
+Use the provider reference for exact commands and API shapes. Across providers, follow the same lifecycle:
+
+1. Resolve the repository and stable object identifier, then read the current title, body, state, author, branches, labels, assignees, milestone, and discussion or review state needed for the request.
+2. Separate content changes from workflow changes. Creating or editing text, assigning people, changing labels or milestones, closing or reopening, submitting a review, merging, and deleting a source branch are independent mutations.
+3. For an issue, check for duplicate or superseding issues when the user asks to create or triage one. Preserve issue templates and make acceptance criteria, reproduction details, and links render as real Markdown.
+4. For a pull or merge request, inspect the diff and current checks before reviewing. Distinguish a general conversation comment, an overall review, and a line-level review thread; use the surface matching the user's intent.
+5. After every write, re-read the object or returned comment and verify the author, body, state, location, and URL or stable ID.
+
+Treat the requested comment location as part of the write target, not as optional metadata:
+
+- A comment about a specific changed line must be created as an inline diff comment anchored to that file, side, and line or diff position. A top-level PR/MR comment is not an acceptable fallback.
+- A response to an existing review comment must be created inside that exact thread or discussion. A new top-level comment, a new inline thread on the same line, or an overall review body is not a reply.
+- If the provider, permissions, current diff, or available client/API cannot preserve the requested location or thread identity, stop before writing and report the limitation. Never silently degrade to another comment type.
+
+When asked to "address comments" or "handle review feedback," treat the request as permission to inspect and report unless it explicitly authorizes code changes, replies, review submission, or thread resolution. Do not mark a discussion resolved merely because code changed; verify the concern is addressed and that resolving it is within scope.
+
+## Comment on and resolve review threads
+
+- Inventory unresolved threads before acting. Capture each stable thread/discussion ID, author, path and line or position when present, current resolution state, and enough context to avoid replying to a stale or outdated location.
+- Re-read the current diff and the complete thread before replying. A line may have moved, the comment may be outdated, or later replies may already answer it.
+- Reply inside the existing thread whenever the request refers to an existing comment. Use a new top-level PR/MR comment only for explicitly cross-cutting information that does not answer a particular thread.
+- When the task is to answer and resolve feedback, enforce this sequence for each thread: create the reply using the stable thread/discussion ID, fetch that thread and verify the reply is nested under it, resolve that same thread ID, then fetch it again and verify the resolved state. Do not resolve if the reply was misplaced or cannot be verified.
+- Resolve by stable thread/discussion identifier, never by array position, visible ordering, path alone, or comment text. If the high-level CLI lacks thread operations, use the authenticated API described in the provider reference.
+- After creating an inline comment, re-read it and verify its path plus line/side or diff position. If the response represents it as a top-level comment or attaches it to a different location, report the mismatch and do not create a duplicate automatically.
+- Do not resolve another reviewer's thread when platform policy, repository convention, or the user's request leaves ownership unclear. Report it as addressed and leave resolution to the reviewer.
+- For batch work, preflight and present the exact unresolved thread set. After mutation, fetch the set again and report resolved, still-open, outdated, or failed items individually. Do not blindly retry an uncertain mutation.
+
 ## Handle uncertainty and report
 
 - Do not automatically retry a mutation after a timeout, transport error, interrupted prompt, or partial response. Read the remote object first to determine whether the operation succeeded, then report the observed state and ask for direction if another mutation would be required.

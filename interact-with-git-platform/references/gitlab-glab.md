@@ -19,6 +19,22 @@ Read this reference only for GitLab operations through `glab`, including GitLab.
 - `--yes` skips submission confirmation but does not resolve ambiguous inputs. Use it only after the skill's write gate is satisfied and all relevant fields are explicit.
 - Re-read an MR by stable IID or URL before edit, review, checkout, close, reopen, branch update, or merge, and again after a write. Keep project ID and MR IID distinct when using the API.
 
+### Issue workflow
+
+- Discover the installed `glab issue` list/view/create/update/comment/close/reopen surface from leaf help. Treat description, labels, assignees, milestone, confidentiality, due date, and state as separate changes.
+- Search the verified project for plausible duplicates when requested before creating an issue. Preserve project issue templates and use an advertised file/stdin mechanism or a reviewed API payload for multiline Markdown.
+- Re-read by project plus issue IID before and after a write. Do not confuse the issue IID shown in the project with a global database ID.
+
+### Merge-request discussion workflow
+
+- Distinguish a merge-request note from a discussion. A top-level note may be suitable for general conversation, but resolving review feedback requires the discussion resource and its stable discussion ID.
+- Never use a top-level MR note for a finding tied to a changed line or as a reply to an existing discussion. Create a positioned diff discussion for a new inline finding, and POST the reply beneath the existing discussion ID when answering feedback.
+- When high-level `glab mr` commands do not expose the needed thread operation, use `glab api` against the verified project's merge-request discussions endpoints. Percent-encode a path-style project identifier or use the numeric project ID; keep the MR IID separate.
+- Inventory discussions with a paginated GET of `projects/:id/merge_requests/:merge_request_iid/discussions`. Retain each discussion ID, `individual_note`, notes, resolvable/resolved state, author, position, and outdated context where returned.
+- Reply within a discussion by creating a note under that exact discussion. Resolve or unresolve through the discussion endpoint using its stable ID and an explicit boolean resolution value supported by the server. Do not substitute a new top-level MR note.
+- Creating a new diff discussion requires the current base, start, and head SHAs plus the supported old/new path and line fields. Fetch the latest MR diff refs immediately before posting; stale positions may fail or attach to outdated code.
+- After creating an inline discussion, verify its returned position matches the intended path and old/new line. After replying, GET the exact discussion and verify the new note is nested in it before updating that discussion's resolved state. GET it again after resolution. GitLab instances and permissions vary, so inspect the local `glab api` help and server response instead of assuming every discussion is resolvable by the current user.
+
 ## Pipelines, releases, and project settings
 
 - Pipeline run, retry, cancel, delete, schedule, variable update, and manual job play are mutations. Confirm the project, ref, variables or inputs, and whether protected or production resources can be affected.

@@ -20,6 +20,21 @@ Read this reference only for Gitea operations through `tea`. Client and server c
 - Re-read an issue or pull request by numeric index after create, edit, comment, close, reopen, review, or merge. Do not confuse an issue/PR index with a repository or database ID.
 - `tea pulls merge` can perform the merge directly without a confirmation flag. Resolve the repository, pull index, mergeability, checks, approvals, and merge style before invoking it.
 
+### Issue workflow
+
+- Discover the installed `tea issues` list/view/create/edit/comment/close/reopen capabilities and aliases from leaf help. Treat title/body, labels, assignees, milestone, deadline, and state as independent changes.
+- Search the verified repository for plausible duplicates when requested before creating an issue. Preserve repository templates, and use a supported description file/stdin option or a reviewed API payload for multiline Markdown.
+- Re-read by repository plus issue index before and after mutation. Gitea pull requests share issue-style conversation facilities, so verify whether a command is operating on an issue or pull request with that index.
+
+### Pull-request review and comment workflow
+
+- Distinguish issue-style PR comments, submitted reviews, and inline review comments. Inspect `tea pulls`, review-related help, and the selected Gitea server's API before deciding which surface matches the request.
+- Never substitute an issue-style PR comment for a requested inline finding or thread reply. Use a supported inline review-comment endpoint with the exact diff location, or a supported reply endpoint with the existing review/comment ID. If the selected server exposes neither operation, stop without commenting and report the unsupported capability.
+- If Tea lacks a high-level reply or resolution command, use `tea api` only for endpoints advertised by the selected server. Inventory the pull's reviews and review comments with explicit repository and pull index, retaining review/comment IDs, paths, line context, commit IDs, and resolved or outdated fields when the server exposes them.
+- Gitea versions may not expose a GitHub/GitLab-style resolvable thread model. Do not claim that a reply, review submission, or issue-style comment resolves a thread. If the server exposes no resolution mutation, reply with the requested status when authorized and report that resolution must remain open or be completed in the web UI.
+- Inline comments depend on the current diff and commit context. Re-fetch the pull head and changed files immediately before posting and use only the position fields documented by that server.
+- After creating an inline comment, verify its path and line or diff position. After replying, verify the reply is associated with the intended review/comment thread before resolving when supported, then verify the resolved state separately. If Gitea exposes comments without stable thread nesting, do not represent a new comment as a reply or resolve substitute.
+
 ## Releases, actions, and administration
 
 - Before creating a Tea release, confirm the tag and target and inspect documented missing-tag behavior. If the server may create a missing tag at the requested target or default branch, treat that as a secondary mutation. Prefer the advertised note-file or stdin capability for multiline release notes.

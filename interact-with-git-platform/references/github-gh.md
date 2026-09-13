@@ -20,6 +20,22 @@ Read this reference only for GitHub operations through `gh`. Discover available 
 - Treat approval, request-changes, merge, revert, branch update, auto-merge, and removal of a head branch as distinct effects. Use only the effects the user requested and verify the repository's allowed merge method before choosing one.
 - Use stable identifiers or full URLs when a branch could match multiple pull requests.
 
+### Issue workflow
+
+- Discover `gh issue list`, `view`, `create`, `edit`, `comment`, `close`, `reopen`, `pin`, `lock`, and related leaf capabilities from local help. Keep title/body edits separate from labels, assignees, milestone, state, pinning, and locking.
+- Before creating an issue, search within the verified repository for matching open and recently closed issues when duplicate detection is part of the request. If an issue template applies, preserve its required headings and use a file/stdin body option for multiline Markdown.
+- Re-read with `gh issue view <number-or-url> --repo <repo> --json ...` before and after mutation. Treat closing with a reason and adding a closing comment as distinct effects.
+
+### Pull-request review and thread workflow
+
+- Use `gh pr diff`, `gh pr checks`, `gh pr view`, and the files/commits/reviews data exposed by `gh pr view --json` or the API to establish the review context. `gh pr comment` creates a general conversation comment; `gh pr review` submits an overall review. Neither should be assumed to reply to or resolve a line-level review thread.
+- Never use `gh pr comment` for a finding tied to a changed line or as a reply to an existing review thread. For an inline finding, create a pull-request review comment with the current commit SHA, path, line and side or supported diff position. For a reply, use the existing review thread node ID or the review-comment reply endpoint advertised by the API.
+- For line-level review threads, prefer GraphQL through `gh api graphql` when the installed high-level CLI has no equivalent. Query the pull request's `reviewThreads` connection and paginate it; retain each thread's node ID, `isResolved`, `isOutdated`, path, line information, and comments.
+- Reply to an existing thread with the advertised GraphQL review-thread reply mutation when available, passing the stable thread node ID and body. Resolve or unresolve with the corresponding review-thread mutation and the same node ID. Inspect the current GraphQL schema or official manual if mutation names or input fields are not accepted; do not fall back to creating a top-level comment.
+- Inline review comments require a commit and diff position or current line/side fields accepted by the GitHub API. Re-read the current head SHA and diff immediately before creation; never reuse a stale position from an earlier diff.
+- Draft/pending review comments are not published until the review is submitted. Verify whether an API call creates a pending review, immediately publishes a comment, or submits an approval/request-changes event before using it.
+- After creating an inline finding, verify the returned review comment contains the intended path and line/side or position and belongs to the intended pull request. After replying, query the exact thread node and verify the new comment appears in that thread before calling the resolve mutation. Then query it again and verify `isResolved`. For a batch, paginate and verify all affected IDs rather than assuming one successful mutation covered the set.
+
 ## Releases, workflows, and repository settings
 
 - Confirm the tag and target commit before creating a release. Distinguish draft creation from publication and inspect whether generated notes or assets add unintended content.
