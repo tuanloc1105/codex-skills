@@ -86,8 +86,8 @@ The manifest begins with `index.md`; every entry is a unique relative `.md` path
 ## Content Ownership
 
 - `context.md`: goal, background, current-state inspection, behavioral baseline, preservation requirements, scope, constraints, touchpoints, desired behavior, risks, and rollback.
-- `decisions.md`: accepted/rejected decisions, assumptions, unknowns, and option-bearing open questions.
-- `plan.md`: overall strategy, authoritative phase dependency table, derived waves, integration gates, and links to phase files. For a simple non-phased plan, it may also contain the one linear checklist.
+- `decisions.md`: accepted/rejected decisions, assumptions, unknowns, and option-bearing open questions (each open question must record its options, recommendation/default when applicable, and whether it blocks execution).
+- `plan.md`: overall strategy, authoritative phase dependency table (with Phase ID, Name, Depends on, Wave, Subagent eligibility, Antigravity Workspace, Owned scope, Produces, and Phase file link), derived waves, integration gates, and links to phase files. For a simple non-phased plan, it may also contain the one linear checklist.
 - `phases/P<NN>-<slug>.md`: one self-contained phase each.
 - `verification.md`: phase-local, wave integration, regression, final end-to-end checks, expected results, skipped checks, and residual risks.
 - `evidence.md`: discussion source link, planning evidence, approval, amendments, action markers, commit records, execution decisions, handoff notes, re-entry, and exit.
@@ -103,6 +103,7 @@ Status: <Pending | In progress | Completed | Blocked | Superseded>
 Depends on: <IDs or None>
 Wave: <positive integer>
 Subagent: <Eligible | Not eligible — reason>
+Antigravity Workspace: <branch | share | N/A — sequential/non-delegated>
 Owned scope: <exclusive paths/resources>
 Produces: <downstream contract>
 
@@ -120,6 +121,8 @@ Produces: <downstream contract>
 
 `Depends on` is authoritative; wave is derived. Links and metadata in `plan.md` and the phase file must agree before completing the record update.
 
+For delegated phases (`Subagent: Eligible`), `Antigravity Workspace` must be `branch` or `share`. `branch` is mandatory for all mutating delegated Git phases (isolated git worktree). `share` is permitted ONLY for read-only delegation (such as inspection, analysis, or verification without file or git mutations); mutating delegated phases must never use `share`. For non-delegated sequential phases (`Subagent: Not eligible`), record `N/A — sequential/non-delegated` (or `N/A`). Simple non-phased plans execute sequentially without phase files or workspace metadata.
+
 ## Persistence Contract
 
 - A snapshot reread covers the Active Snapshot in `index.md`; a complete record reread covers `index.md` and every manifest file.
@@ -128,7 +131,7 @@ Produces: <downstream contract>
 
 ## Approval and Execute Handoff
 
-Approval requires a decision-complete bundle: concrete goal and scope, verified baseline, preservation criteria, accepted decisions, no blocking questions, complete phase dependencies and ownership, implementation logic, verification, integration gates, and rollback.
+Approval requires a decision-complete bundle: concrete goal and scope, verified baseline, preservation criteria, accepted decisions, no blocking questions, complete phase dependencies and ownership, Antigravity Workspace settings for phased plans, implementation logic, verification, integration gates, and rollback.
 
 After explicit approval, update the same bundle:
 
@@ -147,7 +150,7 @@ Set the profile to `Durable` unless already `Audited`, keep the current plan Req
 - Make the plan operational and decision-complete without preserving a raw transcript.
 - Record current behavior and evidence before changing an existing mechanism.
 - Give each material risk a targeted check and each intentional behavior change explicit acceptance criteria.
-- Keep phase IDs, filenames, dependencies, waves, ownership, outputs, verification, and manifest internally consistent.
+- Keep phase IDs, filenames, dependencies, waves, Antigravity Workspace settings, ownership, outputs, verification, and manifest internally consistent.
 - Mark subagent eligibility only for bounded, independently verifiable, non-overlapping ownership.
 - Label unknowns and state how execution will resolve them; unresolved outcome-changing choices block approval.
 

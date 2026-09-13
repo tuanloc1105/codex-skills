@@ -12,7 +12,7 @@ Verify these basics:
 - `context.md`, `plan.md`, `verification.md`, and `evidence.md` exist, and every declared phase has one valid phase file.
 - No unresolved item in `decisions.md` blocks execution.
 - The record status is approved or the user explicitly asked to execute it.
-- For a phased plan, read `## Execution Structure` and capture each phase's ID, dependencies, wave, subagent eligibility, owned scope, produced output, and verification or integration requirements.
+- For a phased plan, read `## Execution Structure` and capture each phase's ID, dependencies, wave, subagent eligibility, Antigravity Workspace setting (`branch`, `share`, or `N/A`), owned scope, produced output, and verification or integration requirements.
 
 Reject an active or not-ready discussion tracker as an execution input. Do not silently finish its discussion, choose unresolved options, or manufacture a plan inside execute mode. In the same task, keep `discuss` active and complete its `Direct Execute Handoff`; in a fresh task, tell the user to resume `discuss` on that exact tracker before trying `execute` again.
 
@@ -24,7 +24,7 @@ Ask for confirmation only when the record explicitly says not to implement, an u
 
 Treat `Depends on` as authoritative and any declared wave as a scheduling hint that must agree with it. Revalidate phase independence against the current repository and runtime before dispatch. An eligibility note never overrides overlapping files, shared mutable state, unstable contracts, or newly discovered dependencies.
 
-Reject phased plans with missing dependency, wave, ownership, output, phase-file, or acceptance metadata. Simple plans without phases execute sequentially; do not infer parallel permission from numbered steps.
+Reject phased plans with missing dependency, wave, subagent eligibility, Antigravity Workspace setting, ownership, output, phase-file, or acceptance metadata. Require Antigravity Workspace to be `branch` for all mutating delegated Git phases; reject plans that specify `share` for mutating delegated phases (`share` is permitted strictly for read-only delegation). Simple plans without phases execute sequentially (`Workspace: N/A`); do not infer parallel permission from numbered steps.
 
 When working in a git repository, capture the initial status and current diff boundaries before parallel dispatch so pre-existing user changes can be distinguished and preserved.
 

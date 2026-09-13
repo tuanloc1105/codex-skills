@@ -55,6 +55,7 @@ Load only the reference needed for the current stage, and read it completely bef
 - Read [references/parallel-execution.md](references/parallel-execution.md) before evaluating delegation, dispatching subagents via `invoke_subagent`, or recovering delegated work.
 - Read [references/post-merge-cleanup.md](references/post-merge-cleanup.md) before a user-requested PR/MR merge or dedicated-worktree cleanup.
 - Read-only adoption and summary turns do not require either implementation reference unless their conditions arise.
+- Keep `references/intake.md` required through adoption or re-entry. For a later read-only summary with no intake or other routed work, `Required references: None` is permitted. Add `references/implementation.md` before implementation, amendment, commit, worktree setup, or recovery; add `references/completion.md` before simplify, completion, or a user-requested PR/MR merge and its cleanup. Add `references/parallel-execution.md` while evaluating delegation or while delegated work, subagent integration, or recovery is active; add `references/post-merge-cleanup.md` while handling a requested merge or cleanup. Persist and verify each set change in `Required references` in `index.md` through a coordinated record write transaction before any mutation or stage transition, and read newly required references before proceeding. Remove a conditional reference only after its stage and all dependent work (such as subagent branch integration or post-merge cleanup) have ended, and verify the updated references before the next action.
 
 ## Persistent Mode Contract
 
@@ -136,3 +137,7 @@ Require a path to the execution bundle directory or its `index.md` unless an exa
 - If the current task already has one adopted execution-record path, reuse it for later turns without asking again.
 - If the user did not supply a path and no exact active path exists, ask where the execution record is using `ask_question` (or chat fallback) and stop until they answer.
 - If the path does not exist or is not readable, report that clearly and ask for the correct path.
+
+## Plan and Tracker Intake
+
+Before validating or adopting a record, read and follow [references/intake.md](references/intake.md). Adopt the exact bundle only after its intake checks pass; reading or adopting it does not authorize implementation.

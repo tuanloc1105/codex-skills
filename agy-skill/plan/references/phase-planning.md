@@ -13,11 +13,17 @@ When phases are useful, assign zero-padded stable IDs such as `P01`, `P02`, and 
 - `Depends on`: prerequisite phase IDs or `None`
 - `Wave`: the earliest execution wave allowed by those dependencies
 - `Subagent`: `Eligible` or `Not eligible — <reason>`
-- `Antigravity Workspace`: `branch` (isolated git worktree / branched workspace) or `share` (shared repository directory)
+- `Antigravity Workspace`: `branch` (isolated git worktree / branched workspace), `share` (shared repository directory), or `N/A — sequential/non-delegated`
 - `Owned scope`: files, modules, services, external systems, or other mutable resources the phase may change
 - `Produces`: the concrete result or contract returned for downstream work
 - Phase-local verification and any cross-phase integration gate
 - Intended logic, touchpoints, acceptance gate, rollback or recovery, and an executable task checklist
+
+Antigravity Workspace rules and safe defaults:
+- For delegated phases (`Subagent: Eligible`), `Antigravity Workspace` must be explicitly declared as `branch` or `share`.
+- `branch` is mandatory for all mutating delegated Git phases (creating an isolated Git worktree branched from the parent repository to prevent uncommitted or conflicting writes to the coordinator workspace).
+- `share` is permitted ONLY for read-only delegation (such as read-only codebase exploration, inspection, architectural analysis, or parallel verification that performs no file writes or git mutations). Mutating delegated phases must never use `share`.
+- For non-delegated sequential phases (`Subagent: Not eligible`), record `Antigravity Workspace: N/A — sequential/non-delegated` (or `N/A`). Simple sequential plans without phases do not require phase files or workspace isolation metadata, maintaining full backward compatibility.
 
 Treat `Depends on` as the source of truth and `Wave` as a derived scheduling aid:
 
@@ -27,7 +33,7 @@ Treat `Depends on` as the source of truth and `Wave` as a derived scheduling aid
 - Mark a phase not eligible when it may overlap another phase's files or mutable state, or when it owns shared contracts, migrations, lockfiles, generated artifacts, external side effects, or stateful processes without an explicit safe coordination strategy.
 - Default to `Not eligible` when independence cannot be established confidently.
 
-Before closing a record write, verify that the phase ID, filename, dependency list, wave, eligibility, owned scope, and output agree between `plan.md` and the phase file. A declared phase without a file, an unlisted phase file, duplicate phase ID, missing dependency, or dependency cycle blocks approval.
+Before closing a record write, verify that the phase ID, filename, dependency list, wave, eligibility, Antigravity Workspace setting, owned scope, and output agree between `plan.md` and the phase file. A declared phase without a file, an unlisted phase file, duplicate phase ID, missing or invalid Antigravity Workspace setting, missing dependency, or dependency cycle blocks approval.
 
 Eligibility means the executing agent may delegate the phase to a separate subagent via `invoke_subagent`; it is not a requirement to do so. Runtime capacity, current repository state, newly discovered coupling, or delegation overhead may justify serial execution. The main executing agent remains responsible for plan progress, shared resources, integration, conflict resolution, and cross-phase verification.
 

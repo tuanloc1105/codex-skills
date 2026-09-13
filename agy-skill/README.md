@@ -10,7 +10,7 @@ Bộ kỹ năng cộng tác và quản lý vòng đời phát triển phần m�
 | :--- | :--- | :--- |
 | **`discuss`** | Thảo luận kiến trúc, làm rõ yêu cầu, ghi nhận quyết định vào bundle v4 (`./discussion/`). Cấm sửa source code bừa bãi. | `ask_question` cho Immediate Decision Gate; `replace_file_content`, `write_to_file`. |
 | **`plan`** | Lập kế hoạch chi tiết (phases, dependencies, waves) vào `./plans/`. Plan-first boundary (chưa sửa code). | `ask_question` cho phê duyệt kế hoạch; `invoke_subagent` mapping cho phase candidates. |
-| **`execute`** | Triển khai kế hoạch đã duyệt hoặc tracker thảo luận đạt điều kiện handoff. Evidence tracking, hoàn tất có kiểm soát. | `invoke_subagent` với `Workspace: 'branch'` (isolated worktree) hoặc `'share'`; chạy quality gates. |
+| **`execute`** | Triển khai kế hoạch đã duyệt hoặc tracker thảo luận đạt điều kiện handoff. Evidence tracking, hoàn tất có kiểm soát. | `invoke_subagent` với `Workspace: 'branch'` (bắt buộc cho mutating phase) hoặc `'share'` (chỉ cho read-only delegation); chạy quality gates. |
 | **`simplify`** | Rà soát và làm sạch code thay đổi gần nhất (4 góc nhìn: reuse, simplification, efficiency, altitude). | `invoke_subagent` chạy 4 reviewer song song; `replace_file_content`. |
 | **`update-agent-docs`** | Tự động đồng bộ và cập nhật `AGENTS.md` / `GEMINI.md` khi session có thay đổi quan trọng về workflow / routing. | `invoke_subagent` discovery; `find_by_name`, `grep_search`. |
 | **`interact-with-git-platform`** | Tương tác an toàn với GitHub (`gh`), GitLab (`glab`), Gitea (`tea`): PR/MR, issues, reviews, releases, CI. | `run_command`, `ask_question` cho xác nhận rủi ro / chọn remote; `write_to_file` cho body markdown. |
@@ -35,23 +35,26 @@ flowchart LR
 
 Antigravity tự động phát hiện skill qua các đường dẫn chuẩn (xem thêm tài liệu `agy-customizations`):
 
-### Cách 1: Sử dụng trong workspace dự án hiện tại
-Sao chép hoặc symlink thư mục skill vào `.agents/skills/` của project:
+### Cách 1: Sử dụng trong workspace dự án hiện tại (Project Workspace)
+Sao chép thư mục skill vào `.agents/skills/` của repository hoặc workspace:
 ```bash
 mkdir -p .agents/skills
 cp -R agy-skill/* .agents/skills/
 ```
 
-### Cách 2: Cài đặt toàn cục (Global cho toàn bộ Antigravity)
-Sao chép hoặc symlink vào thư mục cấu hình cá nhân:
+### Cách 2: Cài đặt toàn cục cho Antigravity IDE / Shared (`~/.gemini/config/skills/`)
+Sao chép các skill vào thư mục cấu hình toàn cục dùng chung cho Antigravity IDE:
 ```bash
-mkdir -p ~/.gemini/antigravity-cli/skills/
-# hoặc ~/.gemini/config/skills/
-cp -R agy-skill/* ~/.gemini/antigravity-cli/skills/
+mkdir -p ~/.gemini/config/skills/
+cp -R agy-skill/* ~/.gemini/config/skills/
 ```
 
-### Cách 3: Khai báo qua `skills.json`
-Đăng ký trực tiếp đường dẫn thư mục `agy-skill` trong `skills.json` của workspace.
+### Cách 3: Cài đặt toàn cục cho Antigravity CLI (`~/.gemini/antigravity-cli/skills/`)
+Sao chép các skill vào thư mục cấu hình dành riêng cho Antigravity CLI:
+```bash
+mkdir -p ~/.gemini/antigravity-cli/skills/
+cp -R agy-skill/* ~/.gemini/antigravity-cli/skills/
+```
 
 ---
 
