@@ -120,15 +120,35 @@ Give each slice its own Jira key, acceptance boundary, estimate, working branch,
 
 After implementation reaches `CODE_READY` and the working MR exists with the expected repository, source, and target, transition the uniquely resolved working Jira issue to `Done`. The explicit delivery request authorizes only this bounded completion transition and the conditional atomic worklog below. Pipeline results, MR approval, mergeability, and MR merge are not prerequisites.
 
-Before the first `Done` transition attempt, use `$interact-with-jira` to read the current status, raw Original Estimate (`timeoriginalestimate`), current Time Spent, the complete paginated worklog list and count, the exact available `Done` transition ID, and its transition metadata:
+Before the first `Done` transition attempt, use `$interact-with-jira` to read the current status, raw Original Estimate (`timeoriginalestimate`), `timetracking.originalEstimate`, current Time Spent, the complete paginated worklog list and count, the exact available `Done` transition ID, and its expanded transition metadata, including the `worklog` field operations:
 
 - If the issue is already `Done`, do not transition it and do not add a worklog. Proceed directly to final verification.
-- If the issue is not `Done` and the verified worklog count is zero, require a positive Original Estimate. In the **first and only initial transition request**, send exactly one `update.worklog` entry shaped as `[{"add":{"timeSpentSeconds":<timeoriginalestimate>}}]` together with the exact `Done` transition. Never try the transition without that worklog first, and never create the worklog through a standalone worklog command or endpoint.
-- If at least one worklog already exists, transition to `Done` without adding another worklog. Existing Time Spent alone is not a substitute for reading the complete worklog count.
-- If Original Estimate is absent or non-positive when the zero-worklog branch requires it, or the available transition/tool metadata cannot support the atomic worklog update, pause this Jira completion action and warn the user. Do not invent an estimate or fall back to a separate worklog call.
-- If any transition response is unclear, times out, or otherwise leaves the result uncertain, re-read status, Time Spent, and the complete worklog list before any further write. If status changed or the worklog count increased, do not retry. Never automatically retry an uncertain mutation through another tool or route.
+- If the issue is not `Done` and the verified worklog count is zero, require a positive raw Original Estimate in seconds, a canonical Jira duration string from `timetracking.originalEstimate` or a lossless conversion verified against those raw seconds, and a valid ISO-8601 `started` timestamp with a timezone. Reject a duration string whose parsed seconds do not equal `timeoriginalestimate`.
+- For `started`, use a user-supplied and verified actual work-start timestamp when available. Otherwise obtain the exact current local timestamp at the mutation boundary and record that it is Jira UI's default logging-time provenance. Never derive or invent this timestamp from model context.
+- In the **first and only initial transition request**, prefer the UI-compatible atomic shape below. It contains exactly one `worklog` `add` operation with `timeSpent` and `started` together with the exact `Done` transition:
 
-Finally, re-read and record the status, Time Spent, and complete worklog count. Require `Done`; when this workflow added the worklog, also require an exact count increase of one and verify the resulting Time Spent reflects the added Original Estimate. Any mismatch is a warning-first verification failure: pause dependent claims of Jira completion, report the evidence, and continue only under an explicit scoped override without adding or duplicating a worklog.
+  ```json
+  {
+    "transition": {"id": "<done-transition-id>"},
+    "update": {
+      "worklog": [
+        {
+          "add": {
+            "timeSpent": "<canonical-original-estimate>",
+            "started": "<verified-iso-timestamp>"
+          }
+        }
+      ]
+    }
+  }
+  ```
+
+  Never send both `timeSpent` and `timeSpentSeconds`, never write the aggregate/read-only `timespent` field, never create the worklog through a standalone command or endpoint, and never try a worklog-free `Done` transition first. Atlassian's generic Jira Cloud REST v3 Worklog schema still permits either `timeSpent` or `timeSpentSeconds` (not both); this workflow requires `timeSpent` plus `started` as a transition-screen and project-validator compatibility strategy.
+- If at least one worklog already exists, transition to `Done` without adding another worklog. Existing Time Spent alone is not a substitute for reading the complete worklog count.
+- If Original Estimate is absent or non-positive when the zero-worklog branch requires it, the canonical duration is absent or mismatched, `started` cannot be obtained with valid provenance, or the available transition/tool metadata cannot support the atomic worklog update, pause this Jira completion action and warn the user. Do not invent an estimate or timestamp, write `timespent`, or fall back to a separate worklog call.
+- If a transition response is rejected, unclear, times out, or otherwise leaves the result uncertain, re-read status, Time Spent, and the complete worklog list before doing anything else. Never automatically retry, switch payload variants, or use another tool or route after rejection or uncertainty, even when the re-read shows no side effects. Report the observed state and require a new user decision before any further mutation.
+
+Finally, re-read and record the status, Time Spent, and complete worklog list and count. Require `Done`; when this workflow added the worklog, also require an exact count increase of one, identify the new worklog, verify its duration in seconds equals the raw Original Estimate, and verify Time Spent reflects that worklog. Any mismatch is a warning-first verification failure: pause dependent claims of Jira completion, report the evidence, and continue only under an explicit scoped override without adding or duplicating a worklog.
 
 Jira `Done` and GitLab merge are independent lifecycle facts. Conversely, Jira `Done` never proves pipeline success, MR approval, merge readiness, or `MERGED`. If permissions, transition metadata, Original Estimate when required, or an applicable Jira transition is unavailable, pause only the Jira transition and continue the MR review-and-merge workflow when its own gates permit.
 
