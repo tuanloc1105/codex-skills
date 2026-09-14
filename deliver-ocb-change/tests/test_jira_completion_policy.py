@@ -21,8 +21,8 @@ def jira_duration_seconds(value: str) -> int:
 def atomic_payload(case: dict) -> dict:
     if jira_duration_seconds(case["originalEstimate"]) != case["timeoriginalestimate"]:
         raise ValueError("canonical duration does not match raw Original Estimate seconds")
-    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})", case["started"]):
-        raise ValueError("started must be ISO-8601 with a timezone")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{4}", case["started"]):
+        raise ValueError("started must match Jira yyyy-MM-dd'T'HH:mm:ss.SSSZ")
     return {
         "transition": {"id": case["transitionId"]},
         "update": {
@@ -60,8 +60,18 @@ class JiraCompletionPolicyTest(unittest.TestCase):
         self.assertNotIn("timespent", payload)
 
     def test_mismatched_duration_is_rejected(self):
-        case = {**FIXTURES["mismatched_duration"], "started": "2026-09-14T10:15:30+07:00", "transitionId": "3"}
+        case = {**FIXTURES["mismatched_duration"], "started": "2026-09-14T10:15:30.000+0700", "transitionId": "3"}
         with self.assertRaisesRegex(ValueError, "does not match"):
+            atomic_payload(case)
+
+    def test_colonized_offset_is_rejected(self):
+        case = {**FIXTURES["canonical_three_hours"], "started": "2026-09-14T10:15:30.000+07:00"}
+        with self.assertRaisesRegex(ValueError, "must match Jira"):
+            atomic_payload(case)
+
+    def test_missing_milliseconds_is_rejected(self):
+        case = {**FIXTURES["canonical_three_hours"], "started": "2026-09-14T10:15:30+0700"}
+        with self.assertRaisesRegex(ValueError, "must match Jira"):
             atomic_payload(case)
 
     def test_rejection_and_uncertainty_cannot_retry(self):
@@ -81,7 +91,8 @@ class JiraCompletionPolicyTest(unittest.TestCase):
     def test_policy_documents_payload_and_no_retry_contract(self):
         policy = (SKILL_ROOT / "references" / "core-policy.md").read_text()
         self.assertIn('"timeSpent": "<canonical-original-estimate>"', policy)
-        self.assertIn('"started": "<verified-iso-timestamp>"', policy)
+        self.assertIn("date '+%Y-%m-%dT%H:%M:%S.000%z'", policy)
+        self.assertIn('"started": "2026-09-14T14:59:33.000+0700"', policy)
         self.assertIn("exact count increase of one", policy)
         self.assertIn("Never automatically retry, switch payload variants", policy)
 

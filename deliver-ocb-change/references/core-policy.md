@@ -123,8 +123,9 @@ After implementation reaches `CODE_READY` and the working MR exists with the exp
 Before the first `Done` transition attempt, use `$interact-with-jira` to read the current status, raw Original Estimate (`timeoriginalestimate`), `timetracking.originalEstimate`, current Time Spent, the complete paginated worklog list and count, the exact available `Done` transition ID, and its expanded transition metadata, including the `worklog` field operations:
 
 - If the issue is already `Done`, do not transition it and do not add a worklog. Proceed directly to final verification.
-- If the issue is not `Done` and the verified worklog count is zero, require a positive raw Original Estimate in seconds, a canonical Jira duration string from `timetracking.originalEstimate` or a lossless conversion verified against those raw seconds, and a valid ISO-8601 `started` timestamp with a timezone. Reject a duration string whose parsed seconds do not equal `timeoriginalestimate`.
-- For `started`, use a user-supplied and verified actual work-start timestamp when available. Otherwise obtain the exact current local timestamp at the mutation boundary and record that it is Jira UI's default logging-time provenance. Never derive or invent this timestamp from model context.
+- If the issue is not `Done` and the verified worklog count is zero, require a positive raw Original Estimate in seconds and a canonical Jira duration string from `timetracking.originalEstimate` or a lossless conversion verified against those raw seconds. Reject a duration string whose parsed seconds do not equal `timeoriginalestimate`.
+- Immediately before calling the Jira transition tool, obtain `started` from the system clock by running exactly `date '+%Y-%m-%dT%H:%M:%S.000%z'`. Use that command's stdout unchanged and record the command provenance. The required Jira format is exactly `yyyy-MM-dd'T'HH:mm:ss.SSSZ`, for example `2026-09-14T14:59:33.000+0700`.
+- Before the mutation, validate `started` against `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{4}$`. If it does not match, stop before mutation and regenerate it by running the same required command; do not submit a payload until a freshly generated value matches. Never use an offset containing a colon such as `+07:00`, omit milliseconds, reuse a user-supplied or recorded timestamp, or derive/invent time from model context.
 - In the **first and only initial transition request**, prefer the UI-compatible atomic shape below. It contains exactly one `worklog` `add` operation with `timeSpent` and `started` together with the exact `Done` transition:
 
   ```json
@@ -135,7 +136,7 @@ Before the first `Done` transition attempt, use `$interact-with-jira` to read th
         {
           "add": {
             "timeSpent": "<canonical-original-estimate>",
-            "started": "<verified-iso-timestamp>"
+            "started": "2026-09-14T14:59:33.000+0700"
           }
         }
       ]
