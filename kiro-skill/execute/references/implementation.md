@@ -1,0 +1,161 @@
+# Execute Implementation Reference
+
+Read this reference completely before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
+
+First add `references/implementation.md` through a record write transaction, read this file completely, and verify the saved Required references before mutation.
+
+## Dedicated Worktree
+
+Before beginning or resuming implementation in a git repository, work from a dedicated linked worktree for the adopted execution record. Never implement in the user's existing checkout.
+
+- Use the absolute initial terminal working directory captured on adoption as `worktree anchor` (Kiro's `[PROJECT]` active project directory for a dashboard session, else the shell cwd). Persist it in `evidence.md` through the normal record transaction before worktree setup. An explicit user-selected location takes precedence. On resume, use the recorded anchor, not the shell's current directory, repository root, or execution-record directory. For older records without an anchor, recover it from explicit user instructions or recorded initial-directory evidence; if that evidence is unavailable and a new worktree is needed, ask for the intended parent directory rather than guessing from a later cwd. Preserve an existing safely reusable dedicated worktree without relocating it solely to adopt this rule.
+- Resolve each target repository independently from the approved implementation paths with `git -C <target-directory> rev-parse --show-toplevel`. A non-Git umbrella directory can contain multiple target Git repositories; it does not make their implementation a non-Git workflow. Skip worktree and ignore setup only for target paths that are actually outside Git repositories.
+- Create each new or replacement worktree inside the mandatory `.worktrees/` parent at `<worktree-anchor>/.worktrees/<task-and-repository-name>`, using a unique name for each target repository. For example, an initial terminal directory `/root/git/newfov2` and target repository `/root/git/newfov2/business-services/integration-service` produce `/root/git/newfov2/.worktrees/PAT-2210-integration-service`. Create the `.worktrees/` parent if needed. Do not place new worktrees directly under the anchor or substitute the repository root for the anchor. An explicit user instruction overriding this layout takes precedence. Resolve the destination to an absolute path before running `git -C <source-repository> worktree add <absolute-destination> ...`; `-C` selects the source repository, not the placement anchor. Never overwrite an occupied destination; inspect it for safe reuse or choose a distinct task-specific name under the same `.worktrees/` parent.
+- Check whether the destination is inside an existing Git checkout. If it is outside all checkouts, no ignore edit is needed. If it is inside a checkout, verify an existing ignore rule for the destination or append only an exact root-anchored directory rule relative to that containing checkout's root `.gitignore`, preserving existing content. Verify with `git -C <containing-checkout> check-ignore` against the destination. Include any required ignore edit in the scoped setup action; if it cannot be made safely or verification fails, do not create the worktree or begin implementation. Do not add `/.worktrees/` to the source repository when the destination is elsewhere.
+- Inspect the repository's current worktrees first. Reuse one only when it is already dedicated to the same execution record and contains no unrelated work; otherwise create a new linked worktree on the intended task branch or on a new task-focused branch from the approved base. Name the branch per this agent's own git conventions: no `codex`/`agent` in the branch name, use a task-focused prefix (`feature/`, `fix/`, `chore/`, `refactor/`, `docs/`, `test/`).
+- Treat the recorded worktree path as resumable state, not a permanent dependency. The user may remove a worktree between sessions. If it is missing or no longer registered, inspect any remaining files and prune stale worktree metadata only when safe, recreate a dedicated worktree at `<recorded-anchor>/.worktrees/<task-and-repository-name>` from the recorded branch or current execution commit, update `evidence.md` with the replacement path and branch, and continue. Never overwrite remaining files or derive a new anchor from the recovery command's cwd. Do not declare a blocker merely because the previous worktree disappeared.
+- Run all implementation edits, checks, staging, commits, integration, and `kiro-simplify`-driven fixes inside that worktree. The adopted execution record remains at its exact bound path and is the only permitted execute-mode write outside the dedicated worktree when that path lives elsewhere.
+- Preserve the dedicated worktree after implementation, commits, pushes, PR/MR creation, and execute exit. Automatic cleanup is authorized only by an explicit user request to merge the associated PR/MR and only after that merge is confirmed successful; follow `Post-Merge Worktree Cleanup` in [post-merge-cleanup.md](post-merge-cleanup.md). A separate explicit cleanup request applies only to its stated scope.
+- Record the absolute initial terminal directory, effective worktree anchor and its provenance, and each source repository's absolute path, dedicated worktree path, and branch in the handoff section of `evidence.md` before implementation, and mirror the same pointers (`artifacts.worktree`, `artifacts.branch`) into `session_ledger_record` for fast compaction recovery. Preserve this mapping across resume, replacement, and delegation so later work uses the same placement decision.
+- If a dedicated worktree cannot be created or safely reused, do not fall back to the existing checkout. Report the concrete blocker and wait for the permission or user decision required to proceed.
+
+## Parallel Phase Scheduling
+
+Before evaluating delegation for eligible phases, dispatching `spawn_run` subagents, or recovering their work, read and follow [parallel-execution.md](parallel-execution.md). When no delegation is being considered and no delegated work remains active, execute sequentially under the existing dependency and verification gates.
+
+## Execution Rules
+
+Follow the plan as written, subject to higher-priority instructions and current repository rules.
+
+- Read relevant project steering (`.kiro/steering/*.md`), local conventions, callers, tests, and touched files before writing. Use the `code` tool for symbol lookups and structural search rather than ad hoc scanning.
+- For non-trivial code edits, follow the active repository coding workflow and any required coding skill (e.g. `surgical-coding`, `code-review`) available in the session.
+- Keep changes surgical and scoped to the plan.
+- For Git targets, after implementation is authorized, commit the smallest complete, accepted, and independently verifiable unit of work as soon as its proportionate focused check passes. Apply this cadence across every domain; a single finished component, DTO, design token set, configuration unit, migration, documentation section, test fixture, script, workflow step, or similarly self-contained artifact may each be its own commit. Prefer a smaller valid checkpoint over combining separately complete units merely because they belong to the same task, checklist step, feature, layer, or phase. Include only the minimum dependent edits required to make the unit complete and keep the repository in an acceptable state. A saved file, partial scaffold, broken artifact, or change that is only valid after omitted required work is not a commit unit. Treat phases and checklist steps as scheduling containers, never as commit boundaries: either may produce many commits, and the same cadence applies when the current execution session covers only one phase or step. Preserve dependency order, commit before starting the next separable unit, and do not wait until the phase, step, or plan is complete. Do not commit when the user or plan forbids commits. Use Conventional Commits (`<type>(<scope>): <description>`) per this agent's own git conventions, and never add `Co-Authored-By`/`Co-Worker` trailers.
+- For actual non-Git targets, continue implementation without worktrees, branches, staging, commits, or `HEAD`-based ranges. Before the first implementation mutation, record the exact target paths and a sufficient before-state locator in `evidence.md`; keep the changed-path inventory and verification evidence current afterward. Scope review and `kiro-simplify` to those recorded current-session changes. The absence of Git is not a blocker and does not prevent implementation or completion.
+- Do not push to a protected branch, deploy, run destructive commands, or broaden scope unless the plan or user explicitly says to. Pushing a named feature branch for a PR workflow (`git push origin <feature-branch>`) remains allowed.
+- If the plan references additional skills, tools, apps, or commands, use them when available. Treat a missing Kiro Crew app tool as not installed rather than broken (`kirocrew app list`), never install one yourself.
+- Recover from failed attempts using the recovery workflow before considering a step blocked.
+- Allow unrelated dependency-ready phases to continue when one phase fails, but never start a dependent phase until its prerequisite is accepted and integrated.
+
+## Updating The Plan
+
+Update the original bundle transactionally. Update each phase checklist and status in its own phase file; keep the authoritative dependency table in `plan.md`, check results in `verification.md`, and amendments/commits in `evidence.md`.
+
+In each active phase file, update checklist items directly:
+
+- `- [ ]` or `1. [ ]` for pending
+- `- [~]` or `1. [~]` for in progress
+- `- [x]` or `1. [x]` for completed
+- `- [!]` or `1. [!]` for blocked
+
+Preserve the original step text where possible. Add concise inline notes only when they help a future session understand a decision, blocker, or verification result.
+
+The coordinator may mark multiple items in progress only when their phases are explicitly safe to run in the same wave. Mark every dispatched phase in progress before spawning its subagent via `spawn_run`, and mark it completed only after reviewing scope, accepting its output, and confirming its phase-local checks. Keep dependent phases pending until their prerequisites pass the required integration gate.
+
+Add short notes such as `parallel wave 1` or `serialized: overlaps <path or state>` when they explain an execution decision. Do not let subagents edit the plan concurrently — the coordinator (this session) is the sole writer. Use `[!]` only for a genuine blocker that requires user input or an external state change, not merely for a crashed, timed-out, or unavailable subagent.
+
+Also update the plan status line when present:
+
+- Before implementation: `Status: In progress`
+- After implementation and verification: `Status: Implemented`
+- If blocked: `Status: Blocked`
+- After an explicit mode exit with unfinished non-blocked work: `Status: Paused`
+
+When checks are run, update `verification.md` directly with checkboxes or short result notes. Put skipped checks and residual risk there or in `evidence.md` handoff notes.
+
+### Amendment and Evidence Gate
+
+Before substantive work or a user-facing response, persist every material user correction, added request, changed decision, discovered fact, verification result, external handoff, or out-of-scope item received while execute mode is active.
+
+Use `evidence.md` for amendments and evidence. Remove `None at approval` when adding the first entry. Give entries stable IDs such as `A001` and record:
+
+- Timestamp and timezone
+- Kind: `Additive`, `Corrective`, `Superseding`, `Evidence`, `Out-of-scope handoff`, `Re-entry`, or `Exit`
+- Source: user request, repository path and symbol, command or check, commit, artifact, ticket, URL, or other exact locator
+- The change, decision, handoff, or evidence
+- Affected goal, scope, phase, checklist item, verification, rollback, or external consumer
+- Current status and any result that a future session must revalidate
+
+Apply these rules:
+
+1. Write the amendment or evidence entry before starting related implementation. If the plan write fails, report the persistence blocker and do not perform the unrecorded work.
+2. For executable work, also add or revise the corresponding checklist item, dependency, ownership, integration, verification, and rollback details before implementation.
+3. For a corrective or superseding request, preserve completed history, mark obsolete pending work as superseded by the amendment ID, and add corrective items for already completed behavior that must change. Update `Goal`, `Scope`, `Desired Logic and Behavior`, or acceptance criteria when they are no longer accurate.
+4. For evidence-only updates or handoffs that require no execution, keep the implementation `Status` unchanged.
+5. If the plan is `Implemented`, `Blocked`, or `Paused` and new executable work can proceed, change it to `In progress` before starting.
+6. A request to keep work separate or outside the approved baseline still requires an `Out-of-scope handoff` record. If the agent performs that work while the mode remains active, add an amendment checklist item so its execution and verification remain auditable.
+7. Do not save a raw transcript, hidden reasoning, secrets, or unrelated conversation. Persist only actionable context and evidence needed for handoff. Never store credential values.
+
+### User-Requested Follow-Up Work
+
+When the user asks for implementation, fixes, tests, documentation, cleanup, or another deliverable not represented in the approved baseline while execute mode is active:
+
+1. Pass the request through the `Amendment and Evidence Gate`, then add it to the affected phase file or the simple checklist in `plan.md` before starting it. Reference its amendment ID and date.
+2. Add or adjust dependency, ownership, integration, and verification notes when the new work affects them. Do not rewrite completed history merely to make the addition look original.
+3. If the plan was `Implemented`, `Blocked`, or `Paused`, change its status back to `In progress` before doing work that can proceed.
+4. Mark the new item in progress, execute it under the same recovery and verification rules, then mark it completed or genuinely blocked.
+5. Return the plan to `Implemented` only after the added work and its required verification are complete.
+
+Do not silently perform user-requested follow-up work outside the plan record. If the user wants the work kept separate from the approved baseline, preserve that boundary while still recording the handoff, evidence, and any work performed. Only an explicit execute exit disables this requirement.
+
+### Incremental Commits and Commit Records
+
+In a git repository, once implementation and its local commits are authorized, use this cadence:
+
+1. Capture the starting `HEAD`, branch, status, staged diff, unstaged diff, and untracked paths before implementation. Treat the starting `HEAD` as the exclusive lower bound of the current execution session's commit range.
+2. Derive commit-sized work units inside each selected phase before coding. Prefer the smallest logical change that leaves the repository in a coherent, reviewable state and can pass focused checks, such as one behavior slice with its tests, one refactor prerequisite, or one isolated configuration change.
+3. Never assume one phase equals one commit. A phase commonly produces multiple commits; use a single commit only when the entire phase is genuinely one indivisible logical change. Apply this rule unchanged when the session executes only one phase from a larger plan.
+4. After a unit's focused checks pass and the coordinator accepts all changes in its scope, stage only files and hunks created for that unit (prefer staging specific files over `git add .`), review the staged diff, and commit it immediately before beginning the next dependent unit. Never include unrelated pre-existing or concurrent user changes.
+5. Use Conventional Commits and keep one logical change per commit; preserve dependency order. Do not create a partial commit merely because time elapsed; the unit must be coherent and verified.
+6. Record every successful commit in the handoff section of `evidence.md`, including full SHA, subject, branch, and associated phase or checklist item.
+7. If a commit attempt fails, keep the unit in progress while recovering and add a concise failure note only when it helps a future session. Use `[!]` only when the failure meets the genuine blocker definition.
+8. After all implementation units included in the current session are committed, define the simplify scope as every current-session commit after the captured starting `HEAD` through the current `HEAD`, plus any remaining in-scope staged, unstaged, or untracked changes. Do not substitute only the final commit or current working-tree diff, even when the session executed a single phase.
+9. Commit `kiro-simplify`-driven fixes as one or more separate coherent commits after their checks pass. Record them like other session commits. Never rewrite, squash, or amend the earlier implementation commits unless the user explicitly requests history rewriting.
+
+The final commit SHA cannot be embedded in the commit that produced it because changing the plan would change that SHA. Record the SHA immediately after the commit, do not amend solely to make the SHA self-referential, and disclose the resulting plan-only working-tree change. Create a separate plan-metadata commit only when the user explicitly requests it; do not try to record that metadata commit's own SHA inside itself.
+
+## Implementation Workflow
+
+1. Resolve, adopt, and read the complete execution-record path; activate or re-enter execute mode and persist its metadata.
+2. Follow `Dedicated Worktree`: retain the captured or recorded initial terminal anchor, resolve Git ownership from each implementation target, and create or safely reuse a dedicated worktree for each target repository. Apply ignore setup only when its destination is inside a checkout, persist the repository/worktree mapping, and perform implementation there. Skip worktree setup only for actual non-Git targets, not merely because the terminal starts in an umbrella directory.
+3. Inspect enough repository context to execute safely.
+4. Before evaluating delegation for eligible phases, read [parallel-execution.md](parallel-execution.md). Build the dependency and ownership map, validate declared waves, identify the current ready set, and divide each selected phase into commit-sized logical work units.
+5. Select a safe execution wave; serialize phases that are unannotated, coupled, or not worth delegating. Check `resource_status` before a wide `spawn_run` wave.
+6. Mark the selected phase items in progress and dispatch each eligible delegated phase with the required ownership and return contract via `spawn_run` (batch every eligible phase into one call when several are ready in the same wave; do not do the work yourself after spawning — end the turn and wait for `[Subagent completion event]` messages).
+7. Execute any coordinator-owned phase that can run concurrently without conflicting with active subagents.
+8. Collect subagent reports as they arrive, inspect actual changed files or resources against the baseline and assigned ownership, and review each implementation.
+9. As each Git-target commit-sized unit becomes coherent, run its focused checks, review and commit it immediately, then continue with the next unit. A selected phase may therefore produce multiple commits before its phase-local checks are complete. For non-Git targets, run the same focused review and checks at each coherent unit boundary, then update the recorded changed-path and before/after evidence before continuing.
+10. Run or confirm phase-local checks, mark each accepted phase completed, and run the wave's integration gate before unlocking dependent phases; recover or mark a genuine blocker as appropriate.
+11. Repeat the ready-set workflow until all phases are accepted or a genuine blocker requires user input or an external state change.
+12. Run the final checks from `verification.md` on the integrated result.
+13. Use `kiro-simplify` to review the complete current-session commit range from the captured starting `HEAD` through the current `HEAD`, together with any remaining in-scope working-tree changes. For non-Git targets, review the complete set of recorded current-session path changes against their saved before-state evidence instead.
+14. Fix confirmed or plausible `kiro-simplify` findings that are in scope.
+15. Re-run the narrowest meaningful checks after any simplify-driven fixes, then commit those fixes separately in coherent units for Git targets; for non-Git targets, update the changed-path and verification evidence instead.
+16. If the current execution session's commit range, remaining working-tree diff, or recorded non-Git path changes contain substantial agent-facing changes not already covered in project steering, use `kiro-update-agent-docs` with the session-change-only scope in this skill.
+17. Re-run the narrowest meaningful checks after any steering-doc updates.
+18. Update the plan status, checklist, amendments and evidence, verification notes, execution decisions, `Last updated`, and residual risks.
+19. If the user adds follow-up work, changes an earlier decision, provides a material handoff or evidence item, or requests a commit, pass it through the amendment gate and resume the applicable workflow before treating the task as complete.
+20. If the user explicitly requested merging the associated PR/MR, complete the authorized merge via `interact-with-git-platform`, verify its merged state, then perform `Post-Merge Worktree Cleanup` in [post-merge-cleanup.md](post-merge-cleanup.md) as the final operational step. Without that merge request, preserve the worktree.
+21. Apply the final completion gate and continue working if any requirement fails.
+
+## Recovery Before Blocking
+
+Before declaring a blocker:
+
+1. Inspect partial changes and the concrete failure.
+2. Retry when the failure may be transient — including the transient MCP disconnect pattern ("N tools disconnected" then "N tools available again"), which is never itself a blocker.
+3. Attempt a safe in-scope alternative.
+4. Replace failed delegation with coordinator-owned execution.
+5. Serialize conflicting work.
+6. Continue all unrelated dependency-ready phases.
+7. Record skipped optional checks and residual risk when implementation can still be completed safely.
+
+Ask the user only after these recovery paths are exhausted and the Genuine Blocker Definition is satisfied.
+
+## Failure and Conflict Handling
+
+A subagent failure is not automatically a plan blocker. Inspect any partial changes, preserve pre-existing user work, and choose the safest recovery: retry, reassign, finish locally, or serialize the phase. Continue unrelated ready phases when safe and keep dependent phases pending.
+
+If ownership overlaps or an unexpected dependency appears, stop only the conflicting dispatch, preserve and inspect the current changes, update the plan note or dependency metadata, and resume in a safe sequence. Continue unrelated ready work when safe. Never use a blanket reset or discard unrelated user changes to recover from parallel work.
+
+If a wave integration check fails, return the implicated phase items to in progress while correcting them. Mark the plan blocked only when meaningful progress truly requires user input or an external state change.

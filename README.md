@@ -35,6 +35,34 @@ These scripts sync standalone top-level skills only. They intentionally skip
 plugin-owned skills such as `jarvis/skills/jarvis`; flattening that directory
 would omit the plugin hooks and scripts.
 
+## Sync `kiro-skill/` to a live Kiro / Kiro Crew install
+
+`kiro-skill/` holds the Kiro-native ports of the Codex `discuss`, `plan`,
+`execute`, `interact-with-git-platform`, `update-agent-docs`, and `simplify`
+skills (see [kiro-skill/*/SKILL.md](kiro-skill)). They are not installed by
+`sync-skills.sh` above, which only targets `~/.codex/skills`. Use
+`scripts/sync-kiro-skill.sh` instead to sync them into a local Kiro Crew
+install's own skills directory, `~/.kiro/crew/skills/kiro-skill/<name>/` —
+kept in a dedicated `kiro-skill/` namespace, never overwriting KiroCrew's own
+`~/.kiro/crew/skills/imported/codex/<name>/` mirror of the original Codex
+skills these were ported from.
+
+Requires `rsync`. Run without arguments to sync every skill under
+`kiro-skill/`, or pass one or more skill names to sync only those. All
+supplied names are validated before copying starts, so an invalid name does
+not leave a partially synced selection. After copying, the script re-diffs
+source against destination and reports a warning (exit code `2`) if the
+mirror drifted.
+
+```sh
+./scripts/sync-kiro-skill.sh
+./scripts/sync-kiro-skill.sh discuss execute
+```
+
+Set `KIRO_SKILLS_DEST` to sync to a different Kiro Crew skills root (for
+example, a second machine's mounted home directory) instead of the default
+`~/.kiro/crew/skills/kiro-skill`.
+
 ## Install Jarvis
 
 Jarvis installs as a complete plugin. Copy or clone this repository (or at
