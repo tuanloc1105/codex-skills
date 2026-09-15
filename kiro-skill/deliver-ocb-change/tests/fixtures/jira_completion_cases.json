@@ -1,0 +1,20 @@
+{
+  "canonical_three_hours": {
+    "timeoriginalestimate": 10800,
+    "originalEstimate": "3h",
+    "started": "2026-09-14T10:15:30.000+0700",
+    "transitionId": "3"
+  },
+  "mismatched_duration": {
+    "timeoriginalestimate": 10800,
+    "originalEstimate": "2h"
+  },
+  "successful_post_read": {
+    "status": "Done",
+    "beforeWorklogCount": 0,
+    "afterWorklogs": [
+      {"timeSpent": "3h", "timeSpentSeconds": 10800}
+    ],
+    "timespent": 10800
+  }
+}
