@@ -1,0 +1,468 @@
+# syntax=docker/dockerfile:1
+
+ARG UBUNTU_VERSION=24.04
+ARG MONGO_LEGACY_RUNTIME_UBUNTU_VERSION=20.04
+ARG TARGETARCH
+
+FROM ubuntu:${MONGO_LEGACY_RUNTIME_UBUNTU_VERSION} AS mongo-legacy-runtime
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --yes --no-install-recommends libssl1.1; \
+    install --directory /opt/mongo-legacy/lib; \
+    cp -L /usr/lib/*/libcrypto.so.1.1 /usr/lib/*/libssl.so.1.1 /opt/mongo-legacy/lib/; \
+    rm -rf /var/lib/apt/lists/*
+
+FROM ubuntu:20.04 AS mssql-legacy-runtime-amd64
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --yes --no-install-recommends ca-certificates curl; \
+    curl --fail --location --show-error --silent \
+        https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb \
+        --output /tmp/packages-microsoft-prod.deb; \
+    dpkg --install /tmp/packages-microsoft-prod.deb; \
+    apt-get update; \
+    ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools; \
+    install --directory \
+        /opt/mssql-legacy/driver \
+        /opt/mssql-legacy/lib \
+        /opt/mssql-legacy/odbc \
+        /opt/mssql-legacy/tools/bin; \
+    cp -L /opt/mssql-tools/bin/bcp /opt/mssql-tools/bin/sqlcmd /opt/mssql-legacy/tools/bin/; \
+    cp -a /opt/microsoft/msodbcsql17/. /opt/mssql-legacy/driver/; \
+    cp -L /usr/lib/*/libcrypto.so.1.1 /usr/lib/*/libssl.so.1.1 /opt/mssql-legacy/lib/; \
+    sed 's#/opt/microsoft/msodbcsql17#/opt/mssql-legacy/driver#' \
+        /opt/microsoft/msodbcsql17/etc/odbcinst.ini \
+        > /opt/mssql-legacy/odbc/odbcinst.ini; \
+    rm -rf /var/lib/apt/lists/* /tmp/packages-microsoft-prod.deb
+
+FROM ubuntu:${UBUNTU_VERSION} AS mssql-legacy-runtime-arm64
+
+RUN install --directory /opt/mssql-legacy
+
+FROM mssql-legacy-runtime-${TARGETARCH} AS mssql-legacy-runtime
+
+ARG TARGETARCH
+
+RUN set -eux; \
+    if [ "${TARGETARCH}" = amd64 ]; then \
+        install --directory /opt/mssql-legacy/tools/share; \
+        cp -R /opt/mssql-tools/share/resources /opt/mssql-legacy/tools/share/; \
+    fi
+
+FROM ubuntu:${UBUNTU_VERSION} AS vendor-assets
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG MONGO_LEGACY_VERSION=4.4.31
+ARG ORACLE_INSTANTCLIENT_VERSION=19.31.0.0.0dbru
+ARG MSSQL_JDBC_VERSION=13.4.0.jre11
+ARG MSSQL_JDBC_SHA256=e36f5237c1267983e5b88dc2169f6b9d7e50eceec6dc1ca31018e3877e14af66
+ARG SQLCL_DOWNLOAD_URL=https://download.oracle.com/otn_software/java/sqldeveloper/sqlcl-latest.zip
+ARG SQLCL_SHA256=""
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --yes --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
+        unzip; \
+    case "${TARGETARCH}" in \
+        amd64) \
+            mongo_legacy_arch=x86_64; \
+            mongo_legacy_sha256=ebf18f73caa0633c6c280fe4f5c91dbdf8bdcef88572452708c59abd44b44462; \
+            oracle_arch=x64; \
+            oracle_release=1931000v2; \
+            oracle_basic_cksum=1873896064; \
+            oracle_basic_size=77596277; \
+            oracle_sqlplus_cksum=3118300284; \
+            oracle_sqlplus_size=919945; \
+            oracle_tools_cksum=4025744786; \
+            oracle_tools_size=1166552 \
+            ;; \
+        arm64) \
+            mongo_legacy_arch=aarch64; \
+            mongo_legacy_sha256=06ea0cb32d4547a2d2ae2ca044be0cec0ffe50f559d81ed639dfef468959feab; \
+            oracle_arch=arm64; \
+            oracle_release=1931000; \
+            oracle_basic_cksum=399177817; \
+            oracle_basic_size=75238916; \
+            oracle_sqlplus_cksum=2225550773; \
+            oracle_sqlplus_size=905168; \
+            oracle_tools_cksum=3685519323; \
+            oracle_tools_size=1303557 \
+            ;; \
+        *) echo "Unsupported Oracle Instant Client architecture: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    mongo_legacy_archive="mongodb-linux-${mongo_legacy_arch}-ubuntu2004-${MONGO_LEGACY_VERSION}"; \
+    curl --fail --location --show-error --silent \
+        "https://fastdl.mongodb.org/linux/${mongo_legacy_archive}.tgz" \
+        --output /tmp/mongo-legacy.tgz; \
+    echo "${mongo_legacy_sha256}  /tmp/mongo-legacy.tgz" | sha256sum --check --strict -; \
+    install --directory /opt/mongo-legacy/bin; \
+    tar --extract --gzip --file /tmp/mongo-legacy.tgz \
+        --strip-components=2 \
+        --directory /opt/mongo-legacy/bin \
+        "${mongo_legacy_archive}/bin/mongo"; \
+    chmod 0755 /opt/mongo-legacy/bin/mongo; \
+    oracle_download_base="https://download.oracle.com/otn_software/linux/instantclient/${oracle_release}"; \
+    curl --fail --location --show-error --silent \
+        "${oracle_download_base}/instantclient-basic-linux.${oracle_arch}-${ORACLE_INSTANTCLIENT_VERSION}.zip" \
+        --output /tmp/oracle-basic.zip; \
+    set -- $(cksum /tmp/oracle-basic.zip); \
+    test "$1" = "${oracle_basic_cksum}"; \
+    test "$2" = "${oracle_basic_size}"; \
+    curl --fail --location --show-error --silent \
+        "${oracle_download_base}/instantclient-sqlplus-linux.${oracle_arch}-${ORACLE_INSTANTCLIENT_VERSION}.zip" \
+        --output /tmp/oracle-sqlplus.zip; \
+    set -- $(cksum /tmp/oracle-sqlplus.zip); \
+    test "$1" = "${oracle_sqlplus_cksum}"; \
+    test "$2" = "${oracle_sqlplus_size}"; \
+    curl --fail --location --show-error --silent \
+        "${oracle_download_base}/instantclient-tools-linux.${oracle_arch}-${ORACLE_INSTANTCLIENT_VERSION}.zip" \
+        --output /tmp/oracle-tools.zip; \
+    set -- $(cksum /tmp/oracle-tools.zip); \
+    test "$1" = "${oracle_tools_cksum}"; \
+    test "$2" = "${oracle_tools_size}"; \
+    install --directory /opt/oracle; \
+    unzip -qo /tmp/oracle-basic.zip -d /opt/oracle; \
+    unzip -qo /tmp/oracle-sqlplus.zip -d /opt/oracle; \
+    unzip -qo /tmp/oracle-tools.zip -d /opt/oracle; \
+    chmod -R a+rX /opt/oracle; \
+    test -x /opt/oracle/instantclient_19_31/sqlplus; \
+    test -x /opt/oracle/instantclient_19_31/expdp; \
+    test -x /opt/oracle/instantclient_19_31/impdp; \
+    test -x /opt/oracle/instantclient_19_31/sqlldr; \
+    test -e /opt/oracle/instantclient_19_31/libclntsh.so; \
+    ln -s /opt/oracle/instantclient_19_31 /opt/oracle/instantclient; \
+    curl --fail --location --show-error --silent \
+        "${SQLCL_DOWNLOAD_URL}" \
+        --output /tmp/sqlcl.zip; \
+    if [ -n "${SQLCL_SHA256}" ]; then \
+        echo "${SQLCL_SHA256}  /tmp/sqlcl.zip" | sha256sum --check --strict -; \
+    fi; \
+    unzip -q /tmp/sqlcl.zip -d /opt; \
+    chmod -R a+rX /opt/sqlcl; \
+    test -x /opt/sqlcl/bin/sql; \
+    curl --fail --location --show-error --silent \
+        https://pgp.mongodb.com/server-8.0.asc \
+        --output /tmp/mongodb-server.asc; \
+    gpg --batch --yes \
+        --dearmor \
+        --output /tmp/mongodb-server-8.0.gpg \
+        /tmp/mongodb-server.asc; \
+    curl --fail --location --show-error --silent \
+        https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        --output /tmp/postgresql.asc; \
+    gpg --batch --yes \
+        --dearmor \
+        --output /tmp/postgresql.gpg \
+        /tmp/postgresql.asc; \
+    curl --fail --location --show-error --silent \
+        https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb \
+        --output /tmp/packages-microsoft-prod.deb; \
+    test -s /tmp/packages-microsoft-prod.deb; \
+    curl --fail --location --show-error --silent \
+        "https://repo.maven.apache.org/maven2/com/microsoft/sqlserver/mssql-jdbc/${MSSQL_JDBC_VERSION}/mssql-jdbc-${MSSQL_JDBC_VERSION}.jar" \
+        --output /tmp/mssql-jdbc.jar; \
+    echo "${MSSQL_JDBC_SHA256}  /tmp/mssql-jdbc.jar" | sha256sum --check --strict -
+
+COPY --from=mongo-legacy-runtime /opt/mongo-legacy/lib /opt/mongo-legacy/lib
+COPY --from=mssql-legacy-runtime /opt/mssql-legacy /opt/mssql-legacy
+
+FROM ubuntu:${UBUNTU_VERSION}
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
+    LD_LIBRARY_PATH=/opt/oracle/instantclient \
+    PATH="/opt/oracle/instantclient:/opt/mssql-tools18/bin:/opt/sqlcl/bin:${PATH}"
+
+COPY --from=vendor-assets /tmp/mongodb-server-8.0.gpg /usr/share/keyrings/mongodb-server-8.0.gpg
+COPY --from=vendor-assets /tmp/postgresql.gpg /usr/share/keyrings/postgresql.gpg
+COPY --from=vendor-assets /tmp/packages-microsoft-prod.deb /tmp/packages-microsoft-prod.deb
+COPY --from=vendor-assets /tmp/mssql-jdbc.jar /opt/mssql-jdbc/mssql-jdbc.jar
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install --yes --no-install-recommends ca-certificates; \
+    dpkg --install /tmp/packages-microsoft-prod.deb; \
+    rm /tmp/packages-microsoft-prod.deb; \
+    arch="$(dpkg --print-architecture)"; \
+    case "${arch}" in \
+        amd64|arm64) ;; \
+        *) echo "Unsupported architecture for database client repositories: ${arch}" >&2; exit 1 ;; \
+    esac; \
+    echo "deb [arch=${arch} signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" \
+        > /etc/apt/sources.list.d/mongodb-org-8.0.list; \
+    echo "deb [arch=${arch} signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+        > /etc/apt/sources.list.d/postgresql.list; \
+    apt-get update; \
+    apt-get install --yes --no-install-recommends \
+        bash \
+        libaio1t64 \
+        libcurl4 \
+        libnsl2 \
+        mysql-client \
+        mysql-server-core-8.0 \
+        mongodb-database-tools \
+        mongodb-mongosh \
+        openjdk-17-jre-headless \
+        postgresql-client-18 \
+        redis-tools; \
+    ACCEPT_EULA=Y apt-get install --yes --no-install-recommends mssql-tools18; \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=vendor-assets /opt/oracle /opt/oracle
+COPY --from=vendor-assets /opt/sqlcl /opt/sqlcl
+COPY --from=vendor-assets /opt/mongo-legacy /opt/mongo-legacy
+COPY --from=vendor-assets /opt/mssql-legacy /opt/mssql-legacy
+
+COPY --chmod=0755 <<'EOF' /usr/local/bin/mongo-legacy
+#!/bin/sh
+set -eu
+
+export LD_LIBRARY_PATH="/opt/mongo-legacy/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+exec /opt/mongo-legacy/bin/mongo "$@"
+EOF
+
+COPY --chmod=0755 <<'EOF' /usr/local/bin/mongo-connect
+#!/bin/sh
+set -eu
+
+usage() {
+    cat <<'HELP'
+Usage: mongo-connect [selector] [client arguments]
+
+Selectors (must be first):
+  --server-version VERSION  Use mongo-legacy for MongoDB 3.4; mongosh otherwise.
+  --legacy                  Force mongo-legacy.
+  --modern                  Force mongosh.
+
+MONGO_SERVER_VERSION can be used instead of --server-version.
+HELP
+}
+
+client=modern
+server_version="${MONGO_SERVER_VERSION:-}"
+
+case "${1:-}" in
+    --server-version)
+        if [ "$#" -lt 2 ]; then
+            echo "mongo-connect: --server-version requires a value" >&2
+            exit 2
+        fi
+        server_version="$2"
+        shift 2
+        ;;
+    --server-version=*)
+        server_version="${1#*=}"
+        shift
+        ;;
+    --legacy)
+        client=legacy
+        shift
+        ;;
+    --modern)
+        client=modern
+        server_version=""
+        shift
+        ;;
+    --help|-h)
+        usage
+        exit 0
+        ;;
+esac
+
+case "${server_version}" in
+    3.4|3.4.*) client=legacy ;;
+esac
+
+if [ "${client}" = legacy ]; then
+    exec mongo-legacy "$@"
+fi
+
+exec mongosh "$@"
+EOF
+
+COPY --chmod=0755 <<'EOF' /opt/mssql-legacy/sqlcmd17
+#!/bin/sh
+set -eu
+
+export LD_LIBRARY_PATH="/opt/mssql-legacy/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export ODBCSYSINI=/opt/mssql-legacy/odbc
+export ODBCINSTINI=odbcinst.ini
+exec /opt/mssql-legacy/tools/bin/sqlcmd "$@"
+EOF
+
+COPY --chmod=0755 <<'EOF' /opt/mssql-legacy/bcp17
+#!/bin/sh
+set -eu
+
+export LD_LIBRARY_PATH="/opt/mssql-legacy/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+export ODBCSYSINI=/opt/mssql-legacy/odbc
+export ODBCINSTINI=odbcinst.ini
+exec /opt/mssql-legacy/tools/bin/bcp "$@"
+EOF
+
+COPY <<'EOF' /opt/mssql-jdbc/MssqlConnect.java
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.Properties;
+import java.util.stream.Collectors;
+
+public final class MssqlConnect {
+    private static final String VERSION = "Microsoft JDBC Driver 13.4.0.jre11";
+
+    private MssqlConnect() {}
+
+    public static void main(String[] args) throws Exception {
+        if (args.length == 1 && "--version".equals(args[0])) {
+            System.out.println(VERSION);
+            return;
+        }
+        if (args.length != 1 || !args[0].matches("[A-Z][A-Z0-9_]*")) {
+            System.err.println("Usage: printf 'SELECT ...' | mssql-connect ENV_PREFIX");
+            System.exit(2);
+        }
+
+        String prefix = args[0];
+        String host = requiredEnv(prefix + "_HOST");
+        String port = requiredEnv(prefix + "_PORT");
+        String database = requiredEnv(prefix + "_DATABASE");
+        String sql = new BufferedReader(new InputStreamReader(System.in))
+            .lines().collect(Collectors.joining("\n")).trim();
+        if (sql.isEmpty()) {
+            throw new IllegalArgumentException("SQL must be provided on standard input");
+        }
+        String normalizedSql = sql.replaceFirst(";\\s*$", "").trim();
+        if (!normalizedSql.matches("(?is)^SELECT\\b.*")
+                || normalizedSql.contains(";")
+                || normalizedSql.matches("(?is).*\\b(INTO|OPENROWSET|OPENQUERY)\\b.*")) {
+            throw new IllegalArgumentException("Only one bounded SELECT statement is allowed");
+        }
+
+        Properties properties = new Properties();
+        properties.setProperty("user", requiredEnv(prefix + "_USERNAME"));
+        properties.setProperty("password", requiredEnv(prefix + "_PASSWORD"));
+        properties.setProperty("databaseName", database);
+        properties.setProperty("applicationIntent", "ReadOnly");
+        properties.setProperty("encrypt", optionalEnv(prefix + "_ENCRYPT", "false"));
+        properties.setProperty(
+            "trustServerCertificate",
+            optionalEnv(prefix + "_TRUST_SERVER_CERTIFICATE", "false")
+        );
+        properties.setProperty("loginTimeout", "10");
+        properties.setProperty("socketTimeout", "10000");
+
+        String url = "jdbc:sqlserver://" + host + ":" + port;
+        try (Connection connection = DriverManager.getConnection(url, properties)) {
+            connection.setReadOnly(true);
+            try (Statement statement = connection.createStatement()) {
+                statement.setQueryTimeout(10);
+                statement.setMaxRows(100);
+                try (ResultSet results = statement.executeQuery(normalizedSql)) {
+                ResultSetMetaData metadata = results.getMetaData();
+                int columns = metadata.getColumnCount();
+                for (int column = 1; column <= columns; column++) {
+                    if (column > 1) System.out.print('|');
+                    System.out.print(clean(metadata.getColumnLabel(column)));
+                }
+                System.out.println();
+                while (results.next()) {
+                    for (int column = 1; column <= columns; column++) {
+                        if (column > 1) System.out.print('|');
+                        System.out.print(clean(results.getString(column)));
+                    }
+                    System.out.println();
+                }
+                }
+            }
+        }
+    }
+
+    private static String requiredEnv(String name) {
+        String value = System.getenv(name);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Missing environment variable: " + name);
+        }
+        return value;
+    }
+
+    private static String optionalEnv(String name, String defaultValue) {
+        String value = System.getenv(name);
+        return value == null || value.isBlank() ? defaultValue : value;
+    }
+
+    private static String clean(String value) {
+        return value == null ? "NULL" : value.replace('|', ' ').replace('\r', ' ').replace('\n', ' ');
+    }
+}
+EOF
+
+COPY --chmod=0755 <<'EOF' /usr/local/bin/mssql-connect
+#!/bin/sh
+set -eu
+
+exec java -cp /opt/mssql-jdbc/mssql-jdbc.jar /opt/mssql-jdbc/MssqlConnect.java "$@"
+EOF
+
+RUN set -eux; \
+    libaio_t64="$(find /usr/lib -name libaio.so.1t64 -print -quit)"; \
+    test -n "${libaio_t64}"; \
+    ln -s "${libaio_t64}" /opt/oracle/instantclient/libaio.so.1; \
+    echo /opt/oracle/instantclient > /etc/ld.so.conf.d/oracle-instantclient.conf; \
+    ldconfig; \
+    ln -s /opt/sqlcl/bin/sql /usr/local/bin/sql; \
+    if [ "${TARGETARCH}" = amd64 ]; then \
+        ln -s /opt/mssql-legacy/sqlcmd17 /usr/local/bin/sqlcmd17; \
+        ln -s /opt/mssql-legacy/bcp17 /usr/local/bin/bcp17; \
+    fi; \
+    usermod --login agent --home /home/agent --move-home ubuntu; \
+    groupmod --new-name agent ubuntu; \
+    usermod --groups '' agent; \
+    install --directory --owner=agent --group=agent /workspace
+
+USER agent
+WORKDIR /workspace
+
+RUN set -eux; \
+    sql -version; \
+    sqlplus -v; \
+    expdp -help >/dev/null; \
+    impdp -help >/dev/null; \
+    sqlldr -help >/dev/null; \
+    test -e /opt/oracle/instantclient/libclntsh.so; \
+    psql --version; \
+    mysql --version; \
+    mysqlbinlog --version; \
+    mongosh --version; \
+    mongodump --version; \
+    mongorestore --version; \
+    mongoexport --version; \
+    mongo-legacy --version; \
+    mongo-connect --server-version 3.4 --version; \
+    mongo-connect --modern --version; \
+    redis-cli --version; \
+    sqlcmd -? >/dev/null; \
+    bcp -v; \
+    mssql-connect --version; \
+    if command -v sqlcmd17 >/dev/null; then \
+        sqlcmd17 -? >/dev/null; \
+        bcp17 -v; \
+    fi
+
+CMD ["bash"]
