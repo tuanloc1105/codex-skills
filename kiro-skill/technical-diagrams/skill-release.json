@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "skillId": "technical-diagrams",
+  "channel": "local",
+  "version": "2.16.0",
+  "updates": {
+    "enabled": false,
+    "reason": "No update source is configured for this pinned adaptation."
+  }
+}
