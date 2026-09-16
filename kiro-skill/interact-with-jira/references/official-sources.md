@@ -1,6 +1,6 @@
 # Official sources and freshness policy
 
-ACLI sources were checked on 2026-08-03; Rovo MCP and Jira REST sources were checked on 2026-08-29. Recheck the relevant interface when using this skill.
+ACLI sources were checked on 2026-08-03; Jira REST sources were checked on 2026-08-29; Rovo MCP sources were rechecked on 2026-09-16 (v2 endpoint confirmed). Recheck the relevant interface when using this skill.
 
 ## Source precedence
 
@@ -42,7 +42,7 @@ The runtime MCP schema decides whether MCP has a capability. The registry is the
 - Some command-reference pages may show an older update date than the binary. When syntax conflicts, use the binary's `--help` and record the discrepancy.
 - Do not hard-code “latest version” in automation. Atlassian requires frequent updates, and the changelog may introduce new OAuth requirements.
 - For MCP, the tool schema/list exposed by the current server determines executable inputs. The Supported tools page verifies capability and scope but does not replace the runtime schema.
-- Use the Streamable HTTP endpoint currently published by Getting started. Do not revert to the retired SSE endpoint.
+- Use the Streamable HTTP endpoint currently published by Getting started — as of this check `https://mcp.atlassian.com/v2/mcp` (v2), with the `?tools=all` variant for a flat tool list. Do not revert to the retired SSE endpoint or to a v1 endpoint; see "Migrate an existing v1 connection to v2" in `mcp-workflows.md`.
 - Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Use an unregistered endpoint only through the dynamic contract workflow; never expand the persistent registry merely because another official endpoint exists.
 - Correlate OAuth accessible resources/cloud ID or the API-token account/site with the intended MCP target.
 
