@@ -1,6 +1,6 @@
 # Official sources and freshness policy
 
-ACLI sources were checked on 2026-08-03; Rovo MCP and Jira REST sources were checked on 2026-08-29. Recheck the relevant interface when using this skill.
+ACLI sources were checked on 2026-08-03; Jira REST sources were checked on 2026-08-29; Rovo MCP sources were rechecked on 2026-09-16 (v2 endpoint and migration confirmed). Recheck the relevant interface when using this skill.
 
 ## Source precedence
 
@@ -15,13 +15,15 @@ ACLI sources were checked on 2026-08-03; Rovo MCP and Jira REST sources were che
 
 ## Atlassian Rovo MCP
 
-1. [Getting started](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/): current endpoint, Codex setup, and OAuth.
+1. [Getting started](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/): current v2 endpoint, Codex setup, OAuth, and flat-tool endpoint variant.
 2. [Supported tools](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/supported-tools/): currently exposed tools, permission groups, and scopes.
-3. [Authentication and authorization](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/authentication-and-authorization/): choosing OAuth 2.1 or an API token.
-4. [Configuring OAuth 2.1](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/configuring-oauth-2-1/): Streamable HTTP endpoint, consent, cloud ID, and authentication errors.
-5. [Setting up clients](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/setting-up-clients/): environment and client requirements.
-6. [Permissions](https://support.atlassian.com/security-and-access-policies/docs/Configure-Atlassian-Rovo-MCP-server-permission/): Read, Write, and Search access controlled by organization administrators.
-7. [Domain, authentication, and IP controls](https://support.atlassian.com/security-and-access-policies/docs/control-atlassian-rovo-mcp-server-settings/): domain allowlist, API-token policy, and IP allowlist.
+3. [Upgrade v1 to v2](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/how-to-upgrade-from-atlassian-rovo-mcp-v1-to-atlassian-rovo-mcp-v2/): v1 endpoint detection, Codex migration, reauthentication, and the 1 Mar 2027 cutover.
+4. [Authentication and authorization](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/authentication-and-authorization/): choosing OAuth 2.1 or an API token.
+5. [Configuring OAuth 2.1](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/configuring-oauth-2-1/): Streamable HTTP endpoint, consent, cloud ID, and authentication errors.
+6. [Configuring API-token authentication](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/configure-authentication-via-api-token/): v2 Basic and Bearer configuration, tool limitations, and cloud ID behavior.
+7. [Setting up clients](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/setting-up-clients/): environment and client requirements.
+8. [Permissions](https://support.atlassian.com/security-and-access-policies/docs/Configure-Atlassian-Rovo-MCP-server-permission/): Read, Write, and Search access controlled by organization administrators.
+9. [Domain, authentication, and IP controls](https://support.atlassian.com/security-and-access-policies/docs/control-atlassian-rovo-mcp-server-settings/): domain allowlist, API-token policy, and IP allowlist.
 
 ## Jira Cloud REST APIs
 
@@ -42,7 +44,7 @@ The runtime MCP schema decides whether MCP has a capability. The registry is the
 - Some command-reference pages may show an older update date than the binary. When syntax conflicts, use the binary's `--help` and record the discrepancy.
 - Do not hard-code “latest version” in automation. Atlassian requires frequent updates, and the changelog may introduce new OAuth requirements.
 - For MCP, the tool schema/list exposed by the current server determines executable inputs. The Supported tools page verifies capability and scope but does not replace the runtime schema.
-- Use the Streamable HTTP endpoint currently published by Getting started. Do not revert to the retired SSE endpoint.
+- Use the Streamable HTTP endpoint currently published by Getting started — as of this check `https://mcp.atlassian.com/v2/mcp`, with `?tools=all` only when a flat tool list is required. Do not revert to the retired SSE or v1 endpoints; follow the migration workflow in `mcp-workflows.md` for existing v1 connections.
 - Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Use an unregistered endpoint only through the dynamic contract workflow; never expand the persistent registry merely because another official endpoint exists.
 - Correlate OAuth accessible resources/cloud ID or the API-token account/site with the intended MCP target.
 

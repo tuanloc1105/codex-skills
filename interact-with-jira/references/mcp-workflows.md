@@ -4,6 +4,7 @@
 
 - Discover and select an MCP client
 - Configure Codex
+- Migrate an existing v1 connection to v2
 - Authenticate and identify the target
 - Read data
 - Mutate data
@@ -14,13 +15,19 @@
 
 Atlassian Rovo MCP is a remote Streamable HTTP server. Before configuration, identify the user's MCP client and inspect its current help/documentation; do not copy Codex syntax to another client.
 
-Current official endpoint:
+Current official endpoint (v2):
 
 ```text
-https://mcp.atlassian.com/v1/mcp/authv2
+https://mcp.atlassian.com/v2/mcp
 ```
 
-Do not configure the `/v1/sse` endpoint. Do not replace official Atlassian Rovo MCP with a third-party Jira MCP package unless the user requests it and the risks have been assessed.
+v2 exposes a small primary tool set and defers the rest behind `discover` and the risk-specific `executeRead`, `executeWrite`, and `executeDestructive` tools. When an MCP gateway requires every tool in a flat, paginated `tools/list` response, use:
+
+```text
+https://mcp.atlassian.com/v2/mcp?tools=all
+```
+
+Do not configure the retired `/v1/sse`, `/v1/mcp`, or `/v1/mcp/authv2` endpoints for a new setup. If an existing configuration still points at v1, follow the migration workflow below. Do not replace official Atlassian Rovo MCP with a third-party Jira MCP package unless the user requests it and the risks have been assessed.
 
 ## Configure Codex
 
@@ -36,7 +43,7 @@ codex mcp login --help
 After the user requests configuration, add the server:
 
 ```text
-codex mcp add atlassian --url https://mcp.atlassian.com/v1/mcp/authv2
+codex mcp add atlassian --url https://mcp.atlassian.com/v2/mcp
 codex mcp login atlassian
 ```
 
@@ -46,7 +53,7 @@ Recommended safe configuration in `~/.codex/config.toml` or the project configur
 
 ```toml
 [mcp_servers.atlassian]
-url = "https://mcp.atlassian.com/v1/mcp/authv2"
+url = "https://mcp.atlassian.com/v2/mcp"
 auth = "oauth"
 default_tools_approval_mode = "writes"
 enabled = true
@@ -61,9 +68,33 @@ codex mcp get atlassian
 
 `enabled` and `OAuth` only confirm that the configuration was recognized. Open a new Codex session when needed, check `/mcp`, and call exactly one minimal read-only tool to verify that the server connected and OAuth actually works.
 
+## Migrate an existing v1 connection to v2
+
+Atlassian released v2 with more tools and supported products. On **1 Mar 2027**, existing v1 connections begin exposing and using v2 tools automatically; migrate deliberately before then when the user requests the upgrade. The v1 endpoints are `https://mcp.atlassian.com/v1/mcp` and `https://mcp.atlassian.com/v1/mcp/authv2` — the `authv2` suffix does not mean the connection uses Rovo MCP v2.
+
+Before changing anything, inspect the current Codex CLI and server entry:
+
+```text
+codex --version
+codex mcp --help
+codex mcp list --json
+codex mcp get atlassian
+```
+
+Use the actual server name if it is not `atlassian`. Preserve unrelated configuration and custom timeout values. Migrate only the entry whose URL exactly matches a v1 endpoint:
+
+1. Record the server name, URL, authentication mode, approval settings, headers or token environment-variable references, and custom startup/tool timeouts. Do not print credential values.
+2. For an OAuth entry, remove and re-add that exact server using the current CLI syntax and `https://mcp.atlassian.com/v2/mcp` (or `?tools=all` only when a flat tool list is required). Reapply settings that `codex mcp add` does not preserve.
+3. Run `codex mcp login <server-name>` and complete browser sign-in. v2 is a separate OAuth resource, so v1 OAuth credentials do not carry over.
+4. For a Basic API-token or service-account Bearer-token entry, v2 supports token authentication, but do not expose, copy, or rewrite the secret automatically. Preserve the existing secret reference and follow the current official API-token configuration when repointing the URL. Confirm the intended `cloudId`, because token credentials are not bound to one site and may expose fewer tools than OAuth.
+5. If authentication fails because the client retained a v1 OAuth registration, log out that server and retry login. Clear cached `clientId` or `.well-known` registration state only after observing a compatible failure and identifying the client-owned cache precisely.
+6. Verify with `codex mcp list`, `codex mcp get <server-name>`, a new session or `/mcp` when needed, then exactly one minimal read-only identity/resources call. Report success only after the live v2 check passes.
+
+Do not silently migrate another client, another user's configuration, or an entry with a non-v1 URL. If removal and re-addition would discard settings that cannot be reconstructed safely, stop and present the exact manual edit required instead.
+
 ## Authenticate and identify the target
 
-- Prefer OAuth 2.1 for interactive sessions. API tokens are for non-interactive/M2M use and may be used only when the organization permits them and the user requests them.
+- Prefer OAuth 2.1 for interactive sessions. Personal API tokens and service-account API keys are for non-interactive/M2M use and may be used only when the organization permits them and the user requests them; their tool set may be smaller, and their credentials are not bound to one `cloudId`.
 - Use `atlassianUserInfo` and `getAccessibleAtlassianResources`, or equivalent tools published by the current server, to verify the identity and site/cloud ID.
 - When multiple sites exist, do not choose one solely by a similar name. Ask the user to select or correlate it with the specified target.
 - MCP permissions do not exceed the user's Jira permissions. Organization administrators may also independently block Read, Write, or Search groups, OAuth domains, and IP addresses.
@@ -102,7 +133,7 @@ If a tool times out or returns an uncertain result, do not invoke it again throu
 
 ## Troubleshoot
 
-- Server is absent: check configuration scope, `codex mcp list`, client restart/new session, and `/mcp`.
+- Server is absent: check configuration scope, `codex mcp list`, client restart/new session, and `/mcp`; confirm the URL is the v2 endpoint rather than a retired v1 endpoint.
 - `enabled` but tools cannot be called: run a live read-only check; inspect OAuth, token expiration, organization permissions, domain/IP allowlists, and network access.
 - OAuth does not open or the callback fails: retry login after checking browser/callback behavior and the domain allowlist; do not automatically switch to a token.
 - `Access denied`: verify the user's Jira permissions and Read/Write/Search groups in Atlassian Administration.

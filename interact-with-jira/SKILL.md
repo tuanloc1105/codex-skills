@@ -15,7 +15,7 @@ description: Work with Jira Cloud through Atlassian Rovo MCP first, registered o
 ## Resolve a route
 
 1. Name the capability, product family, read/write class, and target provenance.
-2. Inspect live official Rovo MCP tools and schemas. Use MCP when it exposes the exact capability; documentation snapshots do not prove runtime presence or absence.
+2. Inspect live official Rovo MCP tools and schemas. On v2, use `discover` when the exact capability is deferred, then invoke it through the matching `executeRead`, `executeWrite`, or `executeDestructive` route. Use MCP when it exposes the exact capability; documentation snapshots do not prove runtime presence or absence.
 3. If connected/authenticated MCP lacks it, use one exact registry capability when available. Otherwise build and disclose a dynamic capability contract from the exact official Jira Cloud REST endpoint page.
 4. If MCP is unavailable, REST may proceed when existing credentials independently identify the site and the target/selector and authorization required by the operation's risk tier are satisfied. Otherwise ask whether to use ACLI.
 5. If no exact official endpoint, required scope, target provenance, risk classification, bounds, or verification can be established, stop and ask about ACLI when useful.
