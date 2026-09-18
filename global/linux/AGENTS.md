@@ -1,6 +1,10 @@
 ## Codebase Retrieval
 - Use raw file reads only when editing or when symbolic/search summaries are insufficient.
 
+## Code Editing
+
+- Load the `$surgical-coding` skill before modifying code.
+
 ## Persistent Workflow Recovery
 
 - Treat `$discuss`, `$plan`, and `$execute` as persistent workflow modes backed by one exact Markdown record bundle.
