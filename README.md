@@ -37,10 +37,11 @@ would omit the plugin hooks and scripts.
 
 ## Sync `kiro-skill/` to a live Kiro / Kiro Crew install
 
-`kiro-skill/` holds the Kiro-native ports of the Codex `discuss`, `plan`,
-`execute`, `interact-with-git-platform`, `update-agent-docs`, and `simplify`
-skills (see [kiro-skill/*/SKILL.md](kiro-skill)). They are not installed by
-`sync-skills.sh` above, which only targets `~/.codex/skills`. Use
+`kiro-skill/` holds Kiro-native workflow skills, including the Codex ports of
+`discuss`, `plan`, `execute`, `interact-with-git-platform`,
+`update-agent-docs`, and `simplify`, plus Kiro-specific coordinators such as
+`codex-review` (see [kiro-skill/*/SKILL.md](kiro-skill)). They are not
+installed by `sync-skills.sh` above, which only targets `~/.codex/skills`. Use
 `scripts/sync-kiro-skill.sh` instead to sync them into a local Kiro Crew
 install's own skills directory, `~/.kiro/crew/skills/kiro-skill/<name>/` —
 kept in a dedicated `kiro-skill/` namespace, never overwriting KiroCrew's own

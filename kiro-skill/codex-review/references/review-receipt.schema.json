@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "bundle_root",
+    "tracker_id",
+    "review_id",
+    "review_artifact",
+    "files_written",
+    "findings_reviewed",
+    "new_findings",
+    "limitations",
+    "risks"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["reviewed", "blocked", "incomplete", "failed"]
+    },
+    "bundle_root": { "type": "string" },
+    "tracker_id": { "type": "string" },
+    "review_id": { "type": "string" },
+    "review_artifact": { "type": "string" },
+    "files_written": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "findings_reviewed": { "type": "integer", "minimum": 0 },
+    "new_findings": { "type": "integer", "minimum": 0 },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "risks": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
