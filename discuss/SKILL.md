@@ -15,7 +15,7 @@ Keep the mode active across analysis and every scoped action. Completing an acti
 
 ## Skill-Managed Lifecycle
 
-Apply this skill directly through conversation state and its Markdown record. Do not automatically activate `workflow-modes`, invoke its control script, or run its hooks or lifecycle commands, even when the plugin is installed. Plugin availability is not a prerequisite for this skill. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
+Apply this skill directly through conversation state and its Markdown record. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
 
 - On a new invocation, read the initialization guidance first and create and verify a new bundle. Adopt an existing bundle only when the same request explicitly says to continue, resume, or update that bundle; a path or attachment alone is not continuation intent. On later turns within the active mode and after compaction, read this complete entrypoint, every currently required reference, `index.md`, and every manifest file before substantive work as required by the recovery rules.
 - Treat compaction recovery as a hard gate, not as optional rereading. Before the first substantive tool call after compaction, recover the active mode, canonical bundle root, and tracker ID from durable state; read and validate the bundle; reconcile any completed but unrecorded work; and verify the Active Snapshot, Resume Checkpoint, and next safe action. If the exact active bundle cannot be resolved, do not guess from the newest directory: ask for its path and stop substantive work.

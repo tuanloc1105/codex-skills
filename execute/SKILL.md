@@ -7,7 +7,7 @@ description: Persistent execution and evidence-tracking mode for an approved ver
 
 ## Skill-Managed Lifecycle
 
-Apply this skill directly through conversation state and its Markdown record. Do not automatically activate `workflow-modes`, invoke its control script, or run its hooks or lifecycle commands, even when the plugin is installed. Plugin availability is not a prerequisite for this skill. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
+Apply this skill directly through conversation state and its Markdown record. Continue to respect independently enforced runtime restrictions; this instruction does not authorize bypassing them.
 
 - On entry, resume, and after compaction, read this complete entrypoint, every currently required reference, `index.md`, and every manifest file before substantive work. For a new bundle, read the initialization guidance first, create the bundle, then verify its complete contents.
 - Treat compaction recovery as a hard gate, not as optional rereading. Before the first substantive tool call after compaction, recover the active mode, canonical bundle root, and tracker ID from durable state; read and validate the bundle; reconcile open action markers and any completed but unrecorded work; and verify the Active Snapshot, Resume Checkpoint, implementation status, and next safe action. If the exact active bundle cannot be resolved, do not guess from the newest directory: ask for its path and stop substantive work.
