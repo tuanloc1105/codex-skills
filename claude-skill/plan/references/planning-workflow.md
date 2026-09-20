@@ -25,5 +25,5 @@ Read this reference completely before creating or revising a plan, establishing 
    - Risks, assumptions, and open questions
    - Preservation acceptance criteria, regression checks, and verification strategy
    - Rollback or recovery for material behavior changes
-7. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Approval is required before changing the existing draft record to its final execute-ready status.
+7. Ask the user through `AskUserQuestion` to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Approval is required before changing the existing draft record to its final execute-ready status.
 8. After approval, finalize the same exact bundle as the approved handoff. Do not create a replacement bundle or implement it in the same `/plan` flow unless the user explicitly requests execution after saving.

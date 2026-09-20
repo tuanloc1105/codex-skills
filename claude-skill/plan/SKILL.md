@@ -83,24 +83,25 @@ Before creating or revising a plan, establishing its baseline, or requesting app
 
 ## Question and Open-Issue Contract
 
-Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan bundle.
+Every question that requires a user response must be asked with the `AskUserQuestion` tool and must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan bundle.
 
-- Present each distinct issue as a separate question block. Do not combine unrelated decisions under one option list.
+- Present each distinct issue as a separate `AskUserQuestion` question. Do not combine unrelated decisions under one option list.
 - Provide 2-4 total practical, mutually distinguishable options that answer that question, counting `Other — specify` toward the total.
-- In chat and saved Markdown, put each option on its own line with an explicit consecutive number: `1.`, `2.`, `3.`, `4.` as needed. Start at `1.`, leave a blank line between the question and its list, and never substitute bullets (`-`, `*`, `•`), checkboxes, letters, inline choices, or repeated `1.` markers. This is a required response format, not merely an example style.
-- Keep only one user-facing question awaiting an answer at a time so a bare number is unambiguous. A record may retain multiple open questions, each with its own numbered options and stable question ID; present only the next question in chat.
-- Accept a bare number such as `1` as selection of that option in the pending question, or a number plus detail such as `4. đánh giá lại phương án fix`. Apply any supplied qualification; do not require the user to repeat the option label. A bare selection of `Other` or an option needing a value does not supply the missing detail: ask a focused numbered follow-up. If the number is out of range or its question is ambiguous, clarify with numbered options instead of guessing.
-- Preserve the pending question's number-to-option mapping in the record so resumed sessions interpret short replies consistently. If choices must change, present the revised question before accepting a selection against it.
-- Use this numbered chat format when the interaction channel is optional. If higher-priority instructions require a structured question tool, follow its schema and selection behavior; do not add unsupported fields or duplicate its question in chat. Preserve the displayed option order when recording the question.
+- Ask through `AskUserQuestion`, following its schema and selection behavior. Do not add unsupported fields, and do not duplicate the question or its option list as chat text.
+- Keep only one user-facing question awaiting an answer at a time. A record may retain multiple open questions, each with its own numbered options and stable question ID; present only the next question through the tool.
+- In saved Markdown, put each option on its own line with an explicit consecutive number: `1.`, `2.`, `3.`, `4.` as needed. Start at `1.`, leave a blank line between the question and its list, and never substitute bullets (`-`, `*`, `•`), checkboxes, letters, or inline choices. This is a required record format, not merely an example style.
+- Preserve the displayed option order when recording the question, and keep the recorded number-to-option mapping aligned with the order shown in the tool so resumed sessions interpret short replies consistently. If choices must change, present the revised question before accepting a selection against it.
+- Accept the user's tool selection, or a bare number such as `1` matching the recorded mapping, or a number plus detail such as `4. đánh giá lại phương án fix`. Apply any supplied qualification; do not require the user to repeat the option label. A selection of `Other` without the needed value does not supply the missing detail: ask a focused follow-up through the tool. If a reply is out of range or its question is ambiguous, clarify through the tool instead of guessing.
+- Fall back to the numbered chat format only when `AskUserQuestion` is unavailable or its call is denied. State that the tool was unavailable, then apply the record format above to the chat message.
 - Mark one option as `Recommended` or `Default` when there is a reasonable choice.
 - Include `Other — specify` when the listed choices may not cover the user's intent.
 - When the user must supply a free-form value unrelated to plan-file storage, such as a URL or external resource name, offer useful defaults or actions first and include an option to provide a different value. Never invent the free-form value.
 - If a question is non-blocking, state which default the agent will use if the user does not answer.
-- Apply these rules to questions in chat and to every item in the proposed or saved plan's `Open Questions` section.
+- Apply these rules to every user-facing question and to every item in the proposed or saved plan's `Open Questions` section.
 - For each open question in a plan, record its options, recommendation/default when applicable, and whether it blocks execution.
-- Before sending a response or saving a plan, check that every user-facing question and open issue has its own consecutively numbered option list and that chat has only one pending question. Rewrite any bulleted choices before sending.
+- Before sending a response or saving a plan, check that every user-facing question was raised through `AskUserQuestion`, that each recorded question and open issue has its own consecutively numbered option list, and that only one question is pending. Rewrite any bulleted choices before sending.
 
-Required chat format (wording and language may adapt to the user):
+Required record format, also used for the `AskUserQuestion` fallback (wording and language may adapt to the user):
 
 ```text
 Ban muon xu ly ban ke hoach nay the nao?
@@ -111,4 +112,4 @@ Ban muon xu ly ban ke hoach nay the nao?
 4. Khac: ban mo ta huong ban muon.
 ```
 
-The user can reply `1` or `4. đánh giá lại phương án fix`. A selection of `1` in this example approves the plan only; it does not request execution. The same choices written with `-` bullets do not satisfy this contract.
+The user can select the option in the tool, or reply `1` or `4. đánh giá lại phương án fix`. A selection of `1` in this example approves the plan only; it does not request execution. The same choices written with `-` bullets do not satisfy this contract.
