@@ -25,4 +25,4 @@ Apply `Immediate Decision Gate` throughout every step below. When it triggers, s
 15. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
 16. Apply `Tracker Durability Gate` before every response after substantive work.
 17. Clarify that `discuss` remains active after every scoped action. Only a persisted transition to `$plan` or `$execute` exits it.
-18. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract.
+18. Send every question that needs a user response through `request_user_input` under the mandatory `Question Style` contract; never substitute a prose or Markdown option block in chat.

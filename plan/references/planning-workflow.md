@@ -6,7 +6,7 @@ Read this reference completely before creating or revising a plan, establishing 
 
 1. Resolve, reserve, initialize, read, and validate the exact draft plan bundle under `Saving Rules`.
 2. Restate the user's goal in concrete terms and persist it to the draft.
-3. Gather only the missing information that materially changes the plan. Keep questions concise and follow the mandatory `Question and Open-Issue Contract`; do not ask for details that can be discovered safely from the workspace.
+3. Gather only the missing information that materially changes the plan. Send every question through `request_user_input`, keep it concise, and follow the mandatory `Question and Open-Issue Contract`; do not ask for details that can be discovered safely from the workspace.
 4. Inspect enough context to remove guesswork:
    - Relevant repository instructions and local conventions
    - Existing files, exports, callers, routes, schemas, tests, configs, logs, or docs
@@ -25,5 +25,5 @@ Read this reference completely before creating or revising a plan, establishing 
    - Risks, assumptions, and open questions
    - Preservation acceptance criteria, regression checks, and verification strategy
    - Rollback or recovery for material behavior changes
-7. Ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, broader rework, and pause/cancel as applicable options. Approval is required before changing the existing draft record to its final execute-ready status.
+7. Use `request_user_input` to ask the user to approve or revise the plan, including its dependency and delegation structure when present. Present approval, targeted revision, and broader rework as applicable tool options; rely on the client-provided free-form path for another choice. Approval is required before changing the existing draft record to its final execute-ready status.
 8. After approval, finalize the same exact bundle as the approved handoff. Do not create a replacement bundle or implement it in the same `$plan` flow unless the user explicitly requests execution after saving.

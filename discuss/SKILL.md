@@ -57,7 +57,7 @@ After completing required tracker housekeeping, work in bounded increments. As s
 
 - Do not continue inspection, analyze later branches, complete later workflow steps, collect more decisions, or apply a default.
 - Finish only an already-running atomic read-only operation. Start no further substantive tool call. Make only the minimal tracker update needed to record progress, evidence, the blocking decision, and deferred work.
-- Ask exactly one decision question with 2-4 options total, then end the response and wait for the user's answer. Count `Other — specify` toward the 2-4 total.
+- Ask exactly one decision question through `request_user_input`, then end the response and wait for the user's answer.
 - After the user answers, record the decision, resume from the checkpoint, and apply this gate again at the next material decision.
 - Do not treat a factual unknown that can be resolved through safe, proportionate read-only inspection as a decision gate. If that inspection exposes a material user-owned decision, stop immediately after the current atomic operation.
 - If one result exposes several material decisions, ask only the one that blocks the earliest next action; prioritize safety or irreversibility when tied. Record later decisions as deferred without asking them yet.
@@ -67,34 +67,25 @@ This gate applies only while full `discuss` mode is active. A `$plan` discuss fa
 
 ## Question Style
 
-Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, approval, or permission to exit this mode. Never ask a storage-choice question for the tracker.
+Every question that requires a user response must use `request_user_input`. This is mandatory in every collaboration mode where the tool is available, including Default and Plan modes. Do not ask a user-facing question in prose, commentary, or the final response, including when requesting clarification, confirmation, approval, a free-form value, or permission to exit this mode. Never ask a storage-choice question for the tracker.
 
-- For a material decision gate, present only the first unresolved issue as a single question block. Do not batch multiple decision questions; defer later issues to subsequent turns.
-- Provide 2-4 total practical, mutually distinguishable options that answer that question, counting `Other — specify` toward the total.
-- In chat and saved Markdown, put each option on its own line with an explicit consecutive number: `1.`, `2.`, `3.`, `4.` as needed. Start at `1.`, leave a blank line between the question and its list, and never substitute bullets (`-`, `*`, `•`), checkboxes, letters, inline choices, or repeated `1.` markers. This is a required response format, not merely an example style.
-- Keep only one user-facing question awaiting an answer at a time so a bare number is unambiguous. A record may retain multiple open questions, each with its own numbered options and stable question ID; present only the next question in chat.
-- Accept a bare number such as `1` as selection of that option in the pending question, or a number plus detail such as `4. đánh giá lại phương án fix`. Apply any supplied qualification; do not require the user to repeat the option label. A bare selection of `Other` or an option needing a value does not supply the missing detail: ask a focused numbered follow-up. If the number is out of range or its question is ambiguous, clarify with numbered options instead of guessing.
-- Preserve the pending question's number-to-option mapping in the record so resumed sessions interpret short replies consistently. If choices must change, present the revised question before accepting a selection against it.
-- Use this numbered chat format when the interaction channel is optional. If higher-priority instructions require a structured question tool, follow its schema and selection behavior; do not add unsupported fields or duplicate its question in chat. Preserve the displayed option order when recording the question.
-- Mark one option as `Recommended` or `Default` when there is a reasonable choice.
-- Include `Other — specify` when the listed choices may not cover the user's intent.
-- When the user must supply a free-form value unrelated to tracker storage, such as a URL or external resource name, offer useful defaults or actions first and include an option to provide a different value. Never invent the free-form value.
+- For a material decision gate, send only the first unresolved issue in one `request_user_input` call. Do not batch multiple decision questions; defer later issues to subsequent turns.
+- Follow the tool schema exactly: provide one question with 2-3 practical, mutually exclusive options, put the recommended option first, and suffix its label with `(Recommended)`. Do not add an `Other` option when the client supplies it automatically.
+- Keep the header, prompt, labels, and descriptions concise. Options must answer the question directly; descriptions should explain the impact or tradeoff of choosing them.
+- Keep only one user-facing question awaiting an answer at a time. A record may retain multiple open questions, each with its own stable question ID; send only the next question through the tool.
+- If the user selects the client-provided free-form `Other` path without enough detail, ask one focused follow-up through `request_user_input`; never fall back to a prose question.
+- Preserve the displayed option order and returned selection in the record. If choices must change, send the revised question through `request_user_input` before accepting a selection against it.
+- Do not duplicate the tool's question or options in commentary or the final response.
+- When there is a reasonable choice, make it the first tool option and mark it `(Recommended)`; record the same recommendation in Markdown.
+- When the listed choices may not cover the user's intent, rely on the client's automatically supplied free-form alternative and record that path as `Other — specify` only in Markdown.
+- When the user must supply a free-form value unrelated to tracker storage, such as a URL or external resource name, offer useful defaults or actions through `request_user_input`; rely on its client-provided free-form path for a different value. Never invent the value.
 - If a question is non-blocking and outside a material decision gate, state which default the agent will use if the user does not answer. Never apply a default to a material decision gate; wait for the user's answer.
-- Apply these rules to questions in chat and to every item recorded under `Open Questions` in the tracker.
-- Before sending a response or saving open questions, check that every question has its own consecutively numbered option list and that chat has only one pending question. Rewrite any bulleted choices before sending.
+- In saved Markdown, keep each option on its own line with an explicit consecutive number so the durable mapping remains unambiguous. This numbered format is for the record only, not a substitute for invoking `request_user_input`.
+- Apply these rules to every user-facing question and every item recorded under `Open Questions` in the tracker.
+- Before invoking the tool or saving open questions, check that only one question is pending in the UI and that the saved option order matches the tool call.
+- If `request_user_input` is unavailable, do not ask through another channel. State that the required question tool is unavailable, persist the blocked question and checkpoint, and stop until the workflow can resume in an environment that provides it.
 
-Required chat format (wording and language may adapt to the user):
-
-```text
-Ban muon di huong nao?
-
-1. Minimal fix: chi sua dung loi hien tai. Recommended.
-2. Broader cleanup: sua loi va don phan lien quan.
-3. Planning only: minh viet ke hoach truoc, chua sua gi.
-4. Khac: ban mo ta huong ban muon.
-```
-
-The user can reply `1` or `4. đánh giá lại phương án fix`. The same choices written with `-` bullets do not satisfy this contract.
+The corresponding tool call should use a short header such as `Fix scope`, ask which scope to take, and offer concise labels such as `Minimal fix (Recommended)`, `Broader cleanup`, and `Planning only`; the client supplies the free-form alternative.
 
 ## Response Pattern
 
