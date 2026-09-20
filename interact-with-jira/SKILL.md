@@ -48,7 +48,7 @@ Tier C covers delete, unlink/removal, bulk, destructive, administrative, broad-s
 
 - Verify MCP identity/resources or `acli jira auth status`; redact unnecessary identity, site, and private content.
 - Do not assume MCP, REST, and ACLI credentials authenticate one another. Correlate REST OAuth resource/cloud ID or API-token site/account with the MCP target; stop on ambiguity.
-- REST discovers existing credentials only: OAuth bearer, then existing API token. Never bootstrap consent/apps, replace/persist credentials, or expose tokens, headers, cookies, signed URLs, or secret paths.
+- REST discovers existing credentials only: OAuth bearer, then existing API token. The approved local REST token source is `~/.codex/.vault/.env.vault`, key `JIRA_ACCESS_TOKEN`; create the empty protected scaffold when it is missing, then have the user populate it. Load the configured value only into a child process environment as defined in the REST workflow, never into agent context. Never bootstrap consent/apps, replace/persist credential values, or expose tokens, headers, cookies, signed URLs, or other secret paths.
 - For ACLI, run root-to-leaf help and use installed syntax. Preserve prompts; use `--yes` only after exact confirmation. Never default to `--ignore-errors`.
 - Do not install, upgrade, log out, switch identities, or modify configuration unless requested when a suitable route remains operational.
 

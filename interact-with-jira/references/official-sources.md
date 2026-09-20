@@ -1,6 +1,6 @@
 # Official sources and freshness policy
 
-ACLI sources were checked on 2026-08-03; Jira REST sources were checked on 2026-08-29; Rovo MCP sources were rechecked on 2026-09-16 (v2 endpoint and migration confirmed). Recheck the relevant interface when using this skill.
+ACLI sources were checked on 2026-08-03; Jira REST sources were checked on 2026-08-29; Rovo MCP sources were rechecked on 2026-09-20 (v2 endpoint and client setup confirmed). The third-party `mcp-remote` package identity and published version were checked on 2026-09-20. Recheck the relevant interface when using this skill.
 
 ## Source precedence
 
@@ -25,6 +25,13 @@ ACLI sources were checked on 2026-08-03; Jira REST sources were checked on 2026-
 8. [Permissions](https://support.atlassian.com/security-and-access-policies/docs/Configure-Atlassian-Rovo-MCP-server-permission/): Read, Write, and Search access controlled by organization administrators.
 9. [Domain, authentication, and IP controls](https://support.atlassian.com/security-and-access-policies/docs/control-atlassian-rovo-mcp-server-settings/): domain allowlist, API-token policy, and IP allowlist.
 
+## Optional `mcp-remote` bridge
+
+1. [npm package](https://www.npmjs.com/package/mcp-remote): published package identity and current version.
+2. [source repository](https://github.com/punkpeye/mcp-remote): usage, transport behavior, OAuth cache handling, releases, and open issues.
+
+`mcp-remote` is a third-party stdio-to-remote bridge. It is not published or supported by Atlassian and does not replace the official Atlassian endpoint. Prefer native Streamable HTTP when the client supports it. When the user selects the bridge, verify the package owner/repository and current version, pin the selected version in the `npx` command, and authenticate it independently from a native client connection.
+
 ## Jira Cloud REST APIs
 
 1. [Issues](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/), [changelogs](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-changelog-get), and [transitions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-transitions-get): issue detail/edit metadata/edit and transition routes, scopes, statuses, fields, and pagination.
@@ -44,6 +51,7 @@ The runtime MCP schema decides whether MCP has a capability. The registry is the
 - Some command-reference pages may show an older update date than the binary. When syntax conflicts, use the binary's `--help` and record the discrepancy.
 - Do not hard-code “latest version” in automation. Atlassian requires frequent updates, and the changelog may introduce new OAuth requirements.
 - For MCP, the tool schema/list exposed by the current server determines executable inputs. The Supported tools page verifies capability and scope but does not replace the runtime schema.
+- For an `mcp-remote` configuration, verify the npm metadata and linked source repository at task time. Do not use an unversioned package or `@latest` in the saved MCP command, install it globally, migrate OAuth cache files from another client, or treat the bridge as an Atlassian-distributed component.
 - Use the Streamable HTTP endpoint currently published by Getting started — as of this check `https://mcp.atlassian.com/v2/mcp`, with `?tools=all` only when a flat tool list is required. Do not revert to the retired SSE or v1 endpoints; follow the migration workflow in `mcp-workflows.md` for existing v1 connections.
 - Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Use an unregistered endpoint only through the dynamic contract workflow; never expand the persistent registry merely because another official endpoint exists.
 - Correlate OAuth accessible resources/cloud ID or the API-token account/site with the intended MCP target.

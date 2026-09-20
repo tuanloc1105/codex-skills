@@ -3,7 +3,9 @@
 ## Contents
 
 - Discover and select an MCP client
+- Choose native HTTP or an `mcp-remote` bridge
 - Configure Codex
+- Switch transports safely
 - Migrate an existing v1 connection to v2
 - Authenticate and identify the target
 - Read data
@@ -29,6 +31,17 @@ https://mcp.atlassian.com/v2/mcp?tools=all
 
 Do not configure the retired `/v1/sse`, `/v1/mcp`, or `/v1/mcp/authv2` endpoints for a new setup. If an existing configuration still points at v1, follow the migration workflow below. Do not replace official Atlassian Rovo MCP with a third-party Jira MCP package unless the user requests it and the risks have been assessed.
 
+## Choose native HTTP or an `mcp-remote` bridge
+
+When configuration is requested and either transport is viable, present these choices and let the user select:
+
+- **Native HTTP (recommended):** the MCP client connects directly to Atlassian's Streamable HTTP endpoint. This removes a local proxy and npm dependency.
+- **`mcp-remote` bridge:** the MCP client launches a local stdio command through `npx`, and `mcp-remote` bridges it to Atlassian's remote endpoint. Use this for stdio-only clients or when the user explicitly prefers it.
+
+`mcp-remote` is a third-party transport bridge, not the Atlassian MCP server. Before configuring it, verify `node`, `npm`, the package owner/repository, and the current package version. Show the exact package and version to the user; after they select this option, pin that version in the MCP command rather than executing an unversioned package or `@latest`. Do not install it globally. Treat the first `npx` execution as third-party code execution and preserve the client's normal command approval.
+
+Use one active Atlassian entry per configuration scope. Do not leave native and bridged entries enabled together: they can expose duplicate tools, use different OAuth caches, and make the active identity or mutation result ambiguous.
+
 ## Configure Codex
 
 Verify the CLI first:
@@ -46,6 +59,17 @@ After the user requests configuration, add the server:
 codex mcp add atlassian --url https://mcp.atlassian.com/v2/mcp
 codex mcp login atlassian
 ```
+
+If the user selects the `mcp-remote` bridge instead, substitute the exact version verified for the task:
+
+```text
+node --version
+npm --version
+npm view mcp-remote version repository.url --json
+codex mcp add atlassian -- npx -y mcp-remote@<verified-version> https://mcp.atlassian.com/v2/mcp
+```
+
+Do not run `codex mcp login` for the bridged entry. Start or reconnect the MCP server and let `mcp-remote` initiate its OAuth browser flow. Its OAuth state belongs to the bridge and must not be assumed to match Codex's native OAuth state.
 
 OAuth opens a browser for the user to sign in and consent. Do not choose an account/site automatically when multiple options exist. Do not put an access token in a command, configuration, or chat.
 
@@ -67,6 +91,28 @@ codex mcp get atlassian
 ```
 
 `enabled` and `OAuth` only confirm that the configuration was recognized. Open a new Codex session when needed, check `/mcp`, and call exactly one minimal read-only tool to verify that the server connected and OAuth actually works.
+
+## Switch transports safely
+
+Switch only when the user selects the destination transport. A working connection is not permission to rewrite its configuration.
+
+1. Inspect `codex mcp get <server-name> --json` and confirm the entry is the intended Atlassian server and configuration scope. Record non-secret approval settings, environment-variable names, and custom timeouts; never print or copy secret values.
+2. Resolve the destination configuration completely before removing the current entry. For `mcp-remote`, verify and pin the selected package version. For native HTTP, use the exact current Atlassian endpoint.
+3. Remove and re-add the same server name with `codex mcp remove <server-name>` followed by exactly one destination form:
+
+   ```text
+   # bridge -> native
+   codex mcp add <server-name> --url https://mcp.atlassian.com/v2/mcp
+   codex mcp login <server-name>
+
+   # native -> bridge
+   codex mcp add <server-name> -- npx -y mcp-remote@<verified-version> https://mcp.atlassian.com/v2/mcp
+   ```
+
+4. Reapply only recorded non-secret settings supported by the destination transport. Do not migrate OAuth cache files or tokens between native Codex and `mcp-remote`; authenticate the destination independently.
+5. Verify `codex mcp get <server-name> --json`, restart or reconnect the client when required, and make exactly one minimal read-only identity/resources call. Confirm the expected Atlassian account and site before declaring the switch complete.
+
+If removal would discard settings that cannot be reconstructed, or the destination cannot be authenticated and verified, stop and provide the exact recovery step. Do not create a second enabled Atlassian entry as a fallback. An uncertain write made before or during a switch must be resolved by reading its target; never retry it through the other transport.
 
 ## Migrate an existing v1 connection to v2
 
@@ -136,6 +182,7 @@ If a tool times out or returns an uncertain result, do not invoke it again throu
 - Server is absent: check configuration scope, `codex mcp list`, client restart/new session, and `/mcp`; confirm the URL is the v2 endpoint rather than a retired v1 endpoint.
 - `enabled` but tools cannot be called: run a live read-only check; inspect OAuth, token expiration, organization permissions, domain/IP allowlists, and network access.
 - OAuth does not open or the callback fails: retry login after checking browser/callback behavior and the domain allowlist; do not automatically switch to a token.
+- `mcp-remote` does not start or authenticate: verify Node/npm availability, the pinned package identity/version, local callback-port availability, client process logs with secrets redacted, and Atlassian's OAuth/domain policy. Do not silently fall back to an unpinned version or copy native OAuth state into the bridge.
 - `Access denied`: verify the user's Jira permissions and Read/Write/Search groups in Atlassian Administration.
 - Expected tool is absent: recheck the live tool list/schema, then use a registered capability or derive an exact dynamic REST contract from current official documentation.
 - Multiple sites or incorrect `cloudId`: repeat resource discovery and ask the user to select the target.

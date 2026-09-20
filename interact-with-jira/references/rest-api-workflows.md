@@ -19,10 +19,22 @@ When classification is ambiguous, use the higher tier. A user asking for an outc
 
 ## Credentials and site correlation
 
-1. Discover only existing credentials without printing paths, values, decoded claims, or headers.
+1. Discover only existing credentials without printing values, decoded claims, or headers. The one approved local token path may be named when reporting presence or a permission problem: `~/.codex/.vault/.env.vault`.
 2. Prefer OAuth bearer credentials. Correlate accessible-resource URL/cloud ID with MCP and use `https://api.atlassian.com/ex/jira/{cloudId}`.
 3. Otherwise use an existing API token only with its configured account and `https://<site>.atlassian.net`; supply authorization from a secret source, never an argument or committed file.
 4. Stop when credentials are absent/expired, need consent, map ambiguously, or lack the registered or documented dynamic scopes. Do not create an app, replace tokens, switch accounts, or persist credentials.
+
+### Load the approved local token
+
+- Use only `JIRA_ACCESS_TOKEN` from `~/.codex/.vault/.env.vault`. Do not search for alternate vaults, token files, or similarly named keys.
+- Resolve the current user's home directory without printing it. If `~/.codex/.vault/` is absent, create only those missing directories with mode `0700`. If `.env.vault` is absent, create it without overwriting any path, write exactly `JIRA_ACCESS_TOKEN=` followed by one newline, and set mode `0600`. Do not add example values, comments, quotes, or another credential key.
+- After creating the file, stop before any Jira request. Tell the user to open `~/.codex/.vault/.env.vault`, paste the token after `JIRA_ACCESS_TOKEN=`, save it, and ask the agent to continue. Never ask the user to paste the token into chat and never open or display the file through a tool.
+- For an existing path, check only that it is a regular file owned by the current user and is not accessible by group or others (equivalent to mode `0600`). Metadata checks must not print its contents. Stop and report the path and permission problem when these checks fail; do not repair permissions unless the user asks.
+- Test key presence only inside a non-verbose child process that sources the file and returns status, never the value. If `JIRA_ACCESS_TOKEN` is unset and the dotenv file loaded successfully, append exactly `JIRA_ACCESS_TOKEN=` once without rendering existing content, then stop and give the same populate-and-resume instruction. If the key exists but is empty, do not append a duplicate; stop and ask the user to populate it. If the dotenv file has invalid shell syntax, stop without modifying it and report only the parse failure and path.
+- Start a child process that sources the dotenv file with automatic export enabled, then immediately `exec`s the HTTP helper. The agent must not use `cat`, `grep`, `sed`, `awk`, command substitution, shell tracing, environment dumps, or any tool output that reads or renders the assignment. Do not return the loaded environment to the parent process.
+- The HTTP helper must read `JIRA_ACCESS_TOKEN` from its process environment and construct the authorization header inside process memory. Never interpolate the token into a shell command, command argument, URL, temporary file, request body, exception, debug trace, or log. Disable verbose HTTP and shell tracing.
+- Treat the variable name as credential location only, not proof of authentication type. Establish bearer versus API-token Basic authentication, and the required cloud ID or site/account, from independently verified configuration or explicit user input. For Basic authentication, combine the configured account identifier and token inside the helper; never materialize or print the combined credential.
+- Do not decode, compare, validate by display, rotate, rewrite, or persist the token. For `401` or `403`, report the status and correlated site/account without retrying with another credential.
 
 Use a client with separate headers, disabled automatic cross-host redirects, streaming, and exposed status/headers. Never log authorization, cookies, bodies, signed URLs, or unnecessary identity.
 
