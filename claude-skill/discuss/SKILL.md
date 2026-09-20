@@ -13,7 +13,9 @@ Operate as a discussion partner and keep one Markdown record bundle for the acti
 
 By default, the only allowed mutations are creating or transactionally updating the active bundle, creating missing parent directories, and maintaining its repository `.gitignore` entry.
 
-Keep the mode active across analysis and every scoped action. Completing an action, including an authorized source-code change, automatically returns control to `discuss`; it never exits the mode. Only an explicit transition to `/plan` or `/execute` may durably set the tracker to `Mode status: Exited`, and only after the applicable handoff state is persisted. If the user asks to "exit discuss", "turn off discuss", "start coding", or uses similar wording without choosing `/plan` or `/execute`, keep discuss active and apply `Settled Discussion Transition Gate` so the user chooses one of those workflows.
+Source-code mutation is absolutely prohibited while `discuss` is active, with no exception, confirmation path, or temporary lift. Treat application or library code, tests, executable scripts, migrations, configuration consumed by code, and generated code as source code. A user instruction to edit, implement, fix, refactor, generate, or otherwise change code does not authorize the change in this mode: record the request, keep source files untouched, and apply `Settled Discussion Transition Gate` so the user chooses `/plan` or `/execute`. Only those workflows, after discuss has durably exited, may mutate source code.
+
+Keep the mode active across analysis and every scoped non-source-code action. Completing an action automatically returns control to `discuss`; it never exits the mode. Only an explicit transition to `/plan` or `/execute` may durably set the tracker to `Mode status: Exited`, and only after the applicable handoff state is persisted. If the user asks to "exit discuss", "turn off discuss", "start coding", or uses similar wording without choosing `/plan` or `/execute`, keep discuss active and apply `Settled Discussion Transition Gate` so the user chooses one of those workflows.
 
 ## Skill-Managed Lifecycle
 

@@ -18,21 +18,19 @@ Treat automatic tracker path selection, collision handling, missing directory cr
 
 Examples of mutations that may be authorized without leaving the mode include editing non-code documents, creating requested artifacts, changing Figma content, updating tickets or issues, sending a requested message, or modifying a specifically named external resource.
 
-## Temporary Source-Code Actions
+## Absolute Source-Code Mutation Ban
 
-The user may request a bounded action that creates, edits, deletes, moves, renames, formats, generates, or otherwise mutates source code while `discuss` remains the surrounding mode. Treat application or library code, tests, executable scripts, migrations, and generated code as source code.
+Source-code mutation is absolutely prohibited while `discuss` is active. There is no confirmation, disclosure, or bounded-excursion path that permits it. Treat application or library code, tests, executable scripts, migrations, configuration consumed by code, and generated code as source code. If it is unclear whether a target counts as source code, treat it as source code and do not mutate it.
 
-Before starting such an action:
+When the user asks to create, edit, delete, move, rename, format, generate, or otherwise change source code:
 
-1. Identify the bounded requested outcome and disclose that completing it will mutate source code, naming the expected source-code scope when reasonably known.
-2. Require the user to confirm that source-code impact. A request that already explicitly asks to edit, implement, fix, refactor, generate, or otherwise change named code is both the request and confirmation when its mutating effect is unambiguous; do not ask redundantly. A plan approval, hypothetical statement, or request to discuss a possible change is not confirmation.
-3. Persist the action scope, confirmation, expected touchpoints, and `Action status: Authorized` in the tracker before mutation. If persistence fails, do not start the action.
-4. Temporarily lift only the source-code mutation restriction needed for that action. Apply the repository's normal coding, safety, approval, and verification workflows; do not broaden the authorization or treat it as permission for unrelated follow-up work.
-5. When the action succeeds, fails, or becomes blocked, persist its files or resources changed, checks and results, residual risks, and terminal action status. Then automatically resume full `discuss` behavior and the `Immediate Decision Gate` before responding. State that discuss remains active.
+1. Do not start the change and do not partially apply it. Never lift this restriction, even when the request is explicit, urgent, repeated, small, or already scoped to named files.
+2. State plainly that discuss does not modify source code, and record the requested outcome, expected touchpoints, and `Action status: Blocked by discuss source-code ban` in the tracker.
+3. Provide the analysis, options, diff sketch, pseudocode, or implementation plan instead, without applying it.
+4. Apply `Settled Discussion Transition Gate` and ask through `AskUserQuestion` whether the user wants `/plan` or `/execute` to carry out the change.
+5. Keep discuss active until that transition is chosen and its exit state is persisted. Only `/plan` or `/execute`, after discuss has durably exited, may mutate source code.
 
-If it is unclear whether a target counts as source code, disclose that it will be treated as source code and obtain confirmation before mutating it. Read-only inspection remains allowed under the rules below.
-
-An authorized source-code action is a temporary excursion within `discuss`, not a mode transition. Do not set `Mode status: Exited`, mark the tracker execution-ready, invoke `/execute`, or create a `/plan` merely because the action requires code changes.
+Read-only inspection of source code remains allowed under the rules below.
 
 ## Existing Behavior and Regression Safety
 
@@ -59,29 +57,29 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Read and adopt an existing tracker only when the user explicitly requests cross-session continuation; otherwise treat a supplied tracker as read-only context for the new bundle.
 - Create missing parent directories for the tracker and maintain its repository `.gitignore` rule as built-in tracker housekeeping.
 - Perform an explicitly authorized non-source-code mutation within the granted scope while keeping the mode active.
-- Perform a bounded source-code action after its impact and scope have been confirmed and persisted under `Temporary Source-Code Actions`, then automatically return to full discuss behavior.
+- Read source code without modifying it, and describe an unapplied change as analysis, diff sketch, pseudocode, or plan.
 
 ## Prohibited Work
 
 Do not perform:
 
-- Any source-code mutation that has not passed `Temporary Source-Code Actions`.
+- Any source-code mutation, for any reason, under any instruction, while discuss is active.
 - Any mutation beyond the record bundle, its missing parent directories, and its repository `.gitignore` rule unless the user has clearly authorized it.
 - Any action outside or materially beyond the authorized scope.
 - Unrequested cleanup, refactoring, collateral changes, or speculative follow-up work.
 - Treating permission for one mutation as permission for later or unrelated mutations.
 - Treating discussion, analysis, a hypothetical request, or approval of a plan as authorization to apply it unless the user clearly asks for the change to be made.
 
-If the user clearly requests an in-scope non-source-code mutation, perform it without requiring a mode transition. If the requested task requires source-code mutation, apply `Temporary Source-Code Actions`; after the action terminates, resume discuss automatically. Never require or infer a durable discuss exit merely to perform a bounded action.
+If the user clearly requests an in-scope non-source-code mutation, perform it without requiring a mode transition. If the requested task requires source-code mutation, apply `Absolute Source-Code Mutation Ban`: refuse the mutation, record it, and route the user to `/plan` or `/execute`. Never require or infer a durable discuss exit merely to perform a bounded non-source-code action.
 
 ## Tool Discipline
 
 Prefer answering from conversation context. Use read-only tools only when the user requests inspection, when they are necessary to establish existing behavior and regression safety for a requested change, or when they are necessary for tracker housekeeping. Confirm that the tools will not change source code, local runtime state, or external state.
 
-Avoid commands or tools with side effects unless they maintain tracker housekeeping or are necessary for an action authorized under `Scoped Action Authorization` or `Temporary Source-Code Actions`. Before using a mutating tool, verify that its target and effect fit the granted scope. If source-code impact is possible and has not been confirmed, do not run it; disclose the impact and obtain confirmation first.
+Avoid commands or tools with side effects unless they maintain tracker housekeeping or are necessary for an action authorized under `Scoped Action Authorization`. Before using a mutating tool, verify that its target and effect fit the granted scope and touch no source code. If source-code impact is possible, do not run it; disclose the impact and route the change to `/plan` or `/execute`.
 
 ## Combining With Other Skills
 
-This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains tracker housekeeping or the user authorizes an action under `Scoped Action Authorization` or `Temporary Source-Code Actions`. During an authorized source-code action, apply any coding skill required by the repository only within the persisted action scope; when the action terminates, suspend its mutation instructions again and return to full discuss behavior. A direct `/execute` invocation uses `Direct Execute Handoff`: `/execute` must not mutate source code until the tracker is durably marked ready and discuss is exited.
+This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains tracker housekeeping or the user authorizes a non-source-code action under `Scoped Action Authorization`. A coding skill loaded during discuss informs analysis only; it never authorizes a source-code edit. A direct `/execute` invocation uses `Direct Execute Handoff`: `/execute` must not mutate source code until the tracker is durably marked ready and discuss is exited.
 
 When combined with `$teach-for-understanding`, teach incrementally and verify understanding in chat. Put learning checkpoints in the Markdown tracker instead of creating or updating a separate `understanding-checklist.md`.

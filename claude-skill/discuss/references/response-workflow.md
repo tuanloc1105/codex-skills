@@ -20,7 +20,7 @@ Apply `Immediate Decision Gate` throughout every step below. When it triggers, s
 10. If `/execute` was chosen, apply `Direct Execute Handoff`; remain in discuss when its gate cannot pass, otherwise persist the exit and hand the exact bundle to `/execute` without creating a separate plan bundle.
 11. Otherwise, when the discussion is settled and no blocking question remains, apply `Settled Discussion Transition Gate`, ask whether the user wants `/plan` or `/execute`, and wait.
 12. Otherwise determine whether the requested action would mutate source code.
-13. If it would mutate source code, apply `Temporary Source-Code Actions`: disclose the impact, obtain confirmation when the request is not already unambiguous, persist authorization, perform and verify only the bounded action, persist its result, and automatically resume discuss.
+13. If it would mutate source code, apply `Absolute Source-Code Mutation Ban`: refuse the mutation with no exception, record the request and `Action status: Blocked by discuss source-code ban`, deliver the change as unapplied analysis or plan, and ask through `Settled Discussion Transition Gate` whether the user wants `/plan` or `/execute`.
 14. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
 15. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
 16. Apply `Tracker Durability Gate` before every response after substantive work.
