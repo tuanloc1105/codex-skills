@@ -187,6 +187,8 @@ Workflow State: MODE_UNRESOLVED
 
 ## Gate rules
 
+Apply the entrypoint's mandatory `User-Response Contract` to every unresolved user-owned decision, exact-value selection, confirmation, approval, authorization, override, risk acceptance, or retry. Record the `request_user_input` selection as decision or authorization evidence; never collect it through a prose question.
+
 Use `Required`, `Not applicable`, or `Deferred` for applicability; every non-required entry needs its reason or resume checkpoint and owner. Use only `Pending`, `Passed`, `Failed`, `Overridden`, `Deferred`, or `Not applicable` for state.
 
 Classify skill-defined gates from higher-priority instructions, core policy, applicable domain policies, Jira acceptance, and repository rules. Handwritten/non-generated lines include every line authored or materially edited by the implementing agent and must remain at or below the effective maximum. The pre-code and actual handwritten/non-generated size gates are non-overridable. When verified deterministic generated artifacts make only the total size exceed the maximum, keep the handwritten/non-generated size gate `Passed` and pass the separate generated-artifact exception-evidence gate; never classify agent-authored lines as generated merely because an agent created them. Every other `Hard` failure pauses only the dependent action until it passes or the user validly overrides it after warning. An override records the failed gate, missing evidence, affected action, warning, explicit risk acceptance and authorization, exact repository/state/target/scope, reason, and residual risk, and expires when relevant state changes. Mark an overridden gate `Overridden`, never `Passed`, and never describe missing evidence as verified.
