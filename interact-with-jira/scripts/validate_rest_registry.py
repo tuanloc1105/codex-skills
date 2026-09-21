@@ -121,6 +121,23 @@ def main() -> int:
         "REST OAuth excluded": "Do not use OAuth access tokens" in rest_workflow,
         "attachment atomic rename": "Atomically rename" in attachments,
         "attachment no overwrite": "refuse existing targets" in attachments,
+        "upload MCP live discovery": all(
+            phrase in mcp
+            for phrase in ("discover", "uploadAttachmentToJiraIssue", "initial tool list")
+        ),
+        "upload standalone exactly once": "invoke `uploadAttachmentToJiraIssue` once with `issueIdOrKey` and the returned `fileId`" in mcp,
+        "upload inline excludes standalone": "do not invoke standalone phase 2" in mcp,
+        "media token is distinct": "Media Bearer token is not `JIRA_ACCESS_TOKEN`" in mcp,
+        "media secret output prohibited": all(
+            phrase in mcp
+            for phrase in ("model-visible/tool-visible", "tracker/artifact/fixture", "shell tracing", "verbose HTTP")
+        ),
+        "REST attachment Basic auth": "Use `JIRA_ACCESS_TOKEN` only with the configured account email through HTTP Basic" in attachments,
+        "REST attachment 503 readback stop": all(
+            phrase in attachments
+            for phrase in ("returns `503`", "attachment-list read-back", "Do not retry")
+        ),
+        "comment is not binary upload": "comment endpoints are not binary-upload endpoints" in attachments,
         "comment explicit target": "one explicit issue" in platform,
         "comment 201 and reread": "require `201`, then GET returned comment ID" in platform,
         "runtime MCP authority": "live server tool list" in mcp,

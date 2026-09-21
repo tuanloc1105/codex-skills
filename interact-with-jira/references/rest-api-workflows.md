@@ -44,6 +44,7 @@ Use a client with separate headers, disabled automatic cross-host redirects, str
 - Accept only documented success statuses/shapes. Treat pagination tokens as opaque and stop at entry ceilings.
 - For `401`/`403`, report authentication/scope/permission. For `404`, verify explicit site/target without broad replacement search.
 - For `409`, `429`, or `5xx`, retry only idempotent Tier A reads, honoring `Retry-After` with bounded attempts. Never retry Tier B/Tier C or cross tools after uncertainty.
+- For an attachment-upload `503`, re-read the issue attachment list to determine whether the mutation succeeded, then stop. Do not retry or switch routes automatically, even when read-back shows no new attachment.
 - Perform the contract's exact verification before reporting a write successful.
 
 Report registered capability ID or `dynamic`, official source, REST family, risk tier, verified site/target, bounds, result, verification, and limitations without private content.

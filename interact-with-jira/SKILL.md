@@ -16,6 +16,7 @@ description: Work with Jira Cloud through Atlassian Rovo MCP first, registered o
 
 1. Name the capability, product family, read/write class, and target provenance.
 2. Inspect live official Rovo MCP tools and schemas. On v2, use `discover` when the exact capability is deferred, then invoke it through the matching `executeRead`, `executeWrite`, or `executeDestructive` route. Use MCP when it exposes the exact capability; documentation snapshots do not prove runtime presence or absence.
+   For uploads, live-discover `uploadAttachmentToJiraIssue`; its absence from the initial tool list is not evidence that MCP lacks attachment support.
 3. If connected/authenticated MCP lacks it, use one exact registry capability when available. Otherwise build and disclose a dynamic capability contract from the exact official Jira Cloud REST endpoint page.
 4. If MCP is unavailable, REST may proceed when existing credentials independently identify the site and the target/selector and authorization required by the operation's risk tier are satisfied. Otherwise ask whether to use ACLI.
 5. If no exact official endpoint, required scope, target provenance, risk classification, bounds, or verification can be established, stop and ask about ACLI when useful.
@@ -49,6 +50,7 @@ Tier C covers delete, unlink/removal, bulk, destructive, administrative, broad-s
 - Verify MCP identity/resources or `acli jira auth status`; redact unnecessary identity, site, and private content.
 - Do not assume MCP, REST, and ACLI credentials authenticate one another. Correlate the REST API-token site/account with the MCP target; stop on ambiguity.
 - REST uses an existing Jira Cloud API token only through HTTP Basic authentication with its configured account email and `https://<site>.atlassian.net`. Never send `JIRA_ACCESS_TOKEN` or any Jira API token with `Authorization: Bearer`, and do not use an OAuth access token for REST in this skill. The approved local REST token source is `~/.codex/.vault/.env.vault`, key `JIRA_ACCESS_TOKEN`; create the empty protected scaffold when it is missing, then have the user populate it. Load the configured value only into a child process environment as defined in the REST workflow, never into agent context. Never bootstrap consent/apps, replace/persist credential values, or expose tokens, headers, cookies, signed URLs, or other secret paths.
+- An Atlassian Media upload Bearer token is a separate, short-lived credential minted by MCP. Use it only for the exact Media URL, collection, and file it authorizes; never substitute or reuse `JIRA_ACCESS_TOKEN`, copy Media authorization across tasks/sessions, or expose the token or signed upload command. If the available execution path would place them in model-visible or tool-visible input/output, stop instead of uploading.
 - For ACLI, run root-to-leaf help and use installed syntax. Preserve prompts; use `--yes` only after exact confirmation. Never default to `--ignore-errors`.
 - Do not install, upgrade, log out, switch identities, or modify configuration unless requested when a suitable route remains operational.
 
@@ -56,6 +58,6 @@ Tier C covers delete, unlink/removal, bulk, destructive, administrative, broad-s
 
 - Match the live MCP schema, registry entry, dynamic capability contract, or current ACLI help exactly. Bound arguments/payloads and keep credentials out of commands/logs.
 - Check native exit code, MCP result, or HTTP status before parsing. Respect `Retry-After` for reads; never automatically retry uncertain mutations.
-- Report route/capability family, verified site, target, result, post-operation verification, and limitations. For attachments include final path and byte count. Do not repeat private content or secrets.
+- Report route/capability family, verified site, target, result, post-operation verification, and limitations. For attachments include only sanitized filename/path metadata, byte count, media type, status, and a redacted or shortened ID when appropriate. Do not repeat private content or secrets.
 
 Stop when identity/site/target/payload/visibility is ambiguous, credentials cannot be correlated, permissions/scopes are absent, the exact official endpoint contract cannot be established, required Tier C confirmation is absent, or a mutation result is uncertain. Never silently switch to ACLI or browser automation.
