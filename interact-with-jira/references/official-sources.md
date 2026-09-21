@@ -39,7 +39,7 @@ ACLI sources were checked on 2026-08-03; Jira REST sources were checked on 2026-
 3. [Issue attachments](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-attachments/): metadata, content, redirects, ranges, permissions, and scopes.
 4. [Project versions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-project-versions/) and [versions](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-project-versions/): release/version reads.
 5. [Jira Software boards](https://developer.atlassian.com/cloud/jira/software/rest/api-group-board/) and [sprints](https://developer.atlassian.com/cloud/jira/software/rest/api-group-sprint/): board/backlog/sprint/version reads, pagination, and enhanced endpoint families.
-6. [OAuth 2.0 (3LO)](https://developer.atlassian.com/cloud/jira/platform/oauth-2-3lo-apps/) and [API-token basic auth](https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/): resource correlation, scopes, lifecycle, and account/site binding.
+6. [API-token basic auth](https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/): the REST authentication method allowed by this skill, including account/site binding. OAuth REST authentication is intentionally outside this skill's fallback workflow.
 7. [Jira Service Management REST API](https://developer.atlassian.com/cloud/jira/service-desk/rest/): service desks, requests, customers, organizations, Assets, product-specific scopes, permissions, experimental headers, and its `/rest/servicedeskapi` URI family.
 
 The runtime MCP schema decides whether MCP has a capability. The registry is the preferred pre-verified REST path. For an unregistered capability, the exact current official REST endpoint page is authoritative for a task-scoped dynamic contract; documentation does not supply user authorization, target provenance, credentials, permissions, or confirmation.
@@ -54,7 +54,7 @@ The runtime MCP schema decides whether MCP has a capability. The registry is the
 - For an `mcp-remote` configuration, verify the npm metadata and linked source repository at task time. Do not use an unversioned package or `@latest` in the saved MCP command, install it globally, migrate OAuth cache files from another client, or treat the bridge as an Atlassian-distributed component.
 - Use the Streamable HTTP endpoint currently published by Getting started — as of this check `https://mcp.atlassian.com/v2/mcp`, with `?tools=all` only when a flat tool list is required. Do not revert to the retired SSE or v1 endpoints; follow the migration workflow in `mcp-workflows.md` for existing v1 connections.
 - Recheck an exact REST endpoint when status, redirects, authentication, scopes, or schema differ. Use an unregistered endpoint only through the dynamic contract workflow; never expand the persistent registry merely because another official endpoint exists.
-- Correlate OAuth accessible resources/cloud ID or the API-token account/site with the intended MCP target.
+- Correlate the REST API-token account/site with the intended MCP target. Do not reuse MCP OAuth credentials for REST.
 
 ## Distinguish TWG CLI
 

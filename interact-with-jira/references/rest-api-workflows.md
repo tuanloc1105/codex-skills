@@ -20,9 +20,9 @@ When classification is ambiguous, use the higher tier. A user asking for an outc
 ## Credentials and site correlation
 
 1. Discover only existing credentials without printing values, decoded claims, or headers. The one approved local token path may be named when reporting presence or a permission problem: `~/.codex/.vault/.env.vault`.
-2. Prefer OAuth bearer credentials. Correlate accessible-resource URL/cloud ID with MCP and use `https://api.atlassian.com/ex/jira/{cloudId}`.
-3. Otherwise use an existing API token only with its configured account and `https://<site>.atlassian.net`; supply authorization from a secret source, never an argument or committed file.
-4. Stop when credentials are absent/expired, need consent, map ambiguously, or lack the registered or documented dynamic scopes. Do not create an app, replace tokens, switch accounts, or persist credentials.
+2. Use only an existing Jira Cloud API token with its configured account email and `https://<site>.atlassian.net`. Authenticate with HTTP Basic using `email:token`, constructed only inside the HTTP helper.
+3. Never send `JIRA_ACCESS_TOKEN` or any Jira API token with `Authorization: Bearer`. Do not use OAuth access tokens, `https://api.atlassian.com/ex/jira/{cloudId}`, or token-shape guessing for REST in this skill.
+4. Stop when the API token, account email, or site is absent, expired, ambiguous, or lacks the registered or documented permissions. Do not create an app, replace tokens, switch accounts, or persist credentials.
 
 ### Load the approved local token
 
@@ -33,14 +33,14 @@ When classification is ambiguous, use the higher tier. A user asking for an outc
 - Test key presence only inside a non-verbose child process that sources the file and returns status, never the value. If `JIRA_ACCESS_TOKEN` is unset and the dotenv file loaded successfully, append exactly `JIRA_ACCESS_TOKEN=` once without rendering existing content, then stop and give the same populate-and-resume instruction. If the key exists but is empty, do not append a duplicate; stop and ask the user to populate it. If the dotenv file has invalid shell syntax, stop without modifying it and report only the parse failure and path.
 - Start a child process that sources the dotenv file with automatic export enabled, then immediately `exec`s the HTTP helper. The agent must not use `cat`, `grep`, `sed`, `awk`, command substitution, shell tracing, environment dumps, or any tool output that reads or renders the assignment. Do not return the loaded environment to the parent process.
 - The HTTP helper must read `JIRA_ACCESS_TOKEN` from its process environment and construct the authorization header inside process memory. Never interpolate the token into a shell command, command argument, URL, temporary file, request body, exception, debug trace, or log. Disable verbose HTTP and shell tracing.
-- Treat the variable name as credential location only, not proof of authentication type. Establish bearer versus API-token Basic authentication, and the required cloud ID or site/account, from independently verified configuration or explicit user input. For Basic authentication, combine the configured account identifier and token inside the helper; never materialize or print the combined credential.
+- Treat `JIRA_ACCESS_TOKEN` only as a Jira Cloud API token for Basic authentication in this workflow. Independently verify the account email and site; combine `email:token` and encode the Basic credential only inside the helper. Never materialize or print the combined credential, and never fall back to Bearer authentication based on the variable name, token shape, or an authentication error.
 - Do not decode, compare, validate by display, rotate, rewrite, or persist the token. For `401` or `403`, report the status and correlated site/account without retrying with another credential.
 
 Use a client with separate headers, disabled automatic cross-host redirects, streaming, and exposed status/headers. Never log authorization, cookies, bodies, signed URLs, or unnecessary identity.
 
 ## Request and response policy
 
-- Allow requests only to the verified Atlassian site or the official `api.atlassian.com` resource URL documented for the product and correlated cloud ID. Use the exact path and API version from the endpoint contract; do not rewrite it into a familiar Jira Platform or Software family. Encode path/query values independently and enforce contract field/filter/page/byte ceilings before sending.
+- Allow requests only to the verified `https://<site>.atlassian.net` origin associated with the API-token account. Use the exact path and API version from the endpoint contract; do not rewrite it into a familiar Jira Platform or Software family. Encode path/query values independently and enforce contract field/filter/page/byte ceilings before sending.
 - Accept only documented success statuses/shapes. Treat pagination tokens as opaque and stop at entry ceilings.
 - For `401`/`403`, report authentication/scope/permission. For `404`, verify explicit site/target without broad replacement search.
 - For `409`, `429`, or `5xx`, retry only idempotent Tier A reads, honoring `Retry-After` with bounded attempts. Never retry Tier B/Tier C or cross tools after uncertainty.
