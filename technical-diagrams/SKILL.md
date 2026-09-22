@@ -3,7 +3,7 @@ name: technical-diagrams
 description: Create polished, validated architecture, workflow, sequence, data-flow, and lifecycle/state diagrams as explorable standalone HTML with inline SVG, dark/light themes, optional trace motion, and PNG/JPEG/WebP/SVG/WebM export. Accept plain-language requirements or pasted Mermaid flowchart, sequenceDiagram, and stateDiagram input; inspect repository evidence when the diagram must reflect real code. Use when the user asks to visualize system architecture, infrastructure, cloud/security/network topology, technical workflows, API call sequences, request lifecycles, data pipelines, ETL/ELT, data lineage, state machines, or to convert/beautify Mermaid.
 license: MIT
 metadata:
-  version: "2.16"
+  version: "2.17"
   author: tt-a1i
   based_on: Cocoon-AI/architecture-diagram-generator (MIT, v1.0)
 ---
@@ -11,6 +11,10 @@ metadata:
 # Technical Diagrams
 
 Create a self-contained, interactive HTML diagram from a small typed JSON specification. Static output is the default; enable motion only when the user asks for a demo or presentation.
+
+## Placement in workflow bundles
+
+When using this skill with an active `$discuss`, `$plan`, or `$execute` version 4 Markdown bundle, create `<canonical bundle root>/chart/` and keep all diagram assets for that bundle there. This includes the source JSON, delivered HTML, visual-check screenshots and receipts, and any requested exports. Use distinct names within `chart/` for multiple diagrams. Link the artifacts from the appropriate bundle record using paths relative to the bundle root, and record the deliver/validation evidence under that workflow's existing record contract. The bundle manifest lists Markdown record files only; do not add diagram assets to it. Keep the workflow's authorization and action-record requirements in force before creating these files. When no workflow bundle is active, use the user's requested output location or the normal standalone output path.
 
 ## Fast authoring path
 
