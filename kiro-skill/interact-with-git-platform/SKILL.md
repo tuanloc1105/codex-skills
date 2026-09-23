@@ -1,6 +1,6 @@
 ---
 name: kiro-interact-with-git-platform
-description: Work with GitHub, GitLab, and Gitea through their official command-line clients (`gh`, `glab`, and `tea`), including authentication, host and repository selection, issues, pull or merge requests, reviews, releases, CI, and API fallbacks. Use when Kiro must inspect, configure, troubleshoot, or safely mutate a Git platform through these CLIs. Do not use for local-only `git` operations or unrelated hosting providers. Kiro port of the Codex `interact-with-git-platform` skill.
+description: Work with GitHub, GitLab, and Gitea through their official command-line clients (`gh`, `glab`, and `tea`), including authentication, host and repository selection, issues, pull or merge requests, reviews, releases, CI, and API fallbacks. Also covers sending non-ASCII text such as Vietnamese through these CLIs on Windows shells, where code-page conversion turns diacritics into `?`. Use when Kiro must inspect, configure, troubleshoot, or safely mutate a Git platform through these CLIs. Do not use for local-only `git` operations or unrelated hosting providers. Kiro port of the Codex `interact-with-git-platform` skill.
 ---
 
 # Interact with Git platforms (Kiro / Kiro Crew)
@@ -25,6 +25,7 @@ below apply unchanged to Kiro. Run every command with the `shell` tool.
    - GitLab and `glab`: [references/gitlab-glab.md](references/gitlab-glab.md)
    - Gitea and `tea`: [references/gitea-tea.md](references/gitea-tea.md)
 5. For a deliberate cross-platform operation, read each participating provider reference and keep every source and destination explicit.
+6. When the `shell` tool runs on Windows and any payload contains non-ASCII characters, read [references/windows-unicode.md](references/windows-unicode.md) in addition to the provider reference, before composing the payload.
 
 Treat command examples in this skill as capability illustrations, not a frozen compatibility matrix. If a named flag or alias is absent, use the equivalent advertised by local help, choose another supported high-level command, or use the authenticated API fallback when it remains in scope. Do not make the user reconcile ordinary CLI-version differences.
 
@@ -63,9 +64,24 @@ When the target set or effect was not already exact, perform a read-only preflig
 
 - Pass user-controlled values as native argument values, never through `eval` or a generated shell command string — use proper quoting/escaping when the `shell` tool must interpolate a user-provided value, per this agent's own command-injection guardrail.
 - For multiline Markdown, use a documented file or standard-input flag. If the leaf command offers neither, use a shell-native multiline string with real newline characters or an API request body from a reviewed file; never encode intended line breaks as literal `\n` text, per this agent's learned correction on PR/MR bodies.
-- After creating or updating a pull or merge request, read its body back and verify that headings, lists, links, and paragraphs retained real line breaks.
+- After creating or updating a pull or merge request, read its body back and verify that headings, lists, links, and paragraphs retained real line breaks. On Windows, verify the characters as well as the layout: read the stored value into a file and decode it as UTF-8 rather than judging it from console output.
+- Treat text encoding as part of the payload, not as terminal cosmetics. `gh`, `glab`, and `tea` pass file and standard-input bytes through unchanged, so a corrupted body was destroyed by the shell before the client saw it, or is being misrendered by the console after the client wrote it. See [references/windows-unicode.md](references/windows-unicode.md).
 - Use JSON or another documented structured format for machine processing. Check the command's exit status before parsing; do not interpret partial output as success.
 - Avoid debug or verbose HTTP modes when they may disclose authorization headers or sensitive payloads.
+
+## Send non-ASCII text on Windows
+
+Vietnamese and other non-ASCII text published from a Windows shell is routinely destroyed
+by code-page conversion, so a PR/MR body, comment, or review arrives as `ti?ng Vi?t`. Read
+[references/windows-unicode.md](references/windows-unicode.md) for shell-by-shell detection,
+transports, fallbacks, and verification. These rules are non-negotiable on Windows:
+
+- Detect the host and shell before composing the payload. Do not apply Windows handling on macOS or Linux, and do not assume one Windows shell's behavior holds for another.
+- Write the text to a UTF-8 file with **no BOM** and pass it with the leaf command's file option. Do not put non-ASCII text in an inline `--body`/`--description` argument, in a `.bat`/`.cmd` file, or in `cmd.exe` `echo` redirection.
+- Do not create that file with `>`, `>>`, `Out-File`, or a bare `Set-Content` on Windows PowerShell 5.1, whose defaults are UTF-16LE and the ANSI code page. Write it through an explicit UTF-8-without-BOM encoder.
+- If a pipe is genuinely required, make the pipeline UTF-8 for the session first; Windows PowerShell 5.1 defaults `$OutputEncoding` to ASCII and silently converts every non-ASCII character to `?`. Treat a machine-wide code-page change as a host configuration change needing the user's authorization.
+- Treat a literal `?` as destroyed data, not a rendering artifact: re-send from the original source. Never recover by stripping diacritics, transliterating, or rewriting the user's wording — if the text cannot be sent intact, stop and report the limitation.
+- Verify the stored value by bytes, not by console rendering, and compare after Unicode NFC normalization so a precomposed/decomposed difference is not mistaken for corruption.
 
 ## Work with issues, pull requests, and merge requests
 
