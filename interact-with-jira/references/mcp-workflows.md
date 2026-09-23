@@ -171,21 +171,21 @@ If a tool times out or returns an uncertain result, do not invoke it again throu
 
 ## Upload and attach files
 
-Treat `uploadAttachmentToJiraIssue` as a deferred capability: call live `discover` for that exact name in the current authenticated session even when it is absent from the initial tool list. A documentation snapshot or result from another session proves neither presence nor absence. Use REST only after this live probe shows no suitable capability or MCP is unavailable.
+Treat `uploadAttachmentToJiraIssue` as a deferred capability: call live `discover` for that exact name in the current authenticated session even when it is absent from the initial tool list. A documentation snapshot or result from another session proves neither presence nor absence. If the discovered MCP route cannot complete under the current execution or user-imposed secret constraints, treat it as unusable and evaluate a permitted documented REST route; do not keep repeating discovery.
 
 ### Preflight
 
 1. Verify the MCP account, site, issue key/ID, issue access, and current attachment list.
 2. Verify that the explicit path is a regular file. Resolve its basename, byte count, and MIME type without reading unnecessary content; identify an existing same-name attachment so the user does not create an accidental duplicate.
 3. Bind the authorized outcome before uploading: either one standalone attachment or one inline media reference in a specific comment/description. These outcomes are mutually exclusive.
-4. Confirm that the execution environment can consume the MCP-issued upload authorization without placing its Bearer token or full signed command in model-visible/tool-visible inputs or outputs. If it cannot, stop and report the limitation.
+4. Confirm that the execution environment can consume the MCP-issued upload authorization within the user's visibility constraints. The MCP response itself contains the token-bearing command, so a requirement to keep both outside all model-visible and tool-visible output may make this route impossible in the current client. If so, do not mint the token; inspect a permitted documented route, such as Jira Platform REST with independently verified Basic credentials. If the user forbids that route, explain the concrete blocker.
 
 ### Phase 1 — upload bytes to Atlassian Media
 
 1. Invoke `uploadAttachmentToJiraIssue` once with only `issueIdOrKey` and `filePath`, matching the live schema. It returns a short-lived Atlassian Media upload command plus `collection`, `fileName`, and instructions for extracting `fileId`.
 2. Treat the returned command and Bearer token as secrets. Do not print, echo, log, persist in a tracker/artifact/fixture, interpolate them into a transcript-visible command argument, enable shell tracing or verbose HTTP, or write them to a temporary file. Prefer an execution facility that keeps the authorization in protected process memory. Do not copy authorization from another task/session; mint it for each upload.
 3. Execute the returned upload against only its exact `api.media.atlassian.com` URL, collection, and file, with cross-host redirects disabled. Send the selected file bytes directly. The Media Bearer token is not `JIRA_ACCESS_TOKEN` and must never be replaced by it.
-4. Check HTTP status and validate the documented response shape before extracting `fileId`. On failure or an ambiguous result, perform only safe read-back and stop; never replay the upload automatically.
+4. Check HTTP status and validate the documented response shape before extracting `fileId`. On failure or an ambiguous result, read back the issue attachments before any further write. If the Media upload alone failed, diagnose it against current Atlassian documentation and retry only with a newly minted authorization and a verified corrected request; never replay an old token-bearing command. If the attach outcome is uncertain, follow the reconciliation rule below.
 
 ### Phase 2 — choose exactly one completion path
 
@@ -193,13 +193,13 @@ Treat `uploadAttachmentToJiraIssue` as a deferred capability: call live `discove
 
 **Inline comment or description:** do not invoke standalone phase 2. Pass the returned `fileId`, `collection`, and `fileName` to the exact live comment/description capability fields, such as `inlineFileId`, `inlineFileCollection`, and `inlineFileName`. Inline embedding creates the Jira attachment. Re-read the comment/description for its media reference and the issue attachment list for the corresponding filename, byte count, and MIME type. Report success only when both match.
 
-If an upload, attach, or embed result is uncertain, do one safe read-back and stop. Even when read-back proves no attachment exists, obtain fresh mutation authorization and a newly minted Media upload authorization before another attempt; do not switch automatically to REST, ACLI, browser automation, or another credential.
+If an upload, attach, or embed result is uncertain, read back the exact issue attachment list and inline target where applicable. If the intended file is present, verify its ID, name, byte count, MIME type, and content when requested; do not upload again. If read-back cannot establish whether the write happened, stop further mutations and report the uncertainty. If read-back establishes that no matching attachment exists, diagnose the failure using the current official documentation, then continue with a corrected MCP attempt or a permitted official REST route under its credential workflow. The original task authorization covers further attempts only for the same issue, file bytes, filename, and standalone/inline outcome, subject to any explicit user attempt or route limit. Mint a fresh Media authorization for each new MCP attempt. Never use ACLI or browser automation without the authorization required by `SKILL.md`.
 
 ## Probe and route an unsupported capability
 
 - If MCP is unconfigured, unavailable, disconnected, unauthenticated, or blocked by policy, tell the user which condition was observed. Continue to REST when existing credentials independently identify the intended site and the registered or dynamic capability contract's target and authorization requirements are satisfied; otherwise ask whether they want to use ACLI. Do not inspect or invoke ACLI before they approve.
 - Resolve the exact requested capability first, then inspect the live server tool list and candidate schemas. A published supported-tools snapshot is discovery evidence only; it neither proves a runtime tool is loaded nor proves absence. For attachment uploads, always run live `discover` for `uploadAttachmentToJiraIssue` before selecting a fallback.
-- If MCP is connected and authenticated but lacks the exact capability, prefer one exact capability ID in `rest-capability-registry.json`. If none matches, route to `rest-api-workflows.md` and derive a dynamic capability contract from the exact current official endpoint page. Independently verify the REST API-token account/site and use only the Basic-auth workflow defined there; route selection never supplies mutation authorization.
+- If MCP is connected and authenticated but lacks the exact capability or cannot complete an upload under the current execution constraints, prefer one exact capability ID in `rest-capability-registry.json`. If none matches, route to `rest-api-workflows.md` and derive a dynamic capability contract from the exact current official endpoint page. Independently verify the REST API-token account/site and use only the Basic-auth workflow defined there; respect any user prohibition on REST.
 - If no exact official Jira Cloud endpoint or complete dynamic contract can be established, explain the limitation and ask whether the user wants ACLI. Neighboring endpoints and undocumented method/path pairs are not alternatives.
 - Treat approval as scoped to the current Jira task. Do not make ACLI the default for later tasks.
 - After approval, follow `references/command-workflows.md`, verify the ACLI site/account/target, and repeat any mutation preview when the execution tool or impact changes.

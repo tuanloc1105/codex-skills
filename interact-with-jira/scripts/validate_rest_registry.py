@@ -128,14 +128,18 @@ def main() -> int:
         "upload standalone exactly once": "invoke `uploadAttachmentToJiraIssue` once with `issueIdOrKey` and the returned `fileId`" in mcp,
         "upload inline excludes standalone": "do not invoke standalone phase 2" in mcp,
         "media token is distinct": "Media Bearer token is not `JIRA_ACCESS_TOKEN`" in mcp,
-        "media secret output prohibited": all(
+        "media secret handling": all(
             phrase in mcp
-            for phrase in ("model-visible/tool-visible", "tracker/artifact/fixture", "shell tracing", "verbose HTTP")
+            for phrase in ("visibility constraints", "tracker/artifact/fixture", "shell tracing", "verbose HTTP")
         ),
         "REST attachment Basic auth": "Use `JIRA_ACCESS_TOKEN` only with the configured account email through HTTP Basic" in attachments,
-        "REST attachment 503 readback stop": all(
+        "REST attachment 503 readback and diagnosis": all(
             phrase in attachments
-            for phrase in ("returns `503`", "attachment-list read-back", "Do not retry")
+            for phrase in ("returns `503`", "re-read the attachment list", "read-back is inconclusive", "current official endpoint documentation", "user limited attempts or routes")
+        ),
+        "upload attempt continuation": all(
+            phrase in skill
+            for phrase in ("keep working toward the verified attachment", "prior attempt is confirmed not to have created the attachment", "Never repeat an unresolved write")
         ),
         "comment is not binary upload": "comment endpoints are not binary-upload endpoints" in attachments,
         "comment explicit target": "one explicit issue" in platform,

@@ -1,6 +1,6 @@
 # Jira Cloud REST fallback workflow
 
-Use REST after live Rovo MCP lacks the exact capability, or MCP is unavailable while site and the operation's required target provenance can be independently verified. Route selection does not authorize mutation or credential changes.
+Use REST after live Rovo MCP lacks the exact capability, MCP is unavailable, or its attachment upload cannot complete under the current execution constraints, while site and the operation's required target provenance can be independently verified. Respect any user prohibition on REST. Route selection does not authorize a new mutation target, payload, or credential change.
 
 ## Resolve and validate
 
@@ -12,7 +12,7 @@ Use REST after live Rovo MCP lacks the exact capability, or MCP is unavailable w
 ## Dynamic risk classification
 
 - Tier A: bounded idempotent read. Require an explicit target or narrow filter, minimum fields, finite page/byte ceilings, and permission-respecting output. It may proceed without separate fallback approval after site and credentials are verified.
-- Tier B: one non-destructive mutation against an explicitly authorized target and bounded payload. Pre-read current state and required metadata, execute once, accept only documented success, and re-read the documented outcome. Never retry automatically.
+- Tier B: one non-destructive mutation against an explicitly authorized target and bounded payload. Pre-read current state and required metadata, execute once, accept only documented success, and re-read the documented outcome. For attachment uploads only, a further attempt may follow confirmed absence and the diagnosis in [Attachment workflow](rest-attachments.md), within the original task authorization and user limits.
 - Tier C: delete/removal, destructive or difficult-to-reverse action, bulk or selector-based mutation, administration, permission/configuration change, or Agile mutation. Perform a read-only preflight, resolve the final target set/count and impact, then request exact confirmation immediately before execution. Execute once; do not continue after partial or uncertain results.
 
 When classification is ambiguous, use the higher tier. A user asking for an outcome authorizes a bounded Tier B mutation only when target and payload are explicit; it does not waive Tier C confirmation.
@@ -43,8 +43,8 @@ Use a client with separate headers, disabled automatic cross-host redirects, str
 - Allow requests only to the verified `https://<site>.atlassian.net` origin associated with the API-token account. Use the exact path and API version from the endpoint contract; do not rewrite it into a familiar Jira Platform or Software family. Encode path/query values independently and enforce contract field/filter/page/byte ceilings before sending.
 - Accept only documented success statuses/shapes. Treat pagination tokens as opaque and stop at entry ceilings.
 - For `401`/`403`, report authentication/scope/permission. For `404`, verify explicit site/target without broad replacement search.
-- For `409`, `429`, or `5xx`, retry only idempotent Tier A reads, honoring `Retry-After` with bounded attempts. Never retry Tier B/Tier C or cross tools after uncertainty.
-- For an attachment-upload `503`, re-read the issue attachment list to determine whether the mutation succeeded, then stop. Do not retry or switch routes automatically, even when read-back shows no new attachment.
+- For `409`, `429`, or `5xx`, retry idempotent Tier A reads only with bounded attempts, honoring `Retry-After`. Never repeat an unresolved Tier B/Tier C mutation or switch tools while its outcome is uncertain. The attachment workflow permits a diagnosed new attempt only after read-back confirms the intended attachment was not created.
+- For an attachment-upload `503`, re-read the issue attachment list before any further write. When read-back confirms no matching attachment exists, follow the diagnosis and authorized continuation in [Attachment workflow](rest-attachments.md); stop mutations if the outcome remains uncertain.
 - Perform the contract's exact verification before reporting a write successful.
 
 Report registered capability ID or `dynamic`, official source, REST family, risk tier, verified site/target, bounds, result, verification, and limitations without private content.

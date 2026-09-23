@@ -1,6 +1,6 @@
 # Jira attachment REST workflows
 
-Common capability contracts, Basic authentication, risk tiers, and error handling are in [REST API workflow](rest-api-workflows.md). Use these REST workflows only after live MCP discovery lacks the exact capability or MCP is unavailable. Jira comment endpoints are not binary-upload endpoints; an inline comment can reference only media that was uploaded first.
+Common capability contracts, Basic authentication, risk tiers, and error handling are in [REST API workflow](rest-api-workflows.md). Use this upload workflow after live MCP discovery lacks the exact capability, MCP is unavailable, or its upload route cannot complete under the current execution constraints, provided the user has not prohibited REST. Jira comment endpoints are not binary-upload endpoints; an inline comment can reference only media that was uploaded first.
 
 ## Upload an attachment
 
@@ -12,7 +12,7 @@ The Jira Platform create-attachments endpoint is a dynamic Tier B capability unl
 4. Send the file once to the exact official Jira Platform attachment endpoint and require its documented success status and response shape. Do not use the comment REST API for the binary upload.
 5. Re-read the issue attachments and match returned attachment ID, filename, byte count, and MIME type. Report success only after the read-back matches.
 
-If the upload returns `503` or any uncertain result, perform only the attachment-list read-back, report whether a matching attachment exists, and stop. Do not retry, change routes, or change credentials automatically. A further attempt requires fresh authorization even when read-back proves no attachment was created.
+If the upload returns `503` or any uncertain result, re-read the attachment list before another write. If the intended file appears, verify it and stop uploading. If the read-back is inconclusive, stop further mutations and report the uncertainty. If it confirms no matching attachment was created, inspect the current official endpoint documentation and response details, diagnose the cause, and continue with a corrected request or another permitted documented route. The task's upload authorization remains valid for the same issue, file bytes, filename, and outcome unless the user limited attempts or routes. Do not blindly repeat an unchanged failing request; never switch credentials without independently verifying the account and site.
 
 REST comment/description APIs may reference already-uploaded media only when the current official contract documents that representation. They do not replace the upload step. Do not create a standalone attachment and then repeat an inline path that would create a duplicate.
 
