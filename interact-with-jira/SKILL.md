@@ -5,6 +5,12 @@ description: Work with Jira Cloud through Atlassian Rovo MCP first, registered o
 
 # Interact with Jira
 
+## OCB Jira metadata
+
+For `https://wowocb.atlassian.net`, use the checked-in [metadata snapshot](references/wowocb-metadata.json) to resolve project keys/IDs, issue types, statuses by work type, board IDs, and issue link types. Read [snapshot usage and recovery](references/wowocb-metadata.md) before using those values. The snapshot was retrieved through authenticated Atlassian Rovo MCP on 2026-09-23 and reflects that account's visibility. Do not refresh the site-wide catalog routinely; follow the recovery procedure only when a concrete mismatch, missing value, or Jira validation error makes it necessary.
+
+The snapshot is not a substitute for issue-specific current state, transitions, required create/edit fields, permissions, or assignee/sprint eligibility. Fetch only the necessary live metadata for the exact target when an operation needs it, as required by the risk-tier rules below.
+
 ## Boundary
 
 - Jira Cloud only. Exclude Data Center, Forge CLI, TWG CLI `twg`, browser automation, unofficial clients, and arbitrary REST execution.
