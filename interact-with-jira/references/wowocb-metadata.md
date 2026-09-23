@@ -20,3 +20,15 @@ Refresh the affected portion when a project, type, status, board, or link is abs
 4. If this is a repository maintenance task that explicitly includes updating the checked-in snapshot, replace only the affected JSON entries with verified MCP data, record a separate `refreshedAt` date on the affected entries, preserve other sections and the original whole-snapshot `retrievedAt`, and validate JSON and project/type/status references. Otherwise use the newly read values for the current task and report that the checked-in snapshot may be stale; do not silently edit the repository.
 
 For all reads and writes, follow the route, identity, bounds, and risk-tier rules in the parent `SKILL.md`.
+
+## Sub-task Original Estimate
+
+Observed on 2026-09-23 in PAT: `getJiraIssueTypeMetaWithFields` for Sub-task (`10047`) omitted `timetracking`, and `createJiraIssue` with `additional_fields: {"timetracking":{"originalEstimate":"2h"}}` returned `INVALID_FIELD_VALUE`. In the same project, PAT-3037 was successfully created with `createJiraIssue` **without** that field, then `editJiraIssue` set `additional_fields: {"timetracking":{"originalEstimate":"2h"}}`. A `getJiraIssue` read with `view: "full"` verified `timetracking.originalEstimate: "2h"` and `timeoriginalestimate: 7200`. This is an observed route, not a guarantee for every issue type, screen, account, or later Jira configuration.
+
+When an authorized PAT Sub-task needs an Original Estimate and live create metadata still omits Time tracking:
+
+1. Verify site/account, parent and issue type, exact title/body, assignee, estimate duration, and that a matching child does not already exist. Confirm authorization covers both creating the issue and setting its estimate. If a create attempt with the estimate was definitively rejected, read back the parent/matching children before trying a revised create.
+2. Create the Sub-task once with the authorized fields and without `timetracking`; check the result and re-read the new key, type, parent, body, and assignee. Do not create another issue if the result is uncertain.
+3. On that verified key, use `editJiraIssue` once with only `additional_fields: {"timetracking":{"originalEstimate":"<approved duration>"}}`. Re-read with `view: "full"` and verify both the duration string and `timeoriginalestimate` seconds. For `2h`, expect 7200 seconds. If the edit is rejected or uncertain, retain the existing ticket, read its current estimate, and report the incomplete step; do not create a replacement or blindly retry.
+
+If the create metadata includes Time tracking, prefer setting the estimate during creation and verifying it afterward. Atlassian's [time-tracking guidance](https://support.atlassian.com/jira-cloud-administration/docs/configure-time-tracking/) explains that screen configuration controls whether Original Estimate can be entered during create or edit. Do not equate a board's Story Points estimation with the issue's Original Estimate.

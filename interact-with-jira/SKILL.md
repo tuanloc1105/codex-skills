@@ -11,6 +11,8 @@ For `https://wowocb.atlassian.net`, use the checked-in [metadata snapshot](refer
 
 The snapshot is not a substitute for issue-specific current state, transitions, required create/edit fields, permissions, or assignee/sprint eligibility. Fetch only the necessary live metadata for the exact target when an operation needs it, as required by the risk-tier rules below.
 
+For a new Sub-task on `wowocb.atlassian.net` that also needs an Original Estimate, read [the OCB Sub-task estimate workflow](references/wowocb-metadata.md#sub-task-original-estimate) before writing. Its two-step MCP route is an observed option when the create metadata omits Time tracking; it does not authorize either write by itself.
+
 ## Boundary
 
 - Jira Cloud only. Exclude Data Center, Forge CLI, TWG CLI `twg`, browser automation, unofficial clients, and arbitrary REST execution.
@@ -27,6 +29,8 @@ The snapshot is not a substitute for issue-specific current state, transitions, 
 4. If MCP is unavailable, REST may proceed when existing credentials independently identify the site and the target/selector and authorization required by the operation's risk tier are satisfied. Otherwise ask whether to use ACLI.
 5. If no exact official endpoint, required scope, target provenance, risk classification, bounds, or verification can be established, stop and ask about ACLI when useful.
 6. If ACLI was requested initially, use its workflow directly; verify executable, version/help, authentication, site/account, and target.
+
+On a definite Jira validation rejection, continue bounded read-only diagnosis before declaring the task blocked: inspect the rejected field, exact issue-type metadata, available MCP create/edit capabilities, and a comparable same-project issue where useful. Consider a supported sequence of separate authorized writes, then the registered or documented REST route under its credential rules. A rejected create is not an uncertain create; verify absence before a revised attempt. Never retry an uncertain write, bypass a missing permission, assume another credential's identity, or inspect ACLI without its required authorization.
 
 Read [MCP workflow](references/mcp-workflows.md) before MCP, [REST API workflow](references/rest-api-workflows.md) plus the registry/domain reference before REST, and [ACLI workflow](references/command-workflows.md) before ACLI. Consult [official sources](references/official-sources.md) for current interfaces.
 
