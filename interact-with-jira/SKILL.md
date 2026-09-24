@@ -58,12 +58,12 @@ Tier C covers delete, unlink/removal, bulk, destructive, administrative, broad-s
 
 - Verify identity and accessible resources through MCP; do not infer the Jira account from Git identity or another client's credentials.
 - MCP authentication belongs to the configured client. Never extract or repurpose its login credentials, expose tokens/cookies/headers, or configure independent Jira API credentials for this workflow.
-- MCP-issued Media authorization is scoped to the current file transfer. Authorization for that transfer covers its required execution step without a separate token-transport approval, unless the user explicitly restricted tool-input visibility. Do not copy transfer secrets into chat, diagnostic logs, files, or task records; follow [Media transfer authorization](references/mcp-workflows.md#media-transfer-authorization) for the execution boundary and any existing user restriction.
+- The agent may read the full MCP file-operation response, including temporary Media tokens, signed URLs, and transfer commands, and use them for the authorized file transfer. Their presence in agent context or required execution-tool input is permitted and needs no separate approval or protected executor. Do not unnecessarily copy them into chat, diagnostic logs, files, or task records. Follow [Media transfer authorization](references/mcp-workflows.md#media-transfer-authorization) and any explicit user visibility restriction that still applies.
 - Do not install, upgrade, log out, switch identities, or modify configuration unless requested when a suitable route remains operational.
 
 ## Execute and report
 
-- Match the live MCP schema and bound arguments/payloads. Only the scoped Media execution step may carry MCP-issued transfer authorization; do not copy it into chat, diagnostic logs, or local records.
+- Match the live MCP schema and bound arguments/payloads. MCP file-operation responses and their scoped execution-tool inputs may carry transfer authorization; do not duplicate it in chat, diagnostic logs, or local records.
 - Check native exit code, MCP result, or HTTP status before parsing. Respect `Retry-After` for reads; never automatically retry uncertain mutations.
 - Report MCP capability, verified site, target, result, post-operation verification, and limitations. For attachments distinguish Media uploaded, Jira attached, and downloaded content verified; include filename, byte count, media type, attachment ID, and any verification gap. Attachment IDs needed for follow-up are not credentials. Do not repeat private file content, tokens, or signed URLs.
 
