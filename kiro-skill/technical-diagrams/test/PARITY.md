@@ -1,5 +1,10 @@
 # Archify v2.16.0 parity map
 
+The standalone runtime was subsequently reviewed against local Archify
+`72c750bb` (`2.17.0-dev.1`). See `../UPSTREAM.md` and
+`../LOCAL_MODIFICATIONS.md` for the update scope. The v2.16.0 baseline below
+remains the comparison point for the original adaptation.
+
 Baseline: Archify v2.16.0 at commit
 `39a21139a4661203888049d44e3b8c0da13fa576`.
 

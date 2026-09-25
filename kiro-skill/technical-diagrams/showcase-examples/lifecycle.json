@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {"title":"Vòng đời một đơn hàng","quality_profile":"showcase","viewBox":[1080,640]},
+  "lanes":[
+    {"id":"main","label":"Trạng thái chính"},
+    {"id":"events","label":"Chờ và phục hồi"},
+    {"id":"terminal","label":"Kết thúc"}
+  ],
+  "states":[
+    {"id":"draft","type":"start","label":"Nháp","sublabel":"giỏ hàng","lane":"main","col":0,"step":"01"},
+    {"id":"submitted","type":"active","label":"Đã gửi","sublabel":"chờ xác nhận","lane":"main","col":1,"step":"02"},
+    {"id":"confirmed","type":"active","label":"Đã xác nhận","sublabel":"nhà hàng nhận","lane":"main","col":2,"step":"03"},
+    {"id":"preparing","type":"active","label":"Đang chuẩn bị","sublabel":"trong bếp","lane":"main","col":3,"step":"04"},
+    {"id":"delivered","type":"success","label":"Đã giao","sublabel":"hoàn tất","lane":"main","col":4,"step":"05"},
+    {"id":"payment_pending","type":"waiting","label":"Chờ thanh toán","sublabel":"cần xác nhận","lane":"events","col":0,"tag":"tạm dừng"},
+    {"id":"payment_failed","type":"failure","label":"Thanh toán lỗi","sublabel":"có thể thử lại","lane":"events","col":1,"yOffset":82,"tag":"phục hồi"},
+    {"id":"cancelled","type":"failure","label":"Đã hủy","sublabel":"trạng thái cuối","lane":"terminal","col":0,"tag":"kết thúc"}
+  ],
+  "transitions":[
+    {"id":"need_payment","from":"confirmed","to":"payment_pending","variant":"default","route":"drop"},
+    {"id":"payment_error","from":"payment_pending","to":"payment_failed","variant":"security"},
+    {"id":"retry_payment","from":"payment_failed","to":"confirmed","label":"thử lại","variant":"emphasis"},
+    {"id":"cancel_order","from":"payment_pending","to":"cancelled","label":"hết thời gian","variant":"security","labelDy":24}
+  ]
+}

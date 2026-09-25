@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {"title": "Kiến trúc nền tảng đặt món", "quality_profile": "showcase", "viewBox": [1100, 680]},
+  "components": [
+    {"id":"customer","type":"external","label":"Khách hàng","sublabel":"Web / Mobile","pos":[40,260],"size":[140,64]},
+    {"id":"gateway","type":"cloud","label":"API Gateway","sublabel":"HTTPS + rate limit","pos":[250,260],"size":[150,64]},
+    {"id":"identity","type":"security","label":"Dịch vụ định danh","sublabel":"OAuth 2.0","pos":[470,100],"size":[160,64]},
+    {"id":"orders","type":"backend","label":"Dịch vụ đơn hàng","sublabel":"REST API","pos":[470,260],"size":[160,64]},
+    {"id":"orderdb","type":"database","label":"Kho đơn hàng","sublabel":"PostgreSQL","pos":[720,260],"size":[150,64]},
+    {"id":"events","type":"messagebus","label":"Luồng sự kiện","sublabel":"đơn hàng mới","pos":[470,430],"size":[160,64]},
+    {"id":"kitchen","type":"backend","label":"Điều phối bếp","sublabel":"xử lý bất đồng bộ","pos":[720,430],"size":[160,64]},
+    {"id":"notify","type":"external","label":"Kênh thông báo","sublabel":"push / SMS","pos":[930,430],"size":[140,64]}
+  ],
+  "boundaries":[{"kind":"region","label":"Nền tảng dịch vụ","wraps":["gateway","identity","orders","orderdb","events","kitchen"]}],
+  "connections":[
+    {"id":"customer_request","from":"customer","to":"gateway","label":"HTTPS","variant":"emphasis"},
+    {"id":"route_order","from":"gateway","to":"orders","label":"POST /orders"},
+    {"id":"verify_token","from":"identity","to":"orders","label":"xác minh JWT","variant":"security","labelDy":24},
+    {"id":"persist_order","from":"orders","to":"orderdb","label":"ghi đơn hàng"},
+    {"id":"publish_order","from":"orders","to":"events","label":"phát sự kiện","variant":"dashed","labelDy":24},
+    {"id":"consume_order","from":"events","to":"kitchen","label":"nhận đơn mới"},
+    {"id":"send_status","from":"kitchen","to":"notify","label":"gửi trạng thái","variant":"dashed","labelDy":56}
+  ],
+  "cards":[
+    {"dot":"cyan","title":"Đường đi chính","items":["Yêu cầu đi qua API Gateway đến dịch vụ đơn hàng","Dữ liệu bền vững được lưu trong PostgreSQL"]},
+    {"dot":"rose","title":"Tin cậy và bảo mật","items":["JWT được xác minh trước khi tạo đơn","Tác vụ bếp và thông báo tách khỏi request đồng bộ"]}
+  ]
+}

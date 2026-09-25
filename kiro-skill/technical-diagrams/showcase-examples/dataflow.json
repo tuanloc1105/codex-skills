@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {"title": "Luồng dữ liệu phân tích đơn hàng", "quality_profile": "showcase", "viewBox": [1080, 620]},
+  "stages":[{"label":"Nguồn"},{"label":"Thu nhận"},{"label":"Xử lý"},{"label":"Lưu trữ"},{"label":"Tiêu thụ"}],
+  "nodes":[
+    {"id":"orders_api","type":"backend","label":"API đơn hàng","sublabel":"giao dịch","stage":0,"row":1},
+    {"id":"collector","type":"cloud","label":"Bộ thu sự kiện","sublabel":"kiểm tra schema","stage":1,"row":1},
+    {"id":"event_stream","type":"messagebus","label":"Luồng sự kiện","sublabel":"đơn hàng","stage":2,"row":1},
+    {"id":"redactor","type":"security","label":"Ẩn dữ liệu nhạy cảm","sublabel":"email / điện thoại","stage":2,"row":3,"width":132},
+    {"id":"warehouse","type":"database","label":"Kho dữ liệu","sublabel":"bảng phân tích","stage":3,"row":1},
+    {"id":"restricted_vault","type":"security","label":"Kho định danh","sublabel":"mã hóa","stage":3,"row":3},
+    {"id":"dashboard","type":"frontend","label":"Dashboard vận hành","sublabel":"KPI đơn hàng","stage":4,"row":0,"width":128},
+    {"id":"forecast","type":"backend","label":"Dự báo nhu cầu","sublabel":"batch hằng ngày","stage":4,"row":2}
+  ],
+  "flows":[
+    {"id":"emit_orders","from":"orders_api","to":"collector","label":"sự kiện đơn hàng","classification":"nội bộ","variant":"emphasis"},
+    {"id":"validated_events","from":"collector","to":"event_stream","label":"sự kiện hợp lệ","classification":"append-only"},
+    {"id":"mask_pii","from":"event_stream","to":"redactor","label":"payload có PII","classification":"nhạy cảm","variant":"security","labelDy":24},
+    {"id":"curated_facts","from":"event_stream","to":"warehouse","label":"dữ kiện đã chuẩn hóa","classification":"phi định danh","variant":"emphasis","labelDy":53},
+    {"id":"identity_tokens","from":"redactor","to":"restricted_vault","label":"token định danh","classification":"hạn chế","variant":"security"},
+    {"id":"metrics_read","from":"warehouse","to":"dashboard","label":"chỉ số tổng hợp","classification":"read-only"},
+    {"id":"training_set","from":"warehouse","to":"forecast","label":"tập dữ liệu hằng ngày","classification":"batch","variant":"dashed"}
+  ]
+}

@@ -2,6 +2,15 @@
 
 This skill was adapted from Archify v2.16.0 under the MIT License.
 
+The compiler, standalone CLI, viewer template, delivery checks, schemas,
+repository evidence, selected examples, and focused regression tests were
+updated from the local Archify development checkout at commit
+`72c750bb` (`2.17.0-dev.1`) on 2026-09-22. The original v2.16.0 inventory
+below remains the immutable import baseline. This adaptation retains its own
+name, Mermaid importer, local update policy, and workflow-bundle `chart/`
+placement. Archify website, release automation, and root-level build scripts
+remain outside this standalone skill.
+
 - Upstream project: Archify
 - Upstream package path: `archify/`
 - Pinned commit: `39a21139a4661203888049d44e3b8c0da13fa576`

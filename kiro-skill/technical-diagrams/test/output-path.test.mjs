@@ -58,7 +58,7 @@ function directoryAliasesNames(directory, authoredName, lookupName) {
 
 test('future-path aliases follow the containing directory case and Unicode semantics', () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-output-semantics-'));
-  const caseInsensitive = directoryAliasesNames(cwd, 'Technical DiagramsCaseProbe', 'technical-diagramscaseprobe');
+  const caseInsensitive = directoryAliasesNames(cwd, 'TechnicalDiagramsCaseProbe', 'technicaldiagramscaseprobe');
   const normalizationInsensitive = directoryAliasesNames(
     cwd,
     'technical-diagrams-norm-\u00e9-probe',
@@ -77,7 +77,7 @@ test('future-path aliases follow the containing directory case and Unicode seman
 
 test('compare rejects case-only future targets before input work when the directory aliases case', () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'technical-diagrams-output-compare-case-'));
-  const caseInsensitive = directoryAliasesNames(cwd, 'Technical DiagramsCaseProbe', 'technical-diagramscaseprobe');
+  const caseInsensitive = directoryAliasesNames(cwd, 'TechnicalDiagramsCaseProbe', 'technicaldiagramscaseprobe');
   const output = path.join(cwd, 'Future.HTML');
   const receiptPath = path.join(cwd, 'future.html');
 
@@ -94,9 +94,9 @@ test('compare rejects case-only future targets before input work when the direct
   const receipt = JSON.parse(result.stdout);
   assert.equal(
     receipt.diagnostics[0].code,
-    caseInsensitive ? 'output/target-alias' : 'delta/base-input',
+    caseInsensitive ? 'output/target-alias' : 'output/cli-extension',
   );
-  assert.equal(receipt.stage, caseInsensitive ? 'prepare' : 'input');
+  assert.equal(receipt.stage, 'prepare');
 });
 
 test('render reports an output symlink cycle as a structured output diagnostic', () => {
@@ -301,8 +301,8 @@ console.log(JSON.stringify({
   fs.mkdirSync(inputDirectory);
   fs.mkdirSync(initialOutputDirectory);
   fs.symlinkSync(initialOutputDirectory, linkedDirectory, 'dir');
-  const input = path.join(inputDirectory, 'diagram.json');
-  const output = path.join(linkedDirectory, 'diagram.json');
+  const input = path.join(inputDirectory, 'diagram.html');
+  const output = path.join(linkedDirectory, 'diagram.html');
   const source = Buffer.from('{"meta":{"title":"race input"}}');
   fs.writeFileSync(input, source);
   const marker = path.join(cwd, 'renderer-started');
@@ -434,8 +434,8 @@ test('the shared renderer rechecks its guarded output immediately before writing
   fs.mkdirSync(inputDirectory);
   fs.mkdirSync(initialOutputDirectory);
   fs.symlinkSync(initialOutputDirectory, linkedDirectory, 'dir');
-  const input = path.join(inputDirectory, 'diagram.workflow.json');
-  const output = path.join(linkedDirectory, 'diagram.workflow.json');
+  const input = path.join(inputDirectory, 'diagram.workflow.html');
+  const output = path.join(linkedDirectory, 'diagram.workflow.html');
   const source = fs.readFileSync(workflowFixture);
   fs.writeFileSync(input, source);
 
@@ -527,9 +527,9 @@ export const validateArchitectureDeltaHtml = () => ({ checksPassed: 1, checkCoun
   fs.mkdirSync(inputDirectory);
   fs.mkdirSync(initialOutputDirectory);
   fs.symlinkSync(initialOutputDirectory, linkedDirectory, 'dir');
-  const base = path.join(inputDirectory, 'diagram.json');
+  const base = path.join(inputDirectory, 'diagram.html');
   const head = path.join(cwd, 'head.json');
-  const output = path.join(linkedDirectory, 'diagram.json');
+  const output = path.join(linkedDirectory, 'diagram.html');
   const source = Buffer.from('{"side":"base"}');
   fs.writeFileSync(base, source);
   fs.writeFileSync(head, '{"side":"head"}');
