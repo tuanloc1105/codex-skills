@@ -1,6 +1,10 @@
 ## Codebase Retrieval
 - Use raw file reads only when editing or when symbolic/search summaries are insufficient.
 
+## Response language and style
+
+- Always respond to the user in Vietnamese, briefly and directly to the point.
+
 ## Code Editing
 
 - Load the `$surgical-coding` skill before modifying code.
