@@ -186,9 +186,9 @@ Before creating the marker, check whether the exact MR already exists. Reuse an 
 
 After implementation and required checks are complete, stop at `CODE_READY` with the implementation diff uncommitted. Present the exact diff boundary, verification evidence, proposed commit set and messages, remote, source and target branches, MR title/body, and the verified GitLab account for both MR assignee and initial reviewer. Continue only after the user explicitly authorizes the enumerated implementation commits, required post-implementation empty commit, push, and MR creation with those assignments. Revalidate the diff, targets, and GitLab account if anything changes after the preview.
 
-Never self-approve or modify GitLab administration. Once the exact MR satisfies the platform-enforced approval rules, required checks, and GitLab mergeability, the Developer may proactively merge under explicit merge authorization. Do not require a separate approver-role confirmation. Never bypass applicable approval, protected-branch, pipeline, or mergeability controls. Deployment, release, Mobile delivery, and post-merge metrics remain out of scope.
+Never self-approve or modify GitLab administration. Before merge, require at least one valid approval from someone other than the MR author for the current MR SHA, even when GitLab requires zero approvals. This is a non-overridable **Hard** gate in addition to platform-enforced approval rules, required checks, and GitLab mergeability. The Developer may proactively merge under explicit merge authorization once these conditions pass. Do not require a separate approver-role confirmation. Never bypass applicable approval, protected-branch, pipeline, or mergeability controls. Deployment, release, Mobile delivery, and post-merge metrics remain out of scope.
 
-Before `glab`, verify installed version, leaf help, authentication, repository, and identity. Use explicit source and target. Never use interactive defaults or auto-merge. Before a merge command, also verify the current platform-required approval state, current source and target, pipeline/check state, mergeability, and current MR SHA.
+Before `glab`, verify installed version, leaf help, authentication, repository, and identity. Use explicit source and target. Never use interactive defaults or auto-merge. Before a merge command, also verify the current non-author approval for the MR SHA, platform-required approval state, current source and target, pipeline/check state, mergeability, and current MR SHA.
 
 ## Repository-aware AI attribution
 
@@ -204,4 +204,4 @@ Use only attribution explicitly permitted by higher-priority policy, repository 
 
 ## Out-of-scope ownership
 
-Developer ownership continues through verified `MERGED`: reviewers provide any platform-required approval, and the Developer owns the explicitly authorized merge after approval and readiness gates pass. GitLab administration, deployment, release, DevSecOps, Service Operations, Mobile delivery, and post-merge reporting belong to other roles or workflows.
+Developer ownership continues through verified `MERGED`: a reviewer provides at least one valid non-author approval, reviewers satisfy any additional platform-required approvals, and the Developer owns the explicitly authorized merge after approval and readiness gates pass. GitLab administration, deployment, release, DevSecOps, Service Operations, Mobile delivery, and post-merge reporting belong to other roles or workflows.

@@ -57,9 +57,9 @@ Keep OCB Workflow State separate from the host's implementation Status and activ
 | --- | --- |
 | Code accepted, remaining delivery actions can proceed | CODE_READY with technical checks; continue authorized delivery work. Do not claim the full OCB task is complete. |
 | Push/MR/platform approval or another external prerequisite is unavailable | Record WAITING_EXTERNAL, last achieved state, exact operation, owner, and resume condition. Use the host's Blocked status only when its blocker definition is met. |
-| MR exists but platform-required approval or merge prerequisites are pending | Retain verified MR_READY evidence and record the external wait. Do not add a separate approver-role gate. Jira Done and MR_READY are not MERGED. |
+| MR exists but non-author approval, platform-required approval, or merge prerequisites are pending | Retain verified MR_READY evidence and record the external wait. Do not add a separate approver-role gate. Jira Done and MR_READY are not MERGED. |
 | User explicitly requested only preparation or another limited endpoint | Complete only that agreed scope and report its actual OCB state plus remaining delivery owner; do not label it MERGED. |
 | User pauses, cancels, or exits | Honor the stop immediately, preserve the last achieved OCB state and unfinished gates, and apply the host's pause/exit procedure. Do not commit, push, create an MR, or merge to satisfy a completion gate. |
-| Merge succeeded and current evidence verifies it | Record MERGED with platform-required approval evidence, source/target, checks, merge result, and remaining non-delivery ownership. Stop before deployment or release. |
+| Merge succeeded and current evidence verifies it | Record MERGED with valid non-author approval and platform-required approval evidence, source/target, checks, merge result, and remaining non-delivery ownership. Stop before deployment or release. |
 
 On completion or handoff, include the exact record path, OCB state, agreed endpoint, evidence limitations, remaining gate owner, and resume condition. Resume prompts must restore OCB policies as well as the host workflow; they must not direct execute to treat technical completion as company delivery completion.
