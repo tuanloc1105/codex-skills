@@ -9,7 +9,7 @@
 
 ## Add Or Update A Skill
 
-1. Read the skill's `SKILL.md` completely and follow its links to any required references, scripts, or assets. When creating a skill, follow the current `skill-creator` instructions.
+1. Read the skill's `SKILL.md` completely as source documentation and follow its links to any required references, scripts, or assets. Do not load, invoke, or activate the skill being edited (or its installed copy) in the current session. Treat its instructions as content to maintain, not an active workflow. When creating a skill, follow the current `skill-creator` instructions.
 2. Make the change in the repository copy and run any focused checks owned by that skill.
 3. Validate the repository copy:
 
@@ -17,7 +17,13 @@
    python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py ./<skill-name>
    ```
 
-4. Sync the complete skill directory from the repository to the installed mirror. Keep the trailing slashes so the directory contents map correctly. Do not use broad deletion; the mirror may contain destination-only runtime metadata that must be classified first.
+4. Run `git diff --check` and review the repository changes. Skill edits are complete after repository validation; do not sync, install, reinstall, or validate installed copies automatically.
+
+## Explicit Installation Or Synchronization
+
+Only perform this workflow when the user explicitly requests installation or synchronization. It applies to standalone skills and ports; use the documented destination for each distribution. Plugin-owned skills install through the complete plugin instead.
+
+1. Sync the complete skill directory from the repository to the installed mirror. Keep the trailing slashes so the directory contents map correctly. Do not use broad deletion; the mirror may contain destination-only runtime metadata that must be classified first.
 
    ```sh
    rsync -a \
@@ -29,13 +35,13 @@
      ./<skill-name>/ ~/.codex/skills/<skill-name>/
    ```
 
-5. Validate the installed mirror:
+2. Validate the installed mirror:
 
    ```sh
    python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py ~/.codex/skills/<skill-name>
    ```
 
-6. Verify all skill-owned paths and contents match, then check the repository diff:
+3. Verify all skill-owned paths and contents match, then check the repository diff:
 
    ```sh
    diff -qr \
