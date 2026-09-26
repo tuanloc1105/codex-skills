@@ -13,7 +13,7 @@
 ## Read On Demand
 
 - Before adding, updating, or validating a skill, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) for the exact workflow, checks, and nested-repository handling.
-- For database inspection or troubleshooting, use [data-debug/SKILL.md](data-debug/SKILL.md); keep database operations read-only by default and use only its bundled `db-debug:latest` image workflow.
+- For database inspection or troubleshooting, use [data-debug/SKILL.md](data-debug/SKILL.md); keep operations read-only by default. SQL uses its bundled Java CLI; MongoDB/Redis use `db-debug:latest`. For CLI changes read [data-debug/cli/README.md](data-debug/cli/README.md) and `data-debug/cli/pom.xml`; never inspect real `.env.db` contents.
 - Before changing a plugin, read [docs/agent/plugin-maintenance.md](docs/agent/plugin-maintenance.md).
 - Before changing a skill-specific workflow under `.github/workflows/`, read [docs/agent/skill-maintenance.md](docs/agent/skill-maintenance.md) and the corresponding skill manifest and test scripts.
 - For the direct discussion-to-execution handoff contract, read [discuss/SKILL.md](discuss/SKILL.md), [execute/SKILL.md](execute/SKILL.md), and [plan/SKILL.md](plan/SKILL.md) together; an execution-ready discussion tracker is the single execution record and does not require a duplicate plan file.

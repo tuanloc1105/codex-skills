@@ -20,7 +20,8 @@
 
 ## Skill-Specific Checks
 
-- When changing `data-debug/`, read `data-debug/SKILL.md` and `data-debug/Dockerfile`. Validate the skill structure, then lint the Dockerfile when Hadolint is already available:
+- When changing `data-debug/`, read `data-debug/SKILL.md` and `data-debug/Dockerfile` as source documentation. For SQL CLI changes, also read `data-debug/cli/README.md` and the toolchain/dependency source of truth `data-debug/cli/pom.xml`, then run `mvn -f data-debug/cli/pom.xml clean verify`. The Java source/tests live in `data-debug/cli/src/`; `target/` is generated and ignored. Use synthetic fixture config only; never inspect real `.env.db` contents. Codex SQL runs Java; MongoDB/Redis retain Docker. Ports are outside a Codex-only CLI change unless explicitly requested.
+- Validate the skill structure, then lint the Dockerfile when Hadolint is already available:
 
   ```sh
   python3 ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py ./data-debug
