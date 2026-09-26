@@ -1,6 +1,6 @@
 ---
 name: interact-with-jira
-description: Work with Jira Cloud through official Atlassian Rovo MCP, including MCP-issued Media upload and download transfers. Use for Jira reads, writes, attachments, boards, sprints, releases, configuration, authentication, and safety gates. No Jira REST API or ACLI fallback.
+description: Work with Jira Cloud through official Atlassian Rovo MCP, including MCP-issued Media upload and download transfers. Use for Jira reads, writes, attachment upload/download/deletion, boards, sprints, releases, configuration, authentication, and safety gates. No Jira REST API, ACLI, or browser automation fallback.
 ---
 
 # Interact with Jira
@@ -24,6 +24,7 @@ For a new Sub-task on `wowocb.atlassian.net` that also needs an Original Estimat
 1. Name the capability, product family, read/write class, and target provenance.
 2. Inspect live official Rovo MCP tools and schemas. On v2, use `discover` when the exact capability is deferred, then invoke it through the matching `executeRead`, `executeWrite`, or `executeDestructive` route. Use MCP when it exposes the exact capability; documentation snapshots do not prove runtime presence or absence.
    For file transfers, discover `uploadAttachmentToJiraIssue` or `downloadJiraIssueAttachment` as needed; absence from the initial tool list is not evidence that MCP lacks the capability.
+   For attachment deletion, discover `deleteJiraIssueAttachment` and inspect its live schema and execution mapping. This v2 capability belongs to `delete_jira`, which is disabled by default and must be enabled by an admin; its required scope is `delete:jira:agent-interface`. Follow [Delete attachments](references/mcp-workflows.md#delete-attachments). Never switch to Browser to delete a file when MCP discovery or execution fails.
 3. If the exact capability is unavailable, perform bounded read-only diagnosis of the current connection, schema, permissions, and execution constraints. Consider a supported sequence of MCP operations only within the already authorized outcome.
 4. If no permitted MCP sequence can complete the task, report the observed blocker, completed steps, unresolved state, and the specific capability, permission, or user constraint that prevents progress. Do not enter a fallback or repeated approval loop.
 

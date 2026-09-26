@@ -13,6 +13,7 @@
 - Media transfer authorization
 - Upload and attach files
 - Download and verify attachments
+- Delete attachments
 - Diagnose an unsupported capability
 - Troubleshoot
 
@@ -233,10 +234,20 @@ The original authorization covers supported corrections for the same issue, byte
 
 If a download URL expires or a read fails, diagnose it and obtain a new MCP-issued URL for the same attachment when appropriate; respect any user attempt limit. No Jira mutation is needed to repeat a read. If MCP download is unavailable, report the precise remaining verification gap; do not use independent REST credentials or change the existing attachment.
 
+## Delete attachments
+
+Attachment deletion is a Tier C Jira mutation and must use official Rovo MCP. The Media HTTP exception covers upload/download byte transfers only; it does not authorize a local HTTP DELETE, a Jira REST call, or Browser automation. A browser used for OAuth sign-in is not an attachment deletion route.
+
+1. Verify the MCP account, site, issue key/ID, and current attachment metadata through a bounded MCP read. Bind the requested files to their numeric Jira attachment IDs, issue association, filenames, and sizes. Do not substitute Media UUIDs or select an ambiguous same-name attachment. Clarify ambiguous targets before any deletion.
+2. Inspect live official tools and use `discover` for `deleteJiraIssueAttachment`, documented for Atlassian MCP v2 under `delete_jira` with scope `delete:jira:agent-interface`. The permission group is disabled by default and requires admin enablement. Inspect the returned schema and execution mapping; do not invent arguments or infer runtime access from documentation or upload/download support. If unavailable, perform bounded read-only diagnosis of the connection/version and permission group, then report the exact blocker with the selected issue and attachment IDs. Do not change admin settings without authorization. Stop without opening Browser, invoking a browser skill, or offering another deletion transport.
+3. Apply the Tier C confirmation contract in `SKILL.md` to the exact site/account, discovered MCP capability, issue, attachment count/IDs, and payload. Explain the deletion impact and any observed recovery limits. Existing explicit authorization covers the same bound action; do not repeat a confirmation already supplied for that action. Revalidate if its target or payload changes.
+4. Invoke `deleteJiraIssueAttachment` through the execution route published by live discovery (`executeDestructive` when mapped there), using only the bound arguments accepted by its live schema. This permanently deletes the attachment and cannot be undone. Inspect the result and re-read the issue's attachment metadata through MCP (`getJiraIssue` with `fields: ["attachment"]` when supported) to verify the selected IDs were removed and other attachments remain. Removing an inline reference from a comment or description is a different outcome and does not prove attachment deletion; do not edit those bodies unless separately authorized.
+5. On a timeout, partial result, or uncertain outcome, reconcile through bounded MCP reads before any further deletion. Report unresolved IDs and stop when evidence is insufficient. Never retry through Browser or an independent HTTP request.
+
 ## Diagnose an unsupported capability
 
 - Distinguish unconfigured, disconnected, unauthenticated, permission-denied, unsupported, and incompatible execution/visibility conditions. Report the observed condition rather than calling every failure a missing capability.
-- Inspect the live server tool list and candidate schemas; use `discover` for deferred capabilities. A published supported-tools snapshot does not prove runtime availability or absence. For attachments, probe the exact upload or download capability needed by the task.
+- Inspect the live server tool list and candidate schemas; use `discover` for deferred capabilities. A published supported-tools snapshot does not prove runtime availability or absence. For attachments, probe the exact upload, download, or deletion capability needed by the task.
 - Consider a supported MCP sequence for the same authorized outcome, such as creating a work item and then editing a field, only when each step is permitted and verifiable. Do not widen the target or payload, bypass a permission, or repeat an uncertain write.
 - If the needed capability remains unavailable after bounded diagnosis, explain the missing capability, permission, connection, or execution facility and report any completed work. Do not offer Jira REST, ACLI, or browser fallback, inspect their credentials, or repeat discovery without new evidence.
 

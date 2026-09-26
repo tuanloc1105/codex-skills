@@ -1,4 +1,4 @@
 interface:
   display_name: "Interact with Jira"
   short_description: "Use Jira through Rovo MCP and scoped Media transfers"
-  default_prompt: "Use $interact-with-jira for this Jira Cloud task through official Rovo MCP, including its delegated Media transfers; verify each completed operation and report blockers without Jira REST or ACLI fallback."
+  default_prompt: "Use $interact-with-jira for this Jira Cloud task through official Rovo MCP, including its delegated Media transfers and attachment deletion when supported by live discovery; verify each completed operation and report blockers without Jira REST, ACLI, or browser automation fallback."
