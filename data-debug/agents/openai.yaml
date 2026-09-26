@@ -1,4 +1,4 @@
 interface:
   display_name: "Data Debug"
-  short_description: "Safely inspect databases through Docker"
+  short_description: "Inspect SQL with Java; MongoDB/Redis with Docker"
   default_prompt: "Use $data-debug to inspect this database safely in read-only mode."

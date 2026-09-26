@@ -1,16 +1,16 @@
 ---
 name: data-debug
-description: Safely inspect and troubleshoot Oracle, PostgreSQL, MySQL, MongoDB, Redis, or Microsoft SQL Server through the db-debug:latest Docker image. Use for database connectivity checks, metadata inspection, read-only queries, query-plan analysis, or database incident debugging. All database work is read-only by default; mutations require explicit approval for the exact operation.
+description: Safely inspect and troubleshoot Oracle, PostgreSQL, MySQL, MongoDB, Redis, or Microsoft SQL Server using the bundled Java SQL CLI or the db-debug:latest Docker image for MongoDB/Redis. Use for database connectivity checks, metadata inspection, read-only queries, query-plan analysis, or database incident debugging. All database work is read-only by default; mutations require explicit approval for the exact operation.
 ---
 
 # Data Debug
 
-Use only the `db-debug:latest` image for supported database work. Treat the database, its credentials, and returned data as sensitive.
+Use the bundled Java CLI for Oracle, PostgreSQL, MySQL, and SQL Server. Use only `db-debug:latest` for MongoDB/Redis. Treat the database, its credentials, and returned data as sensitive.
 
 ## Workflow
 
 1. Confirm the target engine, environment, database, and diagnostic question. Resolve ambiguity before connecting to production or another sensitive environment.
-2. Verify Docker and the required local image before using any database client:
+2. Route SQL engines through the Java workflow below; Docker is not a SQL prerequisite. For MongoDB/Redis, verify Docker and the required local image:
 
    ```sh
    docker version
@@ -18,7 +18,7 @@ Use only the `db-debug:latest` image for supported database work. Treat the data
    ```
 
    If either command fails, stop and report the blocker. Do not pull, build, retag, or substitute an image unless the user explicitly asks for that exact action.
-3. If client availability is uncertain, run:
+3. For MongoDB/Redis, if image client availability is uncertain, run the existing image smoke command:
 
    ```sh
    docker run --rm db-debug:latest bash -lc 'sql -version && sqlplus -v && psql --version && mysql --version && mongosh --version && mongo-legacy --version && redis-cli --version && sqlcmd -? >/dev/null && bcp -v && mssql-connect --version && if command -v sqlcmd17 >/dev/null; then sqlcmd17 -? >/dev/null && bcp17 -v; fi'
@@ -36,15 +36,43 @@ Use only the `db-debug:latest` image for supported database work. Treat the data
 - Keep all operations read-only unless the user explicitly approves the exact mutation in the current conversation.
 - Before an approved mutation, show the exact target, statement or command, expected effect, and rollback or recovery path. Do not interpret approval for one statement as approval for a batch, retry, broader target, or follow-up operation.
 - Do not run stored procedures, user-defined functions, triggers, `EXPLAIN ANALYZE` on mutating statements, or commands with unclear side effects as read-only work.
-- Never place connection URIs, passwords, tokens, certificates, or other secrets in chat, source files, shell command arguments, or captured logs. Pass connection settings through a user-provided environment file with `docker run --env-file`.
-- Keep environment files outside the repository, restrict their permissions, never print them, and delete temporary credential files after use when their lifecycle is owned by the task.
-- TLS is optional. Prefer a verified TLS connection when the endpoint supports it, but allow plaintext transport, unverified certificates, or disabled hostname verification when required by the target or requested by the user. Use the narrowest relaxation that works, do not disable authentication as part of this allowance, and report the resulting transport security mode.
-- Always use `--rm`. Do not mount the Docker socket, mount database data directories, use `--privileged`, or add capabilities. Avoid host filesystem mounts unless a user-requested import or export requires a specific path.
+- Never place connection URIs, passwords, tokens, certificates, or other secrets in chat, source files, shell command arguments, or captured logs. For SQL, only the CLI may read `.env.db` in the original terminal cwd; the agent must never read, source, copy, print, or inspect its contents. For MongoDB/Redis, pass the user-provided environment file with `docker run --env-file`.
+- Keep environment files untracked and restrict their permissions. For SQL use only the original terminal cwd `.env.db`, without searching parent/home/skill directories; ask the user to prepare it if missing. Do not change the user file. Delete task-owned temporary credential files only when their lifecycle belongs to the task.
+- SQL defaults to verified TLS. On a certificate/hostname validation failure, the CLI automatically makes at most one encrypted relaxed connection attempt; no repeated approval gate, authentication bypass, automatic plaintext downgrade, or SQL replay. Report the returned transport mode; relaxed TLS loses server identity validation. Plaintext SQL requires an explicit `--tls plaintext` choice. MongoDB/Redis retain the explicit transport policy below.
+- For Docker, always use `--rm`. Do not mount the Docker socket, mount database data directories, use `--privileged`, or add capabilities. Avoid host filesystem mounts unless a user-requested import or export requires a specific path.
 - Prefer explicit timeouts supported by the selected client or server. Avoid unbounded scans, full collection reads, keyspace-wide Redis commands, and production query-plan execution that could create material load.
 - Do not switch MongoDB clients to work around authentication, DNS, or networking failures. Configure the selected client explicitly when plaintext transport or relaxed TLS verification is required.
 - Report the database identity and scope before substantive diagnostics when a wrong-target connection would be risky.
 
-## Connection Pattern
+## Java SQL Workflow
+
+Read [cli/README.md](cli/README.md) for the interface, limits, driver compatibility and failure semantics. Determine the absolute root of the skill actually loaded, not a repository checkout or assumed current directory. Capture the original terminal cwd and keep it for configuration and query invocations.
+
+1. Check `java -version` (Java 17+) and `<skill-root>/cli/target/data-debug.jar`. If the JAR is absent, verify `javac -version` (JDK 17+) and `mvn -version`, then automatically build bundled source:
+
+   ```sh
+   mvn -f "<absolute-skill-root>/cli/pom.xml" clean verify
+   ```
+
+   Maven may resolve dependencies over the network. Missing toolchain: report the missing requirement, do not install it automatically. Reuse the built JAR. Build artifacts stay under the module; do not change the query cwd or inspect `.env.db` while debugging a build.
+2. Invoke `java -jar "<absolute-skill-root>/cli/target/data-debug.jar" --list-keys` in the original terminal cwd. It returns names and duplicate names only, never values; no connection is made. Choose per-field mappings from these names and user context. Ask the user when several targets/mappings remain plausible; do not guess or inspect values. Never use `cat`, `rg`, `source`, `env`, or shell expansion against `.env.db`.
+3. Run `--check-config` with the chosen `--engine`, `--host-key`, optional `--port-key`, `--database-key`, `--user-key`, `--password-key`. Oracle uses exactly one of `--service-key`/`--sid-key` instead of `--database-key`. Alternatively `--url-key` maps a restricted endpoint-only JDBC URL, exclusive with host/port/database/service/SID mappings; user/password remain separate key mappings. Only key names enter argv. Missing, duplicate, invalid or conflicting mappings stop before connecting.
+4. Submit a single bounded, classified statement through UTF-8 stdin with the same mappings. Default `--mode read`, 100 rows and a 10-second deadline. A `--mode write` flag does not constitute approval: use the exact-operation mutation boundary first. Larger exports require an explicit request; CLI caps remain finite. Interpret sanitized JSON errors without requesting file values or exposing raw JDBC diagnostics.
+5. Report actual transport/transaction/truncation metadata. Never retry a failed query or write automatically, including timeout or unknown commit outcomes. Obtain fresh exact approval for any write retry after separate outcome verification.
+
+Example for PostgreSQL, with nonsecret key names selected from discovery; invoke from the original cwd:
+
+```sh
+printf '%s\n' 'SELECT current_database(), current_user;' | java -jar "<absolute-skill-root>/cli/target/data-debug.jar" --engine postgresql --host-key PG_HOST --database-key PG_DATABASE --user-key PG_USER --password-key PG_PASSWORD
+```
+
+For MySQL use `SELECT DATABASE(), CURRENT_USER();`, SQL Server `SELECT DB_NAME(), SUSER_SNAME();`, and Oracle `SELECT global_name FROM global_name;` with the corresponding engine and discovered mappings. SQL targets are reached from the host Java process, so Docker host/container routing does not apply to SQL.
+
+Read classification supports conservative SELECT/read CTE, selected SHOW metadata, and nonexecuting EXPLAIN on PostgreSQL/MySQL. Rejects mutating CTE, SELECT INTO, locking reads, EXPLAIN ANALYZE, procedures, multiple statements and ambiguous dialect syntax. It cannot prove arbitrary SQL functions pure: use least-privileged accounts. PostgreSQL/MySQL request server read-only transactions; Oracle uses `SET TRANSACTION READ ONLY`; SQL Server's read-only hint depends on account permissions. Writes commit where transactional; Oracle/MySQL DDL can auto-commit and need manual recovery.
+
+Compatibility targets: Oracle 19c, PostgreSQL 12, MySQL 8.0, SQL Server 2016 through the newer releases documented in [cli/README.md](cli/README.md). Vendor-declared support and synthetic/package tests are separate from real endpoint verification. Older versions may be attempted best-effort, without a version-only rejection or a guarantee; future releases/new data types are not automatically certified.
+
+## Docker Connection Pattern (MongoDB/Redis)
 
 Use:
 
@@ -60,50 +88,24 @@ Network routing:
 
 Do not expand secret-bearing environment variables in the host shell. Expand them only inside the container's quoted `bash -lc` command.
 
-## Transport Security
+## Docker Transport Security (MongoDB/Redis)
 
-Verified TLS is preferred but not required. Connections may use one of these modes:
+Verified TLS is preferred but not required. Explicit modes are verified TLS, relaxed encrypted TLS, and plaintext. Do not silently downgrade; state the selected mode and preserve authentication.
 
-- Verified TLS: encrypt traffic and verify both the certificate chain and hostname.
-- Relaxed TLS: keep encryption while trusting an unverified certificate, skipping hostname verification, or both.
-- Plaintext: disable TLS when the server does not support it or the diagnostic context requires it.
-
-Do not silently downgrade a connection. State the selected mode, configure it explicitly through the client or the user-provided environment file, and preserve authentication. Common client controls include:
-
-- PostgreSQL: set `PGSSLMODE=disable` for plaintext or `PGSSLMODE=require` for encrypted transport without certificate or hostname verification.
-- MySQL: use `--ssl-mode=DISABLED` for plaintext or `--ssl-mode=REQUIRED` for encrypted transport without CA or hostname verification.
 - MongoDB: set `tls=false` for plaintext, or set `tls=true`, `tlsAllowInvalidCertificates=true`, and/or `tlsAllowInvalidHostnames=true` in the URI as narrowly as needed.
 - Redis: omit `--tls` for plaintext; use `--tls --insecure` for encrypted transport without certificate verification.
-- Microsoft SQL Server: use `-No` to make encryption optional or `-Nm` to require it with the default ODBC Driver 18 `sqlcmd`; add `-C` when encrypted transport must trust an unverified server certificate. The ODBC Driver 17 `sqlcmd17` compatibility client makes encryption optional by default; use `-N -C` when encrypted transport with an unverified certificate is required. For `mssql-connect`, `MSSQL_ENCRYPT` defaults to `false`; set it to `true` and set `MSSQL_TRUST_SERVER_CERTIFICATE=true` only when an encrypted connection must accept an unverified certificate. Replace `MSSQL` with the selected environment-variable prefix.
-- Oracle: select a non-TLS connect descriptor for plaintext. For TCPS, relax certificate or distinguished-name matching only in task-owned client configuration and do not overwrite an existing Oracle network configuration.
 
-Treat these transport relaxations separately from authentication. Do not disable or bypass authentication unless the user explicitly requests that distinct action and the target is intentionally configured for it.
+Do not disable or bypass authentication unless the user explicitly requests that distinct action and the target is intentionally configured for it.
 
-## Client Selection
+## Docker Client Selection
 
-- PostgreSQL: `psql`
-- MySQL: `mysql`
 - Modern MongoDB: `mongo-connect`
 - MongoDB 3.4: `mongo-connect --server-version 3.4`
 - Redis: `redis-cli`
-- Microsoft SQL Server: use the ODBC Driver 18 `sqlcmd` with an explicit transport mode. After a confirmed ODBC TLS/pre-login compatibility failure, use the Microsoft JDBC `mssql-connect` client and report the fallback. It reads SQL from standard input, requires an environment-variable prefix, requests `applicationIntent=ReadOnly`, does not require encryption unless `<PREFIX>_ENCRYPT=true`, limits results to 100 rows, and applies 10-second login, socket, and query timeouts. On AMD64, `sqlcmd17` remains available for legacy ODBC compatibility. Driver 17 is unavailable in the ARM64 image. Use `bcp` or `bcp17` only for an explicitly requested bulk transfer.
-- Oracle: prefer `sqlplus`; use `sql` only when SQLcl features are required
 
-Always use `mongo-connect`, not `mongosh` or `mongo-legacy` directly.
+Always use `mongo-connect`, not `mongosh` or `mongo-legacy` directly. Do not switch MongoDB clients to work around authentication, DNS, or networking failures. The Dockerfile retains its SQL clients for image compatibility; Codex SQL work uses the Java CLI.
 
-## Read-Only Examples
-
-PostgreSQL:
-
-```sh
-docker run --rm --env-file db.env db-debug:latest bash -lc 'psql --set ON_ERROR_STOP=1 --command "BEGIN READ ONLY; SELECT current_database(), current_user; COMMIT;"'
-```
-
-MySQL:
-
-```sh
-docker run --rm --env-file db.env db-debug:latest bash -lc 'mysql --host="$MYSQL_HOST" --port="${MYSQL_PORT:-3306}" --user="$MYSQL_USER" "$MYSQL_DATABASE" --execute "START TRANSACTION READ ONLY; SELECT DATABASE(), CURRENT_USER(); COMMIT;"'
-```
+## Docker Read-Only Examples
 
 Modern MongoDB:
 
@@ -123,30 +125,6 @@ Redis:
 docker run --rm --env-file db.env db-debug:latest bash -lc 'redis-cli -h "$REDIS_HOST" -p "${REDIS_PORT:-6379}" PING'
 ```
 
-Microsoft SQL Server:
-
-```sh
-docker run --rm --env-file db.env db-debug:latest bash -lc 'sqlcmd -No -S "$MSSQL_HOST,$MSSQL_PORT" -U "$MSSQL_USER" -d "$MSSQL_DATABASE" -K ReadOnly -Q "SELECT DB_NAME(), SUSER_SNAME();"'
-```
-
-Microsoft SQL Server compatibility fallback on AMD64 after a confirmed Driver 18 TLS/pre-login failure:
-
-```sh
-docker run --rm --env-file db.env db-debug:latest bash -lc 'sqlcmd17 -S "$MSSQL_HOST,$MSSQL_PORT" -U "$MSSQL_USER" -d "$MSSQL_DATABASE" -K ReadOnly -Q "SELECT DB_NAME(), SUSER_SNAME();"'
-```
-
-Microsoft SQL Server JDBC fallback after a confirmed ODBC TLS/pre-login failure:
-
-```sh
-printf 'SELECT DB_NAME(), SUSER_SNAME();' | docker run --rm --interactive --env-file db.env db-debug:latest mssql-connect MSSQL
-```
-
-Oracle:
-
-```sh
-docker run --rm --env-file db.env db-debug:latest bash -lc 'printf "connect %s/%s@%s\nSET TRANSACTION READ ONLY;\nSELECT global_name FROM global_name;\nCOMMIT;\nexit\n" "$ORACLE_USER" "$ORACLE_PASSWORD" "$ORACLE_DSN" | sqlplus -s /nolog'
-```
-
 Adapt variable names to the user-provided environment file without exposing their values.
 
 ## Mutation Boundary
@@ -156,7 +134,7 @@ If the user requests a mutation:
 1. Use read-only queries to verify the target and estimate impact.
 2. Present the exact mutation and recovery plan.
 3. Wait for explicit approval for that exact operation.
-4. Execute only the approved operation through `db-debug:latest`.
+4. Execute only the approved SQL statement through the Java CLI with `--mode write`, or the approved MongoDB/Redis command through `db-debug:latest`. Do not replay it automatically.
 5. Verify the outcome with a separate read-only query and report it.
 
 If exact approval, target identity, credentials, recovery expectations, or side effects remain unclear, stop and ask the user to decide. Do not use a workaround.
