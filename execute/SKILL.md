@@ -50,7 +50,7 @@ Remove a conditional reference from `Required references` only after its stage a
 Load only the reference needed for the current stage, and read it completely before applying it.
 
 - Read [references/implementation.md](references/implementation.md) before implementation, tracker amendments, commits, worktree setup, phase scheduling, recovery, or any mutating work unit.
-- Read [references/completion.md](references/completion.md) after implementation work is integrated and before claiming completion, simplifying, updating agent docs, offering security review, handling a user-requested PR/MR merge or post-merge worktree cleanup, or sending the final implementation response.
+- Read [references/completion.md](references/completion.md) after implementation work is integrated and before claiming completion, simplifying, updating agent docs, resolving a PR/MR target branch, offering security review, handling a user-requested PR/MR merge or post-merge worktree cleanup, or sending the final implementation response.
 - Read [references/intake.md](references/intake.md) before record validation or adoption.
 - Read [references/parallel-execution.md](references/parallel-execution.md) before evaluating delegation, dispatching subagents, or recovering delegated work.
 - Read [references/post-merge-cleanup.md](references/post-merge-cleanup.md) before a user-requested PR/MR merge or dedicated-worktree cleanup.
@@ -94,6 +94,8 @@ Before claiming that implementation is complete, blocked, or intentionally pause
 3. The user explicitly exited execute with unfinished work, the incomplete checklist remains accurate, the plan status is `Paused`, and the execute mode is `Exited`.
 
 A final response for a completed implementation is a checkpoint, not a mode exit. State that execute remains active and name the adopted execution-record path unless the user explicitly exited it.
+
+For completed Git implementation, follow `PR/MR Target Branch` in [references/completion.md](references/completion.md): reuse an explicit target from the adopted bundle; only when it is missing, ask for the destination branch with `request_user_input` and persist the decision before the completion checkpoint.
 
 For a read-, inspection-, summary-, or adoption-only turn without implementation authorization, preserve the existing implementation status and checklist, persist the mode metadata plus any material evidence, and send a checkpoint response stating that no implementation was performed. This response does not need to satisfy an implementation completion condition and does not exit execute.
 

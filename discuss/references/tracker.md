@@ -99,7 +99,7 @@ If two bundles claim the same tracker ID or the lineage is ambiguous, preserve b
 
 ## Transition Gate
 
-When discussion is settled, persist the state and ask the user to choose:
+When discussion is settled and the user has not already chosen a transition, persist the state and use `request_user_input` under `Question Style` to ask the user to choose. The following numbered choices are record content, not a chat substitute for the tool:
 
 1. `$plan` — close this bundle and create a separate plan bundle linked back to it.
 2. `$execute` — make this same bundle execution-ready and let execute adopt it.

@@ -1,6 +1,6 @@
 # Discuss Actions and Baseline Reference
 
-Read this reference completely before baseline analysis of an existing mechanism, any scoped mutation, or combining discuss with another skill.
+Read this reference completely before baseline analysis of an existing mechanism, any scoped mutation, or combining discuss with another skill. Apply the entrypoint's `Question Style` to every user question here: use `request_user_input` for eligible clarification and preference questions, and respect the runtime-permitted route for permission or approval requests.
 
 ## Scoped Action Authorization
 
@@ -44,13 +44,13 @@ When the discussion concerns changing, replacing, removing, or refactoring an ex
 - Map likely touchpoints and regression risks. Separate intentional behavior changes from accidental regressions and call out downstream consumers that could break.
 - Identify existing checks that demonstrate the baseline, including tests, type checks, runtime probes, screenshots, logs, or manual reproduction. Use only checks guaranteed not to mutate source or external state; if a useful baseline check cannot be run safely, record the gap and the evidence still needed.
 - Include preservation acceptance criteria, targeted regression checks, and rollback or recovery considerations in any recommended plan.
-- If the available context is insufficient to establish a material part of the baseline, label it as unknown and resolve it through safe inspection or a focused user question before recommending a potentially breaking change. When resolution requires a material user-owned decision, apply `Immediate Decision Gate` instead of continuing the baseline analysis.
+- If the available context is insufficient to establish a material part of the baseline, label it as unknown and resolve it through safe inspection or a focused user question through `request_user_input` under `Question Style` before recommending a potentially breaking change. When resolution requires a material user-owned decision, apply `Immediate Decision Gate` instead of continuing the baseline analysis.
 
 ## Allowed Work
 
 - Discuss ideas, architecture, tradeoffs, risks, bugs, learning paths, or plans.
 - Explain existing context using information available in the conversation or established through permitted read-only inspection.
-- Ask clarifying questions and help the user decide what to do next.
+- Ask clarifying questions through `request_user_input` under `Question Style` and help the user decide what to do next.
 - Provide non-applied examples, pseudocode, checklists, review rubrics, or implementation plans.
 - Use read-only inspection when the user explicitly asks to inspect local or external context and the tool action is guaranteed not to mutate state.
 - Use the minimal read-only inspection needed to establish existing behavior and regression safety when the requested discussion concerns changing an existing mechanism.
@@ -84,4 +84,4 @@ Avoid commands or tools with side effects unless they maintain tracker housekeep
 
 This skill is a hard overlay on top of all other skills. Other skill instructions remain useful for teaching style, review structure, or reasoning process. Their mutation instructions are suspended unless the mutation maintains tracker housekeeping or the user authorizes an action under `Scoped Action Authorization` or `Temporary Source-Code Actions`. During an authorized source-code action, apply any coding skill required by the repository only within the persisted action scope; when the action terminates, suspend its mutation instructions again and return to full discuss behavior. A direct `$execute` invocation uses `Direct Execute Handoff`: `$execute` must not mutate source code until the tracker is durably marked ready and discuss is exited.
 
-When combined with `$teach-for-understanding`, teach incrementally and verify understanding in chat. Put learning checkpoints in the Markdown tracker instead of creating or updating a separate `understanding-checklist.md`.
+When combined with `$teach-for-understanding`, teach incrementally and use `request_user_input` under `Question Style` for comprehension questions; do not inherit prose-question instructions from the companion skill. Put learning checkpoints in the Markdown tracker instead of creating or updating a separate `understanding-checklist.md`.

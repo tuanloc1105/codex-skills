@@ -128,6 +128,8 @@ Produces: <downstream contract>
 
 ## Approval and Execute Handoff
 
+Obtain any missing user choices through `request_user_input` under the entrypoint's `Question and Open-Issue Contract`; never use saved Markdown options as a substitute for an eligible tool question. Request plan approval through that same contract, respecting its runtime restrictions and reusing explicit approval already given for the current plan.
+
 Approval requires a decision-complete bundle: concrete goal and scope, verified baseline, preservation criteria, accepted decisions, no blocking questions, complete phase dependencies and ownership, implementation logic, verification, integration gates, and rollback.
 
 After explicit approval, update the same bundle:

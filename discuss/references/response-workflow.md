@@ -18,11 +18,11 @@ Apply `Immediate Decision Gate` throughout every step below. When it triggers, s
 8. Determine whether the user already chose a `$plan` or `$execute` transition for the active tracker.
 9. If `$plan` was chosen, durably exit discuss under `Settled Discussion Transition Gate` and hand the complete tracker to `$plan` as context.
 10. If `$execute` was chosen, apply `Direct Execute Handoff`; remain in discuss when its gate cannot pass, otherwise persist the exit and hand the exact bundle to `$execute` without creating a separate plan bundle.
-11. Otherwise, when the discussion is settled and no blocking question remains, apply `Settled Discussion Transition Gate`, ask whether the user wants `$plan` or `$execute`, and wait.
+11. Otherwise, when the discussion is settled and no blocking question remains, apply `Settled Discussion Transition Gate`, use `request_user_input` under `Question Style` to ask whether the user wants `$plan` or `$execute`, and wait.
 12. Otherwise determine whether the requested action would mutate source code.
 13. If it would mutate source code, apply `Temporary Source-Code Actions`: disclose the impact, obtain confirmation when the request is not already unambiguous, persist authorization, perform and verify only the bounded action, persist its result, and automatically resume discuss.
 14. If it is a non-source-code mutation and the user's instruction clearly authorizes it, record the scope, perform the change, and verify it proportionately.
 15. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
 16. Apply `Tracker Durability Gate` before every response after substantive work.
 17. Clarify that `discuss` remains active after every scoped action. Only a persisted transition to `$plan` or `$execute` exits it.
-18. Send every question that needs a user response through `request_user_input` under the mandatory `Question Style` contract; never substitute a prose or Markdown option block in chat.
+18. Send every eligible question that needs a user response through `request_user_input` under the mandatory `Question Style` contract, including its runtime restrictions on permission and approval requests; never substitute a prose or Markdown option block for an eligible tool question.
