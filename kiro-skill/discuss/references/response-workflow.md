@@ -25,4 +25,4 @@ Apply `Immediate Decision Gate` throughout every step below. When it triggers, s
 15. If mutation has not been clearly authorized, provide analysis, options, pseudocode, or a step-by-step plan without applying it.
 16. Apply `Tracker Durability Gate` before every response after substantive work.
 17. Clarify that `discuss` remains active after every scoped action. Only a persisted transition to `$plan` or `$execute` exits it.
-18. Format every question that needs a user response as its own option block under the mandatory `Question Style` contract — an `ask_question` card on a dashboard session ending the turn, or the numbered fallback otherwise.
+18. Route every question that needs a user response through the surface's interactive mechanism under the mandatory `Question Style` contract — `ask_question` on a Kiro Crew dashboard session (ending the turn in the same step), the runtime's blocking `AskUserQuestion` card in Kiro IDE or Kiro CLI, or a trailing `[OPTIONS: ...]` line where neither exists. Plain numbered prose is the last resort only, and the numbered option list is always what gets saved to the record.

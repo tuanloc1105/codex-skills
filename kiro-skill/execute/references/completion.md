@@ -40,7 +40,7 @@ Do not run `security-review` automatically.
 
 The security-review offer is post-completion and must not leave the execution plan marked in progress.
 
-At the end, ask the user whether they want a security review of the current execution session's changes — via `ask_question` on a dashboard session (ending the turn) or a trailing `[OPTIONS: Run security review | Skip it]` otherwise.
+At the end, ask the user whether they want a security review of the current execution session's changes, routed through the entrypoint's `Question Routing` — `ask_question` on a Kiro Crew dashboard session (ending the turn in the same step), the blocking `AskUserQuestion` card in Kiro IDE or Kiro CLI, or a trailing `[OPTIONS: Run the security review | Skip the security review]` line where neither exists.
 
 If the user says yes, use `security-review` with this scope constraint:
 
@@ -90,6 +90,6 @@ After implementation reaches `Implemented`, `Blocked`, or an explicit-exit `Paus
 - Whether execute mode remains active or was explicitly exited, plus the exact adopted execution-record path
 - Commit SHA, subject, and branch for commits created during execution, plus whether recording them left a plan-only working-tree change
 
-Then ask whether the user wants `security-review` on the current execution session's changes when implementation reached `Implemented`, unless they already answered that question in the current turn.
+Then ask whether the user wants `security-review` on the current execution session's changes when implementation reached `Implemented`, unless they already answered that question in the current turn. Route that question through the entrypoint's `Question Routing`, not as prose the user has to answer by typing.
 
 For a read-, inspection-, summary-, adoption-, or evidence-only checkpoint, report the exact adopted execution-record path, what metadata or evidence was updated, that no implementation was performed unless separately authorized, and that execute remains active until explicit exit. Do not offer a security review solely because the record was read or adopted.

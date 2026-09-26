@@ -6,9 +6,11 @@ description: Plan-first collaboration workflow for Kiro / Kiro Crew. Creates one
 # Plan (Kiro / Kiro Crew)
 
 This is the Kiro-native port of the Codex `plan` skill. Same persistent Markdown
-plan-bundle contract; questions route through `ask_question` on a dashboard session,
-and phase delegation routes through Kiro Crew's `spawn_run` instead of a Codex-specific
-subagent tool.
+plan-bundle contract; every question routes through the interactive selection mechanism of
+the active Kiro surface — `ask_question` on a Kiro Crew dashboard session, the runtime's own
+`AskUserQuestion` card in Kiro IDE and Kiro CLI, a trailing `[OPTIONS: ...]` line where
+neither exists — and phase delegation routes through Kiro Crew's `spawn_run` instead of a
+Codex-specific subagent tool.
 
 ## Skill-Managed Lifecycle
 
@@ -88,23 +90,36 @@ Before creating or revising a plan, establishing its baseline, or requesting app
 
 Every question that requires a user response must include concrete options. Do not ask a bare open-ended question, including when requesting clarification, confirmation, or approval. Never ask a storage-choice question for the plan bundle.
 
-Prefer Kiro Crew's `ask_question` card when the session is on the dashboard and a decision blocks further work right now: send exactly one question with 2-4 options (recommended one noted in its `description`), then end the turn — the answer arrives as the user's next message, not the tool's return value. Fall back to the numbered chat format below whenever `ask_question` is unavailable (Slack, CLI, non-dashboard), or when ending the turn anyway with a trailing `[OPTIONS: ...]` line. Always mirror the question, its options, and the eventual answer into the saved `Open Questions` section using the numbered mapping below, regardless of which interactive surface presented it — a future session with no card history must still be able to read the record.
+### Interactive Question Routing
+
+Never hand the user a decision as prose they have to answer by typing. Route every question through the interactive selection mechanism of the active Kiro surface, chosen by surface rather than by preference:
+
+- **Kiro Crew dashboard session:** call `ask_question` with exactly one question and 2-4 options, marking the recommended one in its `description`, then **end the turn in the same step**. The tool is non-blocking: it returns as soon as the card is requested, and the selection arrives as the user's next message, never as the tool's result. Do not also print the question or its option list as chat text.
+- **Kiro IDE or Kiro CLI (`kiro-cli` runtime):** raise the runtime's own `AskUserQuestion` card with the same one-question, 2-4-option shape. That card is blocking: it is raised while the turn is still running, and the selection is steered back into the waiting turn, so continue in the same turn when it returns instead of ending the turn first. If the turn already ended when the user answers, treat the answer as an ordinary next message and resume from the checkpoint.
+- **A Kiro surface offering neither tool:** put the choices in one trailing `[OPTIONS: A | B | C]` line as the very last line of the message, with nothing after it. Write each label in the user's voice and self-contained, because the label is sent verbatim as the user's next message.
+- **Plain numbered prose is a last resort, not a style choice.** Use it only when an interactive call is denied, errors as unavailable, or the surface renders no options at all. State that the interactive question was unavailable, then apply the recorded format below to the chat message as well.
+
+On a card surface the user supplies a free-form answer through the card's own custom-answer field, so `Other — specify` needs no separately typed instruction; it still counts toward the 2-4 options and is still saved as a numbered option. Use `multiSelect` only when the options can genuinely be combined — an approval question stays single-select.
+
+Always mirror the question, its options, and the eventual answer into the saved `Open Questions` section using the numbered mapping below, whichever surface presented it: a future session with no card history must still be able to read the record.
+
+### Recorded Question Format
 
 - Present each distinct issue as a separate question block. Do not combine unrelated decisions under one option list.
 - Provide 2-4 total practical, mutually distinguishable options that answer that question, counting `Other — specify` toward the total.
-- In chat and saved Markdown, put each option on its own line with an explicit consecutive number: `1.`, `2.`, `3.`, `4.` as needed. Start at `1.`, leave a blank line between the question and its list, and never substitute bullets (`-`, `*`, `•`), checkboxes, letters, inline choices, or repeated `1.` markers. This is a required response format, not merely an example style.
-- Keep only one user-facing question awaiting an answer at a time so a bare number is unambiguous. A record may retain multiple open questions, each with its own numbered options and stable question ID; present only the next question in chat.
-- Accept a bare number such as `1` as selection of that option in the pending question, or a number plus detail such as `4. đánh giá lại phương án fix`. Apply any supplied qualification; do not require the user to repeat the option label. A bare selection of `Other` or an option needing a value does not supply the missing detail: ask a focused numbered follow-up. If the number is out of range or its question is ambiguous, clarify with numbered options instead of guessing.
+- In the saved record, and in a last-resort chat message, put each option on its own line with an explicit consecutive number: `1.`, `2.`, `3.`, `4.` as needed. Start at `1.`, leave a blank line between the question and its list, and never substitute bullets (`-`, `*`, `•`), checkboxes, letters, inline choices, or repeated `1.` markers. This is a required record format, not merely an example style.
+- Keep only one user-facing question awaiting an answer at a time so a short reply is unambiguous. A record may retain multiple open questions, each with its own numbered options and stable question ID; present only the next question to the user.
+- Accept a selection in whatever form it arrives: a card answer, a clicked `[OPTIONS:]` label sent verbatim, a bare number such as `1`, or a number plus detail such as `4. đánh giá lại phương án fix`. Apply any supplied qualification; do not require the user to repeat the option label. A bare selection of `Other` or an option needing a value does not supply the missing detail: ask a focused follow-up question through the same interactive route. If the answer is out of range or its question is ambiguous, clarify with a new interactive question instead of guessing.
 - Preserve the pending question's number-to-option mapping in the record so resumed sessions interpret short replies consistently. If choices must change, present the revised question before accepting a selection against it.
 - Mark one option as `Recommended` or `Default` when there is a reasonable choice.
 - Include `Other — specify` when the listed choices may not cover the user's intent.
 - When the user must supply a free-form value unrelated to plan-file storage, such as a URL or external resource name, offer useful defaults or actions first and include an option to provide a different value. Never invent the free-form value.
 - If a question is non-blocking, state which default the agent will use if the user does not answer.
-- Apply these rules to questions in chat and to every item in the proposed or saved plan's `Open Questions` section.
+- Apply these rules to every question put to the user and to every item in the proposed or saved plan's `Open Questions` section.
 - For each open question in a plan, record its options, recommendation/default when applicable, and whether it blocks execution.
-- Before sending a response or saving a plan, check that every user-facing question and open issue has its own consecutively numbered option list and that chat has only one pending question. Rewrite any bulleted choices before sending.
+- Before sending a response or saving a plan, check that the question was routed through the surface's interactive mechanism, that every user-facing question and open issue has its own consecutively numbered option list in the record, and that only one question is pending. Rewrite any bulleted choices before sending.
 
-Required chat fallback format (wording and language may adapt to the user):
+Recorded and last-resort format (wording and language may adapt to the user):
 
 ```text
 Bạn muốn xử lý bản kế hoạch này thế nào?
@@ -115,4 +130,4 @@ Bạn muốn xử lý bản kế hoạch này thế nào?
 4. Khác: bạn mô tả hướng bạn muốn.
 ```
 
-The user can reply `1` or `4. đánh giá lại phương án fix`. A selection of `1` in this example approves the plan only; it does not request execution. The same choices written with `-` bullets do not satisfy this contract.
+The user can reply `1` or `4. đánh giá lại phương án fix`. A selection of `1` in this example approves the plan only; it does not request execution. The same choices written with `-` bullets do not satisfy this contract, and neither does presenting this block in chat while `ask_question` or `AskUserQuestion` was available.

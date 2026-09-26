@@ -12,9 +12,20 @@ files below apply unchanged. Run every Git command with the `shell` tool under t
 own git-safety rules (no bare `git push`, no push to protected branches, explicit
 feature-branch names, Conventional Commits). Route all Jira behavior through
 `$kiro-interact-with-jira` and all Git-platform behavior through
-`$kiro-interact-with-git-platform`. Put any user decision to the user through
-`ask_question` on a dashboard session (ending the turn), or a numbered fallback plus a
-trailing `[OPTIONS: …]` line otherwise, in place of Codex's plain-text question convention.
+`$kiro-interact-with-git-platform`. Put every user decision to the user through the
+interactive selection mechanism of the active Kiro surface (`Question Routing` below), in
+place of Codex's plain-text question convention.
+
+## Question Routing
+
+Every question this skill puts to the user — an authorization, a disposition choice, an exact value it must not invent — carries concrete options and is routed through the interactive selection mechanism of the active Kiro surface. Never hand the user a decision as prose they have to answer by typing.
+
+- **Kiro Crew dashboard session:** call `ask_question` with exactly one question and 2-4 options, marking the recommended one in its `description`, then **end the turn in the same step**. The tool is non-blocking: it returns as soon as the card is requested, and the selection arrives as the user's next message, never as the tool's result. Do not also print the question or its option list as chat text.
+- **Kiro IDE or Kiro CLI (`kiro-cli` runtime):** raise the runtime's own `AskUserQuestion` card with the same one-question, 2-4-option shape. That card is blocking: it is raised while the turn is still running, and the selection is steered back into the waiting turn, so continue in the same turn when it returns instead of ending the turn first. If the turn already ended when the user answers, treat the answer as an ordinary next message.
+- **A Kiro surface offering neither tool:** put the choices in one trailing `[OPTIONS: A | B | C]` line as the very last line of the message, with nothing after it. Write each label in the user's voice and self-contained, because the label is sent verbatim as the user's next message.
+- **Plain numbered prose is a last resort, not a style choice.** Use it only when an interactive call is denied, errors as unavailable, or the surface renders no options at all. State that the interactive question was unavailable and give each option its own consecutively numbered line.
+
+The interactive surface changes only how the question is presented. It grants no authorization by itself, does not merge two gates into one question, and does not replace the recorded evidence: write the question, its numbered options, and the user's exact selection into the workflow contract's authorization and evidence fields, so a resumed session can read the decision without the surface's card history. A clicked option is authorization only for the exact action and target it names. When an authorization question would need a free-form exact value (a branch name, an Epic base, a Resolution value), offer the verified candidates as options plus one option to supply a different value, and never invent that value.
 
 ## Load the Contract
 

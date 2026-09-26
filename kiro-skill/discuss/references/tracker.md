@@ -100,7 +100,7 @@ If two bundles claim the same tracker ID or the lineage is ambiguous, preserve b
 
 ## Transition Gate
 
-When discussion is settled, persist the state and ask the user to choose (via `ask_question` on a dashboard session ending the turn now, or the numbered fallback plus a trailing `[OPTIONS: ...]` line otherwise):
+When discussion is settled, persist the state and ask the user to choose through the surface's interactive mechanism under `Question Style` — `ask_question` on a Kiro Crew dashboard session (ending the turn in the same step), the blocking `AskUserQuestion` card in Kiro IDE or Kiro CLI, or a trailing `[OPTIONS: ...]` line where neither exists:
 
 1. `$plan` — close this bundle and create a separate plan bundle linked back to it.
 2. `$execute` — make this same bundle execution-ready and let execute adopt it.

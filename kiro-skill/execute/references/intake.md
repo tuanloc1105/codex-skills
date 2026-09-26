@@ -20,7 +20,7 @@ For an accepted discussion tracker, preserve `Mode status: Exited`, set `Execute
 
 Treat an explicit user request to execute the supplied record as execution approval even when its status is missing or still says `Draft`, `Ready`, or `Awaiting execution`. A request only to read, inspect, summarize, or adopt the record activates execute mode and its bookkeeping but does not authorize implementation.
 
-Ask for confirmation only when the record explicitly says not to implement, an unresolved choice materially changes the desired outcome, repository drift invalidates the approved goal or requires materially different scope, or two authoritative requirements cannot both be satisfied. Use `ask_question` on a dashboard session (ending the turn) or the numbered fallback otherwise. Do not invent a materially different plan.
+Ask for confirmation only when the record explicitly says not to implement, an unresolved choice materially changes the desired outcome, repository drift invalidates the approved goal or requires materially different scope, or two authoritative requirements cannot both be satisfied. Route that question through the entrypoint's `Question Routing` — `ask_question` on a Kiro Crew dashboard session (ending the turn in the same step), the blocking `AskUserQuestion` card in Kiro IDE or Kiro CLI, or a trailing `[OPTIONS: ...]` line where neither exists. Do not invent a materially different plan.
 
 Treat `Depends on` as authoritative and any declared wave as a scheduling hint that must agree with it. Revalidate phase independence against the current repository and runtime before dispatch. An eligibility note never overrides overlapping files, shared mutable state, unstable contracts, or newly discovered dependencies.
 

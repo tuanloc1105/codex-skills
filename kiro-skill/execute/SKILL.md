@@ -7,8 +7,10 @@ description: Persistent execution and evidence-tracking mode for an approved ver
 
 This is the Kiro-native port of the Codex `execute` skill. Same persistent bundle,
 evidence, and worktree contract; phase delegation uses Kiro Crew's `spawn_run` /
-`spawn_sub_agents` (never any other subagent mechanism), and the required post-implementation
-review pass is `kiro-simplify` instead of Codex's `simplify`.
+`spawn_sub_agents` (never any other subagent mechanism), every user-facing question routes
+through the interactive selection mechanism of the active Kiro surface (`Question Routing`
+below), and the required post-implementation review pass is `kiro-simplify` instead of
+Codex's `simplify`.
 
 ## Skill-Managed Lifecycle
 
@@ -134,14 +136,25 @@ The following are not blockers by themselves:
 - Ambiguity that repository evidence or a safe, non-material assumption can resolve
 - An optional documentation, simplification, or review step that can be performed locally or reported as unavailable
 
+## Question Routing
+
+Execute asks the user as little as possible, but every question it does ask must carry concrete options and must be routed through the interactive selection mechanism of the active Kiro surface. Never hand the user a decision as prose they have to answer by typing.
+
+- **Kiro Crew dashboard session:** call `ask_question` with exactly one question and 2-4 options, marking the recommended one in its `description`, then **end the turn in the same step**. The tool is non-blocking: it returns as soon as the card is requested, and the selection arrives as the user's next message, never as the tool's result. Do not also print the question or its option list as chat text.
+- **Kiro IDE or Kiro CLI (`kiro-cli` runtime):** raise the runtime's own `AskUserQuestion` card with the same one-question, 2-4-option shape. That card is blocking: it is raised while the turn is still running, and the selection is steered back into the waiting turn, so continue in the same turn when it returns instead of ending the turn first. If the turn already ended when the user answers, treat the answer as an ordinary next message and resume from the recorded checkpoint.
+- **A Kiro surface offering neither tool:** put the choices in one trailing `[OPTIONS: A | B | C]` line as the very last line of the message, with nothing after it. Write each label in the user's voice and self-contained, because the label is sent verbatim as the user's next message.
+- **Plain numbered prose is a last resort, not a style choice.** Use it only when an interactive call is denied, errors as unavailable, or the surface renders no options at all. State that the interactive question was unavailable and give each option its own consecutively numbered line.
+
+While a question is pending, keep only that one question outstanding, persist the blocking question and its options in the record before responding, and never apply a default to a decision the user owns. Record the question, its numbered options, and the user's selection in `evidence.md` so a resumed session can read the outcome without the surface's card history. An approval or authorization question stays single-select; use `multiSelect` only where the options can genuinely be combined.
+
 ## Required Input
 
 Require a path to the execution bundle directory or its `index.md` unless an exact bundle is already active. A direct `$discuss` handoff supplies its root automatically.
 
 - If the user supplied a plan or tracker path, resolve it before doing implementation work.
 - If the current task already has one adopted execution-record path, reuse it for later turns without asking again.
-- If the user did not supply a path and no exact active path exists, ask where the execution record is and stop until they answer.
-- If the path does not exist or is not readable, report that clearly and ask for the correct path.
+- If the user did not supply a path and no exact active path exists, ask where the execution record is under `Question Routing` and stop until they answer. Offer the candidate bundles you can see as options plus one option for a different path; never guess from the newest directory.
+- If the path does not exist or is not readable, report that clearly and ask for the correct path under `Question Routing`.
 
 ## Plan and Tracker Intake
 
